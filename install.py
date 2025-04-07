@@ -52,12 +52,16 @@ def exit_program():
 # Tạo cửa sổ chính
 root = tk.Tk()
 root.title("BAOPROVIP - Hệ thống quản lý")
-root.geometry("500x500")
+root.geometry("700x500")  # Tăng chiều rộng để phù hợp với 2 cột
 root.configure(bg="black")
 
+# Tạo frame chứa tiêu đề
+title_frame = tk.Frame(root, bg="black")
+title_frame.grid(row=0, column=0, columnspan=2, pady=10)
+
 # Tạo tiêu đề
-title_label = tk.Label(root, text="WELCOME TO BAOPROVIP", fg="green", bg="black", font=("Courier", 14, "bold"))
-title_label.pack(pady=10)
+title_label = tk.Label(title_frame, text="WELCOME TO BAOPROVIP", fg="green", bg="black", font=("Courier", 14, "bold"))
+title_label.pack()
 
 # Tạo các nút bấm cho từng tùy chọn
 buttons = [
@@ -73,10 +77,18 @@ buttons = [
     ("Exit", exit_program),
 ]
 
-# Thêm các nút vào giao diện
-for text, command in buttons:
+# Tính toán số hàng cho mỗi cột
+rows_per_column = (len(buttons) + 1) // 2
+
+# Thêm các nút vào giao diện theo grid layout
+for index, (text, command) in enumerate(buttons):
+    # Tính toán vị trí hàng và cột
+    column = 0 if index < rows_per_column else 1
+    row = index if index < rows_per_column else index - rows_per_column
+    
+    # Tạo và đặt vị trí nút
     btn = tk.Button(root, text=text, command=command, font=("Arial", 12), fg="white", bg="green", width=40, height=2)
-    btn.pack(pady=5)
+    btn.grid(row=row+1, column=column, pady=5, padx=10)
 
 # Chạy ứng dụng
 root.mainloop()
