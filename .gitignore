@@ -3,10 +3,6 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Build directories
-build/
-dist/
-
 # macOS
 .DS_Store
 .AppleDouble
