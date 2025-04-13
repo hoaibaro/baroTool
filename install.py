@@ -5,16 +5,24 @@ import psutil # type: ignore
 import tkinter as tk
 from tkinter import messagebox
 import sys
+import platform
+
+# Kiểm tra hệ điều hành
+IS_WINDOWS = platform.system() == 'Windows'
+IS_MACOS = platform.system() == 'Darwin'
 
 # NOTE: Hàm kiểm tra quyền admin
 def is_admin():
-    try:
-        return ctypes.windll.shell32.IsUserAnAdmin()
-    except:
-        return False
+    if IS_WINDOWS:
+        try:
+            return ctypes.windll.shell32.IsUserAnAdmin()
+        except:
+            return False
+    else:  # macOS/Linux
+        return os.geteuid() == 0
 
-if not is_admin():
-    # Nếu không có quyền admin, yêu cầu chạy lại với quyền admin
+if IS_WINDOWS and not is_admin():
+    # Nếu không có quyền admin trên Windows, yêu cầu chạy lại với quyền admin
     ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, __file__, None, 1)
     sys.exit()
 
@@ -48,97 +56,123 @@ def run_all():
 # NOTE: Hàm sao chép và cài đặt phần mềm
 def copy_install():
     """Copy and install all required software"""
-    # Tạo thư mục SETUP nếu chưa tồn tại
-    if not os.path.exists(f"{os.environ['USERPROFILE']}\\Downloads\\SETUP"):
-        os.makedirs(f"{os.environ['USERPROFILE']}\\Downloads\\SETUP")
-        print("SETUP folder has been created successfully!")
+    if IS_WINDOWS:
+        # Tạo thư mục SETUP nếu chưa tồn tại
+        if not os.path.exists(f"{os.environ['USERPROFILE']}\\Downloads\\SETUP"):
+            os.makedirs(f"{os.environ['USERPROFILE']}\\Downloads\\SETUP")
+            print("SETUP folder has been created successfully!")
 
-    # Sao chép thư mục Software
-    if not os.path.exists(f"{os.environ['USERPROFILE']}\\Downloads\\SETUP\\Software"):
-        os.system("xcopy \"D:\\SOFTWARE\\PAYOO\\SETUP\" \"%USERPROFILE%\\Downloads\\SETUP\\Software\" /E /I /Y")
-        print("Software folder has been copied successfully!")
-    else:
-        print("Software folder is already copied. Skipping...")
+        # Sao chép thư mục Software
+        if not os.path.exists(f"{os.environ['USERPROFILE']}\\Downloads\\SETUP\\Software"):
+            os.system("xcopy \"D:\\SOFTWARE\\PAYOO\\SETUP\" \"%USERPROFILE%\\Downloads\\SETUP\\Software\" /E /I /Y")
+            print("Software folder has been copied successfully!")
+        else:
+            print("Software folder is already copied. Skipping...")
 
-    # Sao chép thư mục Office2019
-    if not os.path.exists(f"{os.environ['USERPROFILE']}\\Downloads\\SETUP\\Office2019"):
-        os.system("xcopy \"D:\\SOFTWARE\\OFFICE\\Office 2019\\*\" \"%USERPROFILE%\\Downloads\\SETUP\\Office2019\" /E /I /Y")
-        print("Office2019 folder has been copied successfully!")
-    else:
-        print("Office2019 folder is already copied. Skipping...")
+        # Sao chép thư mục Office2019
+        if not os.path.exists(f"{os.environ['USERPROFILE']}\\Downloads\\SETUP\\Office2019"):
+            os.system("xcopy \"D:\\SOFTWARE\\OFFICE\\Office 2019\\*\" \"%USERPROFILE%\\Downloads\\SETUP\\Office2019\" /E /I /Y")
+            print("Office2019 folder has been copied successfully!")
+        else:
+            print("Office2019 folder is already copied. Skipping...")
 
-    # Sao chép Unikey
-    if not os.path.exists("C:\\unikey46RC2-230919-win64"):
-        os.system("xcopy \"D:\\SOFTWARE\\PAYOO\\unikey46RC2-230919-win64\" \"C:\\unikey46RC2-230919-win64\" /E /H /C /I /Y")
-        print("Unikey has been copied successfully!")
-    else:
-        print("Unikey is already copied. Skipping...")
+        # Sao chép Unikey
+        if not os.path.exists("C:\\unikey46RC2-230919-win64"):
+            os.system("xcopy \"D:\\SOFTWARE\\PAYOO\\unikey46RC2-230919-win64\" \"C:\\unikey46RC2-230919-win64\" /E /H /C /I /Y")
+            print("Unikey has been copied successfully!")
+        else:
+            print("Unikey is already copied. Skipping...")
 
-    # Sao chép MSTeamsSetup
-    if not os.path.exists("C:\\MSTeamsSetup.exe"):
-        os.system("xcopy \"D:\\SOFTWARE\\PAYOO\\MSTeamsSetup.exe\" \"C:\\MSTeamsSetup.exe\" /E /H /C /I /Y")
-        print("MSTeamsSetup has been copied successfully!")
-    else:
-        print("MSTeamsSetup is already copied. Skipping...")
+        # Sao chép MSTeamsSetup
+        if not os.path.exists("C:\\MSTeamsSetup.exe"):
+            os.system("xcopy \"D:\\SOFTWARE\\PAYOO\\MSTeamsSetup.exe\" \"C:\\MSTeamsSetup.exe\" /E /H /C /I /Y")
+            print("MSTeamsSetup has been copied successfully!")
+        else:
+            print("MSTeamsSetup is already copied. Skipping...")
 
-    # Sao chép SC.exe
-    if not os.path.exists(f"{os.environ['USERPROFILE']}\\Downloads\\SC-wKgXWicTb0XhUSNethaFN0vkhji53AY5mektJ7O_RSOdc8bEUVIEAAH_OewU.exe"):
-        os.system("copy /Y \"D:\\SOFTWARE\\PAYOO\\SC-wKgXWicTb0XhUSNethaFN0vkhji53AY5mektJ7O_RSOdc8bEUVIEAAH_OewU.exe\" \"%USERPROFILE%\\Downloads\"")
-        print("SC.exe has been copied successfully!")
-    else:
-        print("SC.exe is already copied. Skipping...")
+        # Sao chép SC.exe
+        if not os.path.exists(f"{os.environ['USERPROFILE']}\\Downloads\\SC-wKgXWicTb0XhUSNethaFN0vkhji53AY5mektJ7O_RSOdc8bEUVIEAAH_OewU.exe"):
+            os.system("copy /Y \"D:\\SOFTWARE\\PAYOO\\SC-wKgXWicTb0XhUSNethaFN0vkhji53AY5mektJ7O_RSOdc8bEUVIEAAH_OewU.exe\" \"%USERPROFILE%\\Downloads\"")
+            print("SC.exe has been copied successfully!")
+        else:
+            print("SC.exe is already copied. Skipping...")
 
-    # Sao chép Trellix
-    if not os.path.exists(f"{os.environ['USERPROFILE']}\\Downloads\\TrellixSmartInstall.exe"):
-        os.system("copy /Y \"D:\\SOFTWARE\\PAYOO\\TrellixSmartInstall.exe\" \"%USERPROFILE%\\Downloads\"")
-        print("Trellix has been copied successfully!")
-    else:
-        print("Trellix is already copied. Skipping...")
+        # Sao chép Trellix
+        if not os.path.exists(f"{os.environ['USERPROFILE']}\\Downloads\\TrellixSmartInstall.exe"):
+            os.system("copy /Y \"D:\\SOFTWARE\\PAYOO\\TrellixSmartInstall.exe\" \"%USERPROFILE%\\Downloads\"")
+            print("Trellix has been copied successfully!")
+        else:
+            print("Trellix is already copied. Skipping...")
 
-    # Sao chép MDMLaptop
-    if not os.path.exists(f"{os.environ['USERPROFILE']}\\Downloads\\ManageEngine_MDMLaptopEnrollment"):
-        os.system("xcopy /E /I /Y \"D:\\SOFTWARE\\PAYOO\\ManageEngine_MDMLaptopEnrollment\" \"%USERPROFILE%\\Downloads\\ManageEngine_MDMLaptopEnrollment\"")
-        print("MDMLaptop has been copied successfully!")
-    else:
-        print("MDMLaptop is already copied. Skipping...")
+        # Sao chép MDMLaptop
+        if not os.path.exists(f"{os.environ['USERPROFILE']}\\Downloads\\ManageEngine_MDMLaptopEnrollment"):
+            os.system("xcopy /E /I /Y \"D:\\SOFTWARE\\PAYOO\\ManageEngine_MDMLaptopEnrollment\" \"%USERPROFILE%\\Downloads\\ManageEngine_MDMLaptopEnrollment\"")
+            print("MDMLaptop has been copied successfully!")
+        else:
+            print("MDMLaptop is already copied. Skipping...")
 
-    # Cài đặt 7-Zip
-    if not os.path.exists(f"{os.environ['PROGRAMFILES']}\\7-Zip\\7z.exe"):
-        os.system("start /wait \"%USERPROFILE%\\Downloads\\SETUP\\Software\\7z2408-x64.exe\" /S")
-        print("7-Zip has been installed successfully!")
-    else:
-        print("7-Zip is already installed. Skipping...")
+        # Cài đặt 7-Zip
+        if not os.path.exists(f"{os.environ['PROGRAMFILES']}\\7-Zip\\7z.exe"):
+            os.system("start /wait \"%USERPROFILE%\\Downloads\\SETUP\\Software\\7z2408-x64.exe\" /S")
+            print("7-Zip has been installed successfully!")
+        else:
+            print("7-Zip is already installed. Skipping...")
 
-    # Cài đặt Google Chrome
-    if not os.path.exists(f"{os.environ['PROGRAMFILES']}\\Google\\Chrome\\Application\\chrome.exe"):
-        os.system("start /wait \"%USERPROFILE%\\Downloads\\SETUP\\Software\\ChromeSetup.exe\" /silent /install")
-        print("Google Chrome has been installed successfully!")
-    else:
-        print("Google Chrome is already installed. Skipping...")
+        # Cài đặt Google Chrome
+        if not os.path.exists(f"{os.environ['PROGRAMFILES']}\\Google\\Chrome\\Application\\chrome.exe"):
+            os.system("start /wait \"%USERPROFILE%\\Downloads\\SETUP\\Software\\ChromeSetup.exe\" /silent /install")
+            print("Google Chrome has been installed successfully!")
+        else:
+            print("Google Chrome is already installed. Skipping...")
 
-    # Cài đặt LAPS
-    if not os.path.exists(f"{os.environ['PROGRAMFILES']}\\LAPS\\AdmPwd.UI.exe"):
-        os.system("start /wait \"%USERPROFILE%\\Downloads\\SETUP\\Software\\LAPS_x64.msi\" /quiet")
-        print("LAPS has been installed successfully!")
-    else:
-        print("LAPS is already installed. Skipping...")
+        # Cài đặt LAPS
+        if not os.path.exists(f"{os.environ['PROGRAMFILES']}\\LAPS\\AdmPwd.UI.exe"):
+            os.system("start /wait \"%USERPROFILE%\\Downloads\\SETUP\\Software\\LAPS_x64.msi\" /quiet")
+            print("LAPS has been installed successfully!")
+        else:
+            print("LAPS is already installed. Skipping...")
 
-    # Cài đặt Foxit PDF Reader
-    if not os.path.exists(f"{os.environ['PROGRAMFILES']}\\Foxit Software\\Foxit PDF Reader\\FoxitReader.exe"):
-        os.system("start /wait \"%USERPROFILE%\\Downloads\\SETUP\\Software\\FoxitPDFReader20243_enu_Setup_Prom.exe\" /silent /install")
-        print("Foxit PDF Reader has been installed successfully!")
-    else:
-        print("Foxit PDF Reader is already installed. Skipping...")
+        # Cài đặt Foxit PDF Reader
+        if not os.path.exists(f"{os.environ['PROGRAMFILES']}\\Foxit Software\\Foxit PDF Reader\\FoxitReader.exe"):
+            os.system("start /wait \"%USERPROFILE%\\Downloads\\SETUP\\Software\\FoxitPDFReader20243_enu_Setup_Prom.exe\" /silent /install")
+            print("Foxit PDF Reader has been installed successfully!")
+        else:
+            print("Foxit PDF Reader is already installed. Skipping...")
 
-    # Cài đặt Microsoft Office 2019
-    if not os.path.exists(f"{os.environ['PROGRAMFILES']}\\Microsoft Office\\root\\Office16\\WINWORD.EXE"):
-        print("Installing Microsoft Office 2019...")
-        os.chdir(f"{os.environ['TEMP']}\\Office2019")
-        os.system("setup.exe /configure configuration.xml")
-        os.chdir(os.path.dirname(os.path.abspath(__file__)))
-        print("MSOffice 2019 installed successfully!")
-    else:
-        print("MSOffice 2019 is already installed. Skipping...")
+        # Cài đặt Microsoft Office 2019
+        if not os.path.exists(f"{os.environ['PROGRAMFILES']}\\Microsoft Office\\root\\Office16\\WINWORD.EXE"):
+            print("Installing Microsoft Office 2019...")
+            os.chdir(f"{os.environ['TEMP']}\\Office2019")
+            os.system("setup.exe /configure configuration.xml")
+            os.chdir(os.path.dirname(os.path.abspath(__file__)))
+            print("MSOffice 2019 installed successfully!")
+        else:
+            print("MSOffice 2019 is already installed. Skipping...")
+    else:  # macOS
+        # Tạo thư mục SETUP
+        setup_dir = os.path.expanduser("~/Downloads/SETUP")
+        if not os.path.exists(setup_dir):
+            os.makedirs(setup_dir)
+            print("SETUP folder has been created successfully!")
+
+        # Cài đặt Homebrew nếu chưa có
+        if not os.path.exists("/usr/local/bin/brew"):
+            print("Installing Homebrew...")
+            os.system('/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"')
+            print("Homebrew has been installed successfully!")
+
+        # Cài đặt các phần mềm cần thiết
+        if not os.path.exists("/Applications/Google Chrome.app"):
+            os.system("brew install --cask google-chrome")
+            print("Google Chrome has been installed successfully!")
+        else:
+            print("Google Chrome is already installed. Skipping...")
+
+        if not os.path.exists("/Applications/7zX.app"):
+            os.system("brew install p7zip")
+            print("7-Zip has been installed successfully!")
+        else:
+            print("7-Zip is already installed. Skipping...")
 
 # NOTE: [2] Hàm cài đặt tất cả phần mềm cần thiết
 def install_software_commands():
@@ -218,63 +252,45 @@ def install_for_laptop():
 
 # NOTE: [3] Hàm cấu hình Power Options và Firewall
 def power_options():
-    # Tạo cửa sổ mới cho menu
-    def show_menu():
-        menu_window = tk.Toplevel(root)
-        menu_window.title("Power Options and Firewall")
-        menu_window.geometry("400x300")
-        menu_window.configure(bg="black")
-
-        # Tiêu đề menu
-        title_label = tk.Label(menu_window, text="SELECT DEVICE TYPE",
-                               fg="green", bg="black", font=("Courier", 12, "bold"))
-        title_label.pack(pady=10)
-
-        # Các nút chức năng
-        def set_time_and_power():
-            # Setting Time and Timezone
-            os.system("tzutil /s \"SE Asia Standard Time\"")
-            os.system("reg add \"HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\w32time\\Parameters\" /v Type /t REG_SZ /d NTP /f >nul")
-            os.system("w32tm /resync >nul")
-            os.system("reg add \"HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\tzautoupdate\" /v Start /t REG_DWORD /d 2 /f >nul")
-            messagebox.showinfo("Thông báo", "Thông tin cập nhật thành công!")
-            # Turning off the firewall
-            os.system("netsh advfirewall set allprofiles state off")
-            messagebox.showinfo("Thông báo", "Firewall đã được tắt!")
-            # Setting Power Options to "Do Nothing"
-            os.system("powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS LIDACTION 0 >nul")
-            os.system("powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS LIDACTION 0 >nul")
-            os.system("powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS SBUTTONACTION 0 >nul")
-            os.system("powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS SBUTTONACTION 0 >nul")
-            os.system("powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS PBUTTONACTION 0 >nul")
-            os.system("powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS PBUTTONACTION 0 >nul")
-            os.system("powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_VIDEO VIDEOIDLE 0 >nul")
-            os.system("powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_VIDEO VIDEOIDLE 0 >nul")
-            os.system("powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 0 >nul")
-            os.system("powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 0 >nul")
-            os.system("powercfg /SETACTIVE SCHEME_CURRENT >nul")
-            messagebox.showinfo("Thông báo", "Power Options setup completed successfully!")
-
-        def turn_on_firewall():
-            # Turning on the firewall
-            os.system("netsh advfirewall set allprofiles state on")
-            messagebox.showinfo("Thông báo", "Firewall đã được bật!")
-
-        # Tạo các nút
-        btn1 = tk.Button(menu_window, text="[1] Set Time/Timezone and Power Options", command=set_time_and_power,
-                         font=("Arial", 10), fg="white", bg="green", width=40, height=2)
-        btn1.pack(pady=5)
-
-        btn2 = tk.Button(menu_window, text="[2] Turn on Firewall", command=turn_on_firewall,
-                         font=("Arial", 10), fg="white", bg="green", width=40, height=2)
-        btn2.pack(pady=5)
-
-        btn3 = tk.Button(menu_window, text="[0] Return to Menu", command=menu_window.destroy,
-                         font=("Arial", 10), fg="white", bg="red", width=40, height=2)
-        btn3.pack(pady=5)
-
-    # Hiển thị menu
-    show_menu()
+    if IS_WINDOWS:
+        # Setting Time and Timezone
+        os.system("tzutil /s \"SE Asia Standard Time\"")
+        os.system("reg add \"HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\w32time\\Parameters\" /v Type /t REG_SZ /d NTP /f >nul")
+        os.system("w32tm /resync >nul")
+        os.system("reg add \"HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\tzautoupdate\" /v Start /t REG_DWORD /d 2 /f >nul")
+        messagebox.showinfo("Thông báo", "Thông tin cập nhật thành công!")
+        
+        # Turning off the firewall
+        os.system("netsh advfirewall set allprofiles state off")
+        messagebox.showinfo("Thông báo", "Firewall đã được tắt!")
+        
+        # Setting Power Options
+        os.system("powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS LIDACTION 0 >nul")
+        os.system("powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS LIDACTION 0 >nul")
+        os.system("powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS SBUTTONACTION 0 >nul")
+        os.system("powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS SBUTTONACTION 0 >nul")
+        os.system("powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS PBUTTONACTION 0 >nul")
+        os.system("powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS PBUTTONACTION 0 >nul")
+        os.system("powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_VIDEO VIDEOIDLE 0 >nul")
+        os.system("powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_VIDEO VIDEOIDLE 0 >nul")
+        os.system("powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 0 >nul")
+        os.system("powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 0 >nul")
+        os.system("powercfg /SETACTIVE SCHEME_CURRENT >nul")
+    else:  # macOS
+        # Cài đặt múi giờ
+        os.system("sudo systemsetup -settimezone Asia/Ho_Chi_Minh")
+        os.system("sudo systemsetup -setusingnetworktime on")
+        messagebox.showinfo("Thông báo", "Múi giờ đã được cập nhật thành công!")
+        
+        # Tắt firewall
+        os.system("sudo defaults write /Library/Preferences/com.apple.alf globalstate -int 0")
+        messagebox.showinfo("Thông báo", "Firewall đã được tắt!")
+        
+        # Cấu hình power options
+        os.system("sudo pmset -a sleep 0")
+        os.system("sudo pmset -a displaysleep 0")
+        os.system("sudo pmset -a disksleep 0")
+        messagebox.showinfo("Thông báo", "Cấu hình nguồn đã được cập nhật!")
 
 # NOTE: [4] Hàm quản lý ổ đĩa (đổi ký tự, thu nhỏ, gộp, đổi tên)
 def change_drive_letter():
@@ -578,15 +594,21 @@ def change_drive_letter():
 
 # NOTE: [5] Hàm kích hoạt Windows
 def activate_windows(show_dialog=True):
-    if show_dialog:
-        messagebox.showinfo("Thông báo", "Kích hoạt Windows và Office...")
-    os.system("slmgr /ato")
+    if IS_WINDOWS:
+        if show_dialog:
+            messagebox.showinfo("Thông báo", "Kích hoạt Windows...")
+        os.system("slmgr /ato")
+    else:
+        messagebox.showinfo("Thông báo", "Tính năng này chỉ khả dụng trên Windows")
 
 # NOTE: [6] Hàm bật các tính năng Windows (.NET, IE)
 def turn_on_features(show_dialog=True):
-    if show_dialog:
-        messagebox.showinfo("Thông báo", "Bật tính năng Windows (.NET, IE)...")
-    os.system("dism /online /enable-feature /featurename:NetFx3")
+    if IS_WINDOWS:
+        if show_dialog:
+            messagebox.showinfo("Thông báo", "Bật tính năng Windows (.NET, IE)...")
+        os.system("dism /online /enable-feature /featurename:NetFx3")
+    else:
+        messagebox.showinfo("Thông báo", "Tính năng này chỉ khả dụng trên Windows")
 
 # NOTE: [7] Hàm đổi tên thiết bị
 def rename_device(show_dialog=True):
@@ -601,8 +623,12 @@ def rename_device(show_dialog=True):
         title_label = tk.Label(rename_window, text="Đổi tên thiết bị", fg="green", bg="black", font=("Arial", 12, "bold"))
         title_label.pack(pady=10)
 
-        # Hiển thị username hiện tại
-        current_name = os.environ.get('COMPUTERNAME', 'Unknown')
+        # Hiển thị tên thiết bị hiện tại
+        if IS_WINDOWS:
+            current_name = os.environ.get('COMPUTERNAME', 'Unknown')
+        else:
+            current_name = os.uname().nodename
+
         current_name_label = tk.Label(rename_window, text=f"Tên thiết bị hiện tại: {current_name}", fg="white", bg="black", font=("Arial", 10))
         current_name_label.pack(pady=5)
 
@@ -619,7 +645,11 @@ def rename_device(show_dialog=True):
         def submit_rename():
             new_name = new_name_entry.get()
             if new_name:
-                result = os.system(f'wmic computersystem where name="{current_name}" call rename name="{new_name}"')
+                if IS_WINDOWS:
+                    result = os.system(f'wmic computersystem where name="{current_name}" call rename name="{new_name}"')
+                else:
+                    result = os.system(f'sudo scutil --set ComputerName "{new_name}" && sudo scutil --set LocalHostName "{new_name}" && sudo scutil --set HostName "{new_name}"')
+                
                 if result == 0:
                     messagebox.showinfo("Thông báo", "Tên thiết bị sẽ được đổi sau khi khởi động lại!")
                     rename_window.destroy()
@@ -632,8 +662,10 @@ def rename_device(show_dialog=True):
         submit_button = tk.Button(rename_window, text="Xác nhận", command=submit_rename, font=("Arial", 10), fg="white", bg="green", width=15)
         submit_button.pack(pady=10)
     else:
-        # Khi chạy tự động, sử dụng lệnh WMIC trực tiếp
-        os.system('wmic computersystem where name="%COMPUTERNAME%" call rename name="%NewName%"')
+        if IS_WINDOWS:
+            os.system('wmic computersystem where name="%COMPUTERNAME%" call rename name="%NewName%"')
+        else:
+            os.system('sudo scutil --set ComputerName "%NewName%" && sudo scutil --set LocalHostName "%NewName%" && sudo scutil --set HostName "%NewName%"')
 
 # NOTE: [8] Hàm đặt mật khẩu cho user
 def set_password():
@@ -661,7 +693,11 @@ def set_password():
     def submit_new_password():
         new_password = new_password_var.get()
         if new_password:
-            result = os.system(f"net user {current_user} {new_password}")
+            if IS_WINDOWS:
+                result = os.system(f"net user {current_user} {new_password}")
+            else:
+                result = os.system(f"echo '{current_user}:{new_password}' | sudo chpasswd")
+            
             if result == 0:
                 messagebox.showinfo("Thông báo", f"Mật khẩu đã được cập nhật thành công cho {current_user}!")
                 password_window.destroy()
@@ -676,23 +712,32 @@ def set_password():
 
 # NOTE: [9] Hàm tham gia domain
 def join_domain():
-    os.system("SystemPropertiesComputerName")
+    if IS_WINDOWS:
+        os.system("SystemPropertiesComputerName")
+    else:
+        messagebox.showinfo("Thông báo", "Tính năng này chỉ khả dụng trên Windows")
 
 # NOTE: [0] Hàm thoát chương trình và cài đặt múi giờ
 def exit_program():
     root.quit()
-    if show_dialog: # type: ignore
+    if show_dialog:
         messagebox.showinfo("Thông báo", "Đang cài đặt múi giờ Việt Nam...")
-    os.system('tzutil /s "SE Asia Standard Time"')
+    if IS_WINDOWS:
+        os.system('tzutil /s "SE Asia Standard Time"')
+    else:
+        os.system('sudo systemsetup -settimezone Asia/Ho_Chi_Minh')
 
 # NOTE: Hàm kích hoạt Microsoft Office
 def activate_office(show_dialog=True):
-    if show_dialog:
-        messagebox.showinfo("Thông báo", "Đang kích hoạt Office...")
-    os.system('cscript "C:\\Program Files\\Microsoft Office\\Office16\\ospp.vbs" /inpkey:Q2NKY-J42YJ-X2KVK-9Q9PT-MKP63')
-    os.system('cscript "C:\\Program Files\\Microsoft Office\\Office16\\ospp.vbs" /act')
-    if show_dialog:
-        messagebox.showinfo("Thông báo", "Office đã được kích hoạt!")
+    if IS_WINDOWS:
+        if show_dialog:
+            messagebox.showinfo("Thông báo", "Đang kích hoạt Office...")
+        os.system('cscript "C:\\Program Files\\Microsoft Office\\Office16\\ospp.vbs" /inpkey:Q2NKY-J42YJ-X2KVK-9Q9PT-MKP63')
+        os.system('cscript "C:\\Program Files\\Microsoft Office\\Office16\\ospp.vbs" /act')
+        if show_dialog:
+            messagebox.showinfo("Thông báo", "Office đã được kích hoạt!")
+    else:
+        messagebox.showinfo("Thông báo", "Tính năng này chỉ khả dụng trên Windows")
 
 # Tạo cửa sổ chính
 root = tk.Tk()
