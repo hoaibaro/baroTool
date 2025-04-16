@@ -1,1 +1,0 @@
-([('install', '/Users/homac42/Desktop/hoaibaro/dist/install', 'EXECUTABLE')],)
