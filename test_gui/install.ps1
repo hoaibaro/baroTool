@@ -70,10 +70,148 @@ $buttonActivate = New-GreenButton -text "Activate" -x 30 -y 420 -width 380 -heig
 
 # Right column buttons
 $buttonTurnOnFeatures = New-GreenButton -text "Turn On Features" -x 430 -y 100 -width 380 -height 60 -clickAction {
-    [System.Windows.Forms.MessageBox]::Show("Turning on Windows features...")
-    # Add feature enabling commands here
-}
+    # Create Windows Features form
+    $featuresForm = New-Object System.Windows.Forms.Form
+    $featuresForm.Text = "Windows Features"
+    $featuresForm.Size = New-Object System.Drawing.Size(500, 500)
+    $featuresForm.StartPosition = "CenterScreen"
+    $featuresForm.BackColor = [System.Drawing.Color]::Black
+    $featuresForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+    $featuresForm.MaximizeBox = $false
+    $featuresForm.MinimizeBox = $false
 
+    # Title label
+    $titleLabel = New-Object System.Windows.Forms.Label
+    $titleLabel.Text = "WINDOWS FEATURES MANAGEMENT"
+    $titleLabel.Location = New-Object System.Drawing.Point(50, 20)
+    $titleLabel.Size = New-Object System.Drawing.Size(400, 30)
+    $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+    $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
+    $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $featuresForm.Controls.Add($titleLabel)
+
+    # Status text box
+    $statusTextBox = New-Object System.Windows.Forms.TextBox
+    $statusTextBox.Multiline = $true
+    $statusTextBox.ScrollBars = "Vertical"
+    $statusTextBox.Location = New-Object System.Drawing.Point(50, 320)
+    $statusTextBox.Size = New-Object System.Drawing.Size(400, 120)
+    $statusTextBox.BackColor = [System.Drawing.Color]::Black
+    $statusTextBox.ForeColor = [System.Drawing.Color]::Lime
+    $statusTextBox.Font = New-Object System.Drawing.Font("Consolas", 9)
+    $statusTextBox.ReadOnly = $true
+    $featuresForm.Controls.Add($statusTextBox)
+
+    # Function to add status message
+    function Add-Status {
+        param([string]$message)
+        $statusTextBox.AppendText("$message`r`n")
+        $statusTextBox.ScrollToCaret()
+        [System.Windows.Forms.Application]::DoEvents()
+    }
+
+    # Enable .NET Framework 3.5 button
+    $btnEnableNetFx = New-GreenButton -text "Enable .NET Framework 3.5" -x 50 -y 80 -width 400 -height 40 -clickAction {
+        Add-Status "Checking .NET Framework 3.5 status..."
+        try {
+            $command = "dism /online /get-featureinfo /featurename:NetFx3"
+            $output = Invoke-Expression $command | Out-String
+
+            if ($output -match "State : Disabled") {
+                Add-Status "Enabling .NET Framework 3.5..."
+                $enableCmd = "dism /online /enable-feature /featurename:NetFx3 /all /norestart"
+                $process = Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -PassThru -Wait
+                Add-Status ".NET Framework 3.5 has been enabled."
+            } else {
+                Add-Status ".NET Framework 3.5 is already enabled."
+            }
+        } catch {
+            Add-Status "Error: $_"
+        }
+    }
+    $featuresForm.Controls.Add($btnEnableNetFx)
+
+    # Enable WCF-HTTP-Activation button
+    $btnEnableWcfHttp = New-GreenButton -text "Enable WCF-HTTP-Activation" -x 50 -y 130 -width 400 -height 40 -clickAction {
+        Add-Status "Checking WCF-HTTP-Activation status..."
+        try {
+            $command = "dism /online /get-featureinfo /featurename:WCF-HTTP-Activation"
+            $output = Invoke-Expression $command | Out-String
+
+            if ($output -match "State : Disabled") {
+                Add-Status "Enabling WCF-HTTP-Activation..."
+                $enableCmd = "DISM /Online /Enable-Feature /FeatureName:WCF-HTTP-Activation /All /Quiet /NoRestart"
+                $process = Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -PassThru -Wait
+                Add-Status "WCF-HTTP-Activation has been enabled."
+            } else {
+                Add-Status "WCF-HTTP-Activation is already enabled."
+            }
+        } catch {
+            Add-Status "Error: $_"
+        }
+    }
+    $featuresForm.Controls.Add($btnEnableWcfHttp)
+
+    # Enable WCF-NonHTTP-Activation button
+    $btnEnableWcfNonHttp = New-GreenButton -text "Enable WCF-NonHTTP-Activation" -x 50 -y 180 -width 400 -height 40 -clickAction {
+        Add-Status "Checking WCF-NonHTTP-Activation status..."
+        try {
+            $command = "dism /online /get-featureinfo /featurename:WCF-NonHTTP-Activation"
+            $output = Invoke-Expression $command | Out-String
+
+            if ($output -match "State : Disabled") {
+                Add-Status "Enabling WCF-NonHTTP-Activation..."
+                $enableCmd = "DISM /Online /Enable-Feature /FeatureName:WCF-NonHTTP-Activation /All /Quiet /NoRestart"
+                $process = Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -PassThru -Wait
+                Add-Status "WCF-NonHTTP-Activation has been enabled."
+            } else {
+                Add-Status "WCF-NonHTTP-Activation is already enabled."
+            }
+        } catch {
+            Add-Status "Error: $_"
+        }
+    }
+    $featuresForm.Controls.Add($btnEnableWcfNonHttp)
+
+    # Disable Internet Explorer 11 button
+    $btnDisableIE = New-GreenButton -text "Disable Internet Explorer 11" -x 50 -y 230 -width 400 -height 40 -clickAction {
+        Add-Status "Checking Internet Explorer 11 status..."
+        try {
+            $command = "dism /online /get-featureinfo /featurename:Internet-Explorer-Optional-amd64"
+            $output = Invoke-Expression $command | Out-String
+
+            if ($output -match "State : Enabled") {
+                Add-Status "Disabling Internet Explorer 11..."
+                $disableCmd = "dism /online /disable-feature /featurename:Internet-Explorer-Optional-amd64 /norestart"
+                $process = Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $disableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -PassThru -Wait
+                Add-Status "Internet Explorer 11 has been disabled."
+            } else {
+                Add-Status "Internet Explorer 11 is already disabled."
+            }
+        } catch {
+            Add-Status "Error: $_"
+        }
+    }
+    $featuresForm.Controls.Add($btnDisableIE)
+
+    # Return to Main Menu button (màu đỏ)
+    $btnReturn = New-Object System.Windows.Forms.Button
+    $btnReturn.Text = "Return to Main Menu"
+    $btnReturn.Location = New-Object System.Drawing.Point(50, 270)
+    $btnReturn.Size = New-Object System.Drawing.Size(400, 40)
+    $btnReturn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $btnReturn.BackColor = [System.Drawing.Color]::FromArgb(180, 0, 0) # Màu đỏ đậm
+    $btnReturn.ForeColor = [System.Drawing.Color]::White
+    $btnReturn.Font = New-Object System.Drawing.Font("Arial", 12, [System.Drawing.FontStyle]::Bold)
+    $btnReturn.Add_Click({
+        $featuresForm.Close()
+    })
+    $featuresForm.Controls.Add($btnReturn)
+
+    # Show the form
+    $featuresForm.ShowDialog()
+}
+#DONE
 $buttonRenameDevice = New-GreenButton -text "Rename Device" -x 430 -y 180 -width 380 -height 60 -clickAction {
     # Create device rename form
     $renameForm = New-Object System.Windows.Forms.Form
@@ -202,7 +340,7 @@ $buttonRenameDevice = New-GreenButton -text "Rename Device" -x 430 -y 180 -width
     # Show the form
     $renameForm.ShowDialog()
 }
-
+#DONE
 $buttonSetPassword = New-GreenButton -text "Set Password" -x 430 -y 260 -width 380 -height 60 -clickAction {
     # Create password setting form
     $passwordForm = New-Object System.Windows.Forms.Form
@@ -339,7 +477,7 @@ $buttonSetPassword = New-GreenButton -text "Set Password" -x 430 -y 260 -width 3
     # Show the form
     $passwordForm.ShowDialog()
 }
-
+#DONE
 $buttonJoinDomain = New-GreenButton -text "Join Domain" -x 430 -y 340 -width 380 -height 60 -clickAction {
     # Create domain/workgroup join form
     $joinForm = New-Object System.Windows.Forms.Form
