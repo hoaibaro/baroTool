@@ -42,6 +42,30 @@ function New-GreenButton {
     return $button
 }
 
+# Function to create a button with red background
+function New-RedButton {
+    param (
+        [string]$text,
+        [int]$x,
+        [int]$y,
+        [int]$width,
+        [int]$height,
+        [scriptblock]$clickAction
+    )
+
+    $button = New-Object System.Windows.Forms.Button
+    $button.Text = $text
+    $button.Location = New-Object System.Drawing.Point($x, $y)
+    $button.Size = New-Object System.Drawing.Size($width, $height)
+    $button.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $button.BackColor = [System.Drawing.Color]::FromArgb(180, 0, 0) # Dark Red
+    $button.ForeColor = [System.Drawing.Color]::White
+    $button.Font = New-Object System.Drawing.Font("Arial", 12, [System.Drawing.FontStyle]::Bold)
+    $button.Add_Click($clickAction)
+
+    return $button
+}
+
 # Left column buttons
 $buttonRunAll = New-GreenButton -text "Run All Options" -x 30 -y 100 -width 380 -height 60 -clickAction {
     [System.Windows.Forms.MessageBox]::Show("Running all options...")
@@ -54,8 +78,191 @@ $buttonInstallSoftware = New-GreenButton -text "Install All Software" -x 30 -y 1
 }
 
 $buttonPowerOptions = New-GreenButton -text "Power Options and Firewall" -x 30 -y 260 -width 380 -height 60 -clickAction {
-    [System.Windows.Forms.MessageBox]::Show("Configuring power options and firewall...")
-    # Add power and firewall configuration commands here
+    # Create Power Options and Firewall form
+    $powerForm = New-Object System.Windows.Forms.Form
+    $powerForm.Text = "Power Options and Firewall"
+    $powerForm.Size = New-Object System.Drawing.Size(500, 500)
+    $powerForm.StartPosition = "CenterScreen"
+    $powerForm.BackColor = [System.Drawing.Color]::Black
+    $powerForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+    $powerForm.MaximizeBox = $false
+    $powerForm.MinimizeBox = $false
+
+    # Title label
+    $titleLabel = New-Object System.Windows.Forms.Label
+    $titleLabel.Text = "POWER OPTIONS AND FIREWALL MANAGEMENT"
+    $titleLabel.Location = New-Object System.Drawing.Point(50, 20)
+    $titleLabel.Size = New-Object System.Drawing.Size(400, 30)
+    $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+    $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
+    $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $powerForm.Controls.Add($titleLabel)
+
+    # Status text box
+    $statusTextBox = New-Object System.Windows.Forms.TextBox
+    $statusTextBox.Multiline = $true
+    $statusTextBox.ScrollBars = "Vertical"
+    $statusTextBox.Location = New-Object System.Drawing.Point(50, 400)
+    $statusTextBox.Size = New-Object System.Drawing.Size(400, 80)
+    $statusTextBox.BackColor = [System.Drawing.Color]::Black
+    $statusTextBox.ForeColor = [System.Drawing.Color]::Lime
+    $statusTextBox.Font = New-Object System.Drawing.Font("Consolas", 9)
+    $statusTextBox.ReadOnly = $true
+    $powerForm.Controls.Add($statusTextBox)
+
+    # Function to add status message
+    function Add-Status {
+        param([string]$message)
+        $statusTextBox.AppendText("$message`r`n")
+        $statusTextBox.ScrollToCaret()
+        [System.Windows.Forms.Application]::DoEvents()
+    }
+
+    # Set Time/Timezone and Power Options button
+    $btnTimeAndPower = New-RedButton -text "Set Time/Timezone and Power Options" -x 50 -y 80 -width 400 -height 60 -clickAction {
+        try {
+            Add-Status "Setting time zone to SE Asia Standard Time..."
+
+            # Set timezone to SE Asia Standard Time
+            Start-Process -FilePath "tzutil.exe" -ArgumentList "/s `"SE Asia Standard Time`"" -Wait -NoNewWindow
+
+            # Configure Windows Time service
+            Add-Status "Configuring Windows Time service..."
+            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\w32time\Parameters" -Name "Type" -Value "NTP" -Type String -ErrorAction SilentlyContinue
+
+            # Resync time
+            Add-Status "Synchronizing time..."
+            try {
+                Start-Process -FilePath "w32tm.exe" -ArgumentList "/resync" -Wait -NoNewWindow
+            }
+            catch {
+                Add-Status "Warning: Could not sync time. $_"
+            }
+
+            # Enable automatic time zone updates
+            Add-Status "Enabling automatic time zone updates..."
+            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\tzautoupdate" -Name "Start" -Value 2 -Type DWord -ErrorAction SilentlyContinue
+
+            # Configure power options
+            Add-Status "Setting power options to 'Do Nothing'..."
+
+            # Create a process to run the power commands with elevated privileges
+            $powerCommands = @(
+                "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS LIDACTION 0",
+                "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS LIDACTION 0",
+                "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS SBUTTONACTION 0",
+                "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS SBUTTONACTION 0",
+                "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS PBUTTONACTION 0",
+                "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS PBUTTONACTION 0",
+                "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_VIDEO VIDEOIDLE 0",
+                "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_VIDEO VIDEOIDLE 0",
+                "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 0",
+                "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 0",
+                "powercfg /SETACTIVE SCHEME_CURRENT"
+            )
+
+            $powerScript = $powerCommands -join "; "
+
+            # Create a process to run the command with elevated privileges
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = "powershell.exe"
+            $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $powerScript' -Verb RunAs -WindowStyle Hidden"
+            $psi.UseShellExecute = $true
+            $psi.Verb = "runas"
+            $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+            # Start the process
+            [System.Diagnostics.Process]::Start($psi)
+
+            # Turn off the firewall
+            Add-Status "Turning off the firewall..."
+            $command = "netsh advfirewall set allprofiles state off"
+
+            # Create a process to run the command with elevated privileges
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = "powershell.exe"
+            $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
+            $psi.UseShellExecute = $true
+            $psi.Verb = "runas"
+            $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+            # Start the process
+            [System.Diagnostics.Process]::Start($psi)
+
+            Add-Status "Time zone, power options, and firewall have been configured successfully!"
+            [System.Windows.Forms.MessageBox]::Show("Time zone, power options, and firewall have been configured successfully!", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+        }
+        catch {
+            Add-Status "Error: $_"
+            [System.Windows.Forms.MessageBox]::Show("Error configuring settings: $_`n`nNote: This operation requires administrative privileges.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        }
+    }
+    $powerForm.Controls.Add($btnTimeAndPower)
+
+    # Turn on Firewall button
+    $btnFirewallOn = New-RedButton -text "Turn on Firewall" -x 50 -y 160 -width 400 -height 60 -clickAction {
+        try {
+            Add-Status "Turning on the firewall..."
+            # Turn on the firewall
+            $command = "netsh advfirewall set allprofiles state on"
+
+            # Create a process to run the command with elevated privileges
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = "powershell.exe"
+            $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
+            $psi.UseShellExecute = $true
+            $psi.Verb = "runas"
+            $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+            # Start the process
+            [System.Diagnostics.Process]::Start($psi)
+
+            Add-Status "Firewall has been turned on successfully!"
+            [System.Windows.Forms.MessageBox]::Show("Firewall has been turned on successfully!", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+        }
+        catch {
+            Add-Status "Error: $_"
+            [System.Windows.Forms.MessageBox]::Show("Error turning on firewall: $_`n`nNote: This operation requires administrative privileges.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        }
+    }
+    $powerForm.Controls.Add($btnFirewallOn)
+
+    # Turn off Firewall button
+    $btnFirewallOff = New-RedButton -text "Turn off Firewall" -x 50 -y 240 -width 400 -height 60 -clickAction {
+        try {
+            Add-Status "Turning off the firewall..."
+            # Turn off the firewall
+            $command = "netsh advfirewall set allprofiles state off"
+
+            # Create a process to run the command with elevated privileges
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = "powershell.exe"
+            $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
+            $psi.UseShellExecute = $true
+            $psi.Verb = "runas"
+            $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+            # Start the process
+            [System.Diagnostics.Process]::Start($psi)
+
+            Add-Status "Firewall has been turned off successfully!"
+            [System.Windows.Forms.MessageBox]::Show("Firewall has been turned off successfully!", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+        }
+        catch {
+            Add-Status "Error: $_"
+            [System.Windows.Forms.MessageBox]::Show("Error turning off firewall: $_`n`nNote: This operation requires administrative privileges.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        }
+    }
+    $powerForm.Controls.Add($btnFirewallOff)
+
+    # Return to Main Menu button
+    $btnReturn = New-RedButton -text "Return to Main Menu" -x 50 -y 320 -width 400 -height 60 -clickAction {
+        $powerForm.Close()
+    }
+    $powerForm.Controls.Add($btnReturn)
+
+    # Show the form
+    $powerForm.ShowDialog()
 }
 
 $buttonChangeVolume = New-GreenButton -text "Change / Edit Volume" -x 30 -y 340 -width 380 -height 60 -clickAction {
@@ -67,7 +274,7 @@ $buttonActivate = New-GreenButton -text "Activate" -x 30 -y 420 -width 380 -heig
     [System.Windows.Forms.MessageBox]::Show("Opening activation options...")
     # Add activation commands here
 }
-
+#DONE
 # Right column buttons
 $buttonTurnOnFeatures = New-GreenButton -text "Turn On Features" -x 430 -y 100 -width 380 -height 60 -clickAction {
     # Create Windows Features form
@@ -120,7 +327,7 @@ $buttonTurnOnFeatures = New-GreenButton -text "Turn On Features" -x 430 -y 100 -
             if ($output -match "State : Disabled") {
                 Add-Status "Enabling .NET Framework 3.5..."
                 $enableCmd = "dism /online /enable-feature /featurename:NetFx3 /all /norestart"
-                $process = Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -PassThru -Wait
+                Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
                 Add-Status ".NET Framework 3.5 has been enabled."
             } else {
                 Add-Status ".NET Framework 3.5 is already enabled."
@@ -141,7 +348,7 @@ $buttonTurnOnFeatures = New-GreenButton -text "Turn On Features" -x 430 -y 100 -
             if ($output -match "State : Disabled") {
                 Add-Status "Enabling WCF-HTTP-Activation..."
                 $enableCmd = "DISM /Online /Enable-Feature /FeatureName:WCF-HTTP-Activation /All /Quiet /NoRestart"
-                $process = Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -PassThru -Wait
+                Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
                 Add-Status "WCF-HTTP-Activation has been enabled."
             } else {
                 Add-Status "WCF-HTTP-Activation is already enabled."
@@ -162,7 +369,7 @@ $buttonTurnOnFeatures = New-GreenButton -text "Turn On Features" -x 430 -y 100 -
             if ($output -match "State : Disabled") {
                 Add-Status "Enabling WCF-NonHTTP-Activation..."
                 $enableCmd = "DISM /Online /Enable-Feature /FeatureName:WCF-NonHTTP-Activation /All /Quiet /NoRestart"
-                $process = Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -PassThru -Wait
+                Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
                 Add-Status "WCF-NonHTTP-Activation has been enabled."
             } else {
                 Add-Status "WCF-NonHTTP-Activation is already enabled."
@@ -183,7 +390,7 @@ $buttonTurnOnFeatures = New-GreenButton -text "Turn On Features" -x 430 -y 100 -
             if ($output -match "State : Enabled") {
                 Add-Status "Disabling Internet Explorer 11..."
                 $disableCmd = "dism /online /disable-feature /featurename:Internet-Explorer-Optional-amd64 /norestart"
-                $process = Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $disableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -PassThru -Wait
+                Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $disableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
                 Add-Status "Internet Explorer 11 has been disabled."
             } else {
                 Add-Status "Internet Explorer 11 is already disabled."
@@ -194,18 +401,10 @@ $buttonTurnOnFeatures = New-GreenButton -text "Turn On Features" -x 430 -y 100 -
     }
     $featuresForm.Controls.Add($btnDisableIE)
 
-    # Return to Main Menu button (màu đỏ)
-    $btnReturn = New-Object System.Windows.Forms.Button
-    $btnReturn.Text = "Return to Main Menu"
-    $btnReturn.Location = New-Object System.Drawing.Point(50, 270)
-    $btnReturn.Size = New-Object System.Drawing.Size(400, 40)
-    $btnReturn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $btnReturn.BackColor = [System.Drawing.Color]::FromArgb(180, 0, 0) # Màu đỏ đậm
-    $btnReturn.ForeColor = [System.Drawing.Color]::White
-    $btnReturn.Font = New-Object System.Drawing.Font("Arial", 12, [System.Drawing.FontStyle]::Bold)
-    $btnReturn.Add_Click({
+    # Return to Main Menu button
+    $btnReturn = New-RedButton -text "Return to Main Menu" -x 50 -y 270 -width 400 -height 40 -clickAction {
         $featuresForm.Close()
-    })
+    }
     $featuresForm.Controls.Add($btnReturn)
 
     # Show the form
@@ -324,17 +523,9 @@ $buttonRenameDevice = New-GreenButton -text "Rename Device" -x 430 -y 180 -width
     $renameForm.Controls.Add($renameButton)
 
     # Cancel button
-    $cancelButton = New-Object System.Windows.Forms.Button
-    $cancelButton.Text = "Cancel"
-    $cancelButton.Font = New-Object System.Drawing.Font("Arial", 12, [System.Drawing.FontStyle]::Bold)
-    $cancelButton.ForeColor = [System.Drawing.Color]::White
-    $cancelButton.BackColor = [System.Drawing.Color]::FromArgb(180, 0, 0)
-    $cancelButton.Size = New-Object System.Drawing.Size(200, 40)
-    $cancelButton.Location = New-Object System.Drawing.Point(250, 180)
-    $cancelButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $cancelButton.Add_Click({
+    $cancelButton = New-RedButton -text "Cancel" -x 250 -y 180 -width 200 -height 40 -clickAction {
         $renameForm.Close()
-    })
+    }
     $renameForm.Controls.Add($cancelButton)
 
     # Show the form
@@ -461,17 +652,9 @@ $buttonSetPassword = New-GreenButton -text "Set Password" -x 430 -y 260 -width 3
     $passwordForm.Controls.Add($setButton)
 
     # Cancel button
-    $cancelButton = New-Object System.Windows.Forms.Button
-    $cancelButton.Text = "Cancel"
-    $cancelButton.Font = New-Object System.Drawing.Font("Arial", 12, [System.Drawing.FontStyle]::Bold)
-    $cancelButton.ForeColor = [System.Drawing.Color]::White
-    $cancelButton.BackColor = [System.Drawing.Color]::FromArgb(180, 0, 0)
-    $cancelButton.Size = New-Object System.Drawing.Size(200, 40)
-    $cancelButton.Location = New-Object System.Drawing.Point(250, 230)
-    $cancelButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $cancelButton.Add_Click({
+    $cancelButton = New-RedButton -text "Cancel" -x 250 -y 230 -width 200 -height 40 -clickAction {
         $passwordForm.Close()
-    })
+    }
     $passwordForm.Controls.Add($cancelButton)
 
     # Show the form
@@ -726,24 +909,16 @@ $buttonJoinDomain = New-GreenButton -text "Join Domain" -x 430 -y 340 -width 380
     $joinForm.Controls.Add($joinButton)
 
     # Cancel button
-    $cancelButton = New-Object System.Windows.Forms.Button
-    $cancelButton.Text = "Cancel"
-    $cancelButton.Font = New-Object System.Drawing.Font("Arial", 12, [System.Drawing.FontStyle]::Bold)
-    $cancelButton.ForeColor = [System.Drawing.Color]::White
-    $cancelButton.BackColor = [System.Drawing.Color]::FromArgb(180, 0, 0)
-    $cancelButton.Size = New-Object System.Drawing.Size(200, 40)
-    $cancelButton.Location = New-Object System.Drawing.Point(250, 280)
-    $cancelButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $cancelButton.Add_Click({
+    $cancelButton = New-RedButton -text "Cancel" -x 250 -y 280 -width 200 -height 40 -clickAction {
         $joinForm.Close()
-    })
+    }
     $joinForm.Controls.Add($cancelButton)
 
     # Show the form
     $joinForm.ShowDialog()
 }
 
-$buttonExit = New-GreenButton -text "Exit" -x 430 -y 420 -width 380 -height 60 -clickAction {
+$buttonExit = New-RedButton -text "Exit" -x 430 -y 420 -width 380 -height 60 -clickAction {
     $form.Close()
 }
 
