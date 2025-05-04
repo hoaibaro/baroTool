@@ -745,40 +745,903 @@ assign letter=$newLetter
 
     # Shrink Volume button
     $btnShrinkVolume = New-DynamicButton -text "[2] Shrink Volume" -x 50 -y 130 -width 400 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
-        Add-Status "Opening Disk Management to shrink volume..."
+        # Create Shrink Volume form
+        $shrinkForm = New-Object System.Windows.Forms.Form
+        $shrinkForm.Text = "Shrink Volume"
+        $shrinkForm.Size = New-Object System.Drawing.Size(600, 600)
+        $shrinkForm.StartPosition = "CenterScreen"
+        $shrinkForm.BackColor = [System.Drawing.Color]::Black
+        $shrinkForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+        $shrinkForm.MaximizeBox = $false
+        $shrinkForm.MinimizeBox = $false
+
+        # Title label
+        $titleLabel = New-Object System.Windows.Forms.Label
+        $titleLabel.Text = "Shrink Volume and Create New Partition"
+        $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
+        $titleLabel.Size = New-Object System.Drawing.Size(600, 30)
+        $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+        $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
+        $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+        $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+        $shrinkForm.Controls.Add($titleLabel)
+
+        # Drive list label
+        $driveListLabel = New-Object System.Windows.Forms.Label
+        $driveListLabel.Text = "Available Drives:"
+        $driveListLabel.Location = New-Object System.Drawing.Point(20, 60)
+        $driveListLabel.Size = New-Object System.Drawing.Size(200, 20)
+        $driveListLabel.ForeColor = [System.Drawing.Color]::White
+        $driveListLabel.Font = New-Object System.Drawing.Font("Arial", 10)
+        $shrinkForm.Controls.Add($driveListLabel)
+
+        # Drive list box
+        $driveListBox = New-Object System.Windows.Forms.ListBox
+        $driveListBox.Location = New-Object System.Drawing.Point(20, 90)
+        $driveListBox.Size = New-Object System.Drawing.Size(560, 150)
+        $driveListBox.BackColor = [System.Drawing.Color]::Black
+        $driveListBox.ForeColor = [System.Drawing.Color]::Lime
+        $driveListBox.Font = New-Object System.Drawing.Font("Consolas", 10)
+        $shrinkForm.Controls.Add($driveListBox)
+
+        # Populate drive list
+        Add-Status "Getting list of drives..."
         try {
-            # Open Disk Management
-            Start-Process "diskmgmt.msc" -Verb RunAs
-            Add-Status "Disk Management has been opened. Right-click on a volume and select 'Shrink Volume'."
+            $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name='Name';Expression={$_.DeviceID}},
+                @{Name='VolumeName';Expression={$_.VolumeName}},
+                @{Name='Size (GB)';Expression={[math]::round($_.Size/1GB, 0)}},
+                @{Name='FreeSpace (GB)';Expression={[math]::round($_.FreeSpace/1GB, 0)}}
+
+            foreach ($drive in $drives) {
+                $driveInfo = "$($drive.Name) - $($drive.VolumeName) - Size: $($drive.'Size (GB)') GB - Free: $($drive.'FreeSpace (GB)') GB"
+                $driveListBox.Items.Add($driveInfo)
+            }
+
+            if ($driveListBox.Items.Count -gt 0) {
+                $driveListBox.SelectedIndex = 0
+            }
+
+            Add-Status "Found $($drives.Count) drives."
         } catch {
-            Add-Status "Error opening Disk Management: $_"
+            Add-Status "Error getting drive list: $_"
         }
+
+        # Selected drive letter label
+        $selectedDriveLabel = New-Object System.Windows.Forms.Label
+        $selectedDriveLabel.Text = "Selected Drive Letter:"
+        $selectedDriveLabel.Location = New-Object System.Drawing.Point(20, 250)
+        $selectedDriveLabel.Size = New-Object System.Drawing.Size(150, 20)
+        $selectedDriveLabel.ForeColor = [System.Drawing.Color]::White
+        $selectedDriveLabel.Font = New-Object System.Drawing.Font("Arial", 10)
+        $shrinkForm.Controls.Add($selectedDriveLabel)
+
+        # Selected drive letter textbox
+        $selectedDriveTextBox = New-Object System.Windows.Forms.TextBox
+        $selectedDriveTextBox.Location = New-Object System.Drawing.Point(180, 250)
+        $selectedDriveTextBox.Size = New-Object System.Drawing.Size(50, 20)
+        $selectedDriveTextBox.BackColor = [System.Drawing.Color]::Black
+        $selectedDriveTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $selectedDriveTextBox.Font = New-Object System.Drawing.Font("Consolas", 10)
+        $selectedDriveTextBox.MaxLength = 1
+        $selectedDriveTextBox.ReadOnly = $true
+        $shrinkForm.Controls.Add($selectedDriveTextBox)
+
+        # Partition size options group box
+        $partitionGroupBox = New-Object System.Windows.Forms.GroupBox
+        $partitionGroupBox.Text = "Choose Partition Size"
+        $partitionGroupBox.Location = New-Object System.Drawing.Point(20, 280)
+        $partitionGroupBox.Size = New-Object System.Drawing.Size(560, 120)
+        $partitionGroupBox.ForeColor = [System.Drawing.Color]::White
+        $partitionGroupBox.Font = New-Object System.Drawing.Font("Arial", 10)
+        $shrinkForm.Controls.Add($partitionGroupBox)
+
+        # 80GB radio button
+        $radio80GB = New-Object System.Windows.Forms.RadioButton
+        $radio80GB.Text = "80GB (recommended for 256GB drives)"
+        $radio80GB.Location = New-Object System.Drawing.Point(20, 30)
+        $radio80GB.Size = New-Object System.Drawing.Size(300, 20)
+        $radio80GB.ForeColor = [System.Drawing.Color]::White
+        $radio80GB.Checked = $true
+        $partitionGroupBox.Controls.Add($radio80GB)
+
+        # 200GB radio button
+        $radio200GB = New-Object System.Windows.Forms.RadioButton
+        $radio200GB.Text = "200GB (recommended for 500GB drives)"
+        $radio200GB.Location = New-Object System.Drawing.Point(20, 55)
+        $radio200GB.Size = New-Object System.Drawing.Size(300, 20)
+        $radio200GB.ForeColor = [System.Drawing.Color]::White
+        $partitionGroupBox.Controls.Add($radio200GB)
+
+        # 500GB radio button
+        $radio500GB = New-Object System.Windows.Forms.RadioButton
+        $radio500GB.Text = "500GB (recommended for 1TB+ drives)"
+        $radio500GB.Location = New-Object System.Drawing.Point(20, 80)
+        $radio500GB.Size = New-Object System.Drawing.Size(300, 20)
+        $radio500GB.ForeColor = [System.Drawing.Color]::White
+        $partitionGroupBox.Controls.Add($radio500GB)
+
+        # New partition label
+        $newLabelLabel = New-Object System.Windows.Forms.Label
+        $newLabelLabel.Text = "New Partition Label:"
+        $newLabelLabel.Location = New-Object System.Drawing.Point(20, 410)
+        $newLabelLabel.Size = New-Object System.Drawing.Size(150, 20)
+        $newLabelLabel.ForeColor = [System.Drawing.Color]::White
+        $newLabelLabel.Font = New-Object System.Drawing.Font("Arial", 10)
+        $shrinkForm.Controls.Add($newLabelLabel)
+
+        # New partition label textbox
+        $newLabelTextBox = New-Object System.Windows.Forms.TextBox
+        $newLabelTextBox.Location = New-Object System.Drawing.Point(180, 410)
+        $newLabelTextBox.Size = New-Object System.Drawing.Size(200, 20)
+        $newLabelTextBox.BackColor = [System.Drawing.Color]::Black
+        $newLabelTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $newLabelTextBox.Font = New-Object System.Drawing.Font("Consolas", 10)
+        $newLabelTextBox.Text = "New Volume"
+        $shrinkForm.Controls.Add($newLabelTextBox)
+
+        # Status textbox
+        $shrinkStatusTextBox = New-Object System.Windows.Forms.TextBox
+        $shrinkStatusTextBox.Multiline = $true
+        $shrinkStatusTextBox.ScrollBars = "Vertical"
+        $shrinkStatusTextBox.Location = New-Object System.Drawing.Point(20, 490)
+        $shrinkStatusTextBox.Size = New-Object System.Drawing.Size(560, 70)
+        $shrinkStatusTextBox.BackColor = [System.Drawing.Color]::Black
+        $shrinkStatusTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $shrinkStatusTextBox.Font = New-Object System.Drawing.Font("Consolas", 9)
+        $shrinkStatusTextBox.ReadOnly = $true
+        $shrinkStatusTextBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+        $shrinkStatusTextBox.Text = "Ready to shrink volume..."
+        $shrinkForm.Controls.Add($shrinkStatusTextBox)
+
+        # Function to add status message to the shrink form
+        function Add-ShrinkStatus {
+            param([string]$message)
+            $shrinkStatusTextBox.AppendText("$message`r`n")
+            $shrinkStatusTextBox.ScrollToCaret()
+            [System.Windows.Forms.Application]::DoEvents()
+        }
+
+        # Update selected drive when drive is selected
+        $driveListBox.Add_SelectedIndexChanged({
+            if ($driveListBox.SelectedItem) {
+                $selectedDrive = $driveListBox.SelectedItem.ToString()
+                $driveLetter = $selectedDrive.Substring(0, 1)
+                $selectedDriveTextBox.Text = $driveLetter
+            }
+        })
+
+        # Shrink button
+        $shrinkButton = New-DynamicButton -text "Shrink and Create Partition" -x 20 -y 450 -width 250 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+            $driveLetter = $selectedDriveTextBox.Text.Trim().ToUpper()
+            $newLabel = $newLabelTextBox.Text.Trim()
+
+            # Validate input
+            if ($driveLetter -eq "") {
+                Add-ShrinkStatus "Error: Please select a drive."
+                return
+            }
+
+            if ($newLabel -eq "") {
+                Add-ShrinkStatus "Error: Please enter a label for the new partition."
+                return
+            }
+
+            # Determine partition size
+            $sizeMB = 0
+            if ($radio80GB.Checked) {
+                $sizeMB = 82020
+                Add-ShrinkStatus "Selected 80GB partition."
+            } elseif ($radio200GB.Checked) {
+                $sizeMB = 204955
+                Add-ShrinkStatus "Selected 200GB partition."
+            } elseif ($radio500GB.Checked) {
+                $sizeMB = 512000
+                Add-ShrinkStatus "Selected 500GB partition."
+            }
+
+            # Create a batch file that will run diskpart and then set the label
+            $batchFilePath = "shrink_volume.bat"
+
+            $batchContent = @"
+@echo off
+echo ============================================================
+echo                  Shrinking Volume $driveLetter
+echo ============================================================
+echo.
+
+echo Creating diskpart script...
+(
+    echo select volume $driveLetter
+    echo shrink desired=$sizeMB
+    echo create partition primary
+    echo format fs=ntfs quick
+    echo assign
+) > diskpart_script.txt
+
+echo Running diskpart...
+diskpart /s diskpart_script.txt
+if %errorlevel% neq 0 (
+    echo Error: Diskpart failed with exit code %errorlevel%
+    echo This could be due to insufficient free space or the drive being in use.
+    echo Try defragmenting the drive first or closing any applications using the drive.
+    pause
+    exit /b %errorlevel%
+)
+
+echo Diskpart completed successfully.
+echo.
+echo ============================================================
+echo                  Available Drives
+echo ============================================================
+powershell -command "Get-WmiObject Win32_LogicalDisk | Select-Object @{Name='Name';Expression={`$_.DeviceID}}, @{Name='VolumeName';Expression={`$_.VolumeName}}, @{Name='Size (GB)';Expression={[math]::round(`$_.Size/1GB, 0)}}, @{Name='FreeSpace (GB)';Expression={[math]::round(`$_.FreeSpace/1GB, 0)}} | Format-Table -AutoSize"
+echo ============================================================
+echo.
+
+set /p drive_letter=Enter the drive letter of the new partition (e.g., D):
+set /p new_label=Enter the label for the new partition:
+
+echo Setting label for drive %drive_letter%: to "%new_label%"...
+label %drive_letter%: "%new_label%"
+if %errorlevel% neq 0 (
+    echo Error: Failed to set label.
+    pause
+    exit /b %errorlevel%
+)
+
+echo Successfully set label for drive %drive_letter%: to "%new_label%".
+echo Cleaning up temporary files...
+del diskpart_script.txt
+
+echo Operation completed successfully.
+pause
+"@
+            Set-Content -Path $batchFilePath -Value $batchContent -Force -Encoding ASCII
+
+            Add-ShrinkStatus "Shrinking drive $driveLetter and creating new partition of $sizeMB MB..."
+            Add-ShrinkStatus "A command prompt window will open to complete the operation."
+            Add-ShrinkStatus "Please follow the instructions in the command prompt window."
+
+            try {
+                # Run the batch file with elevated privileges
+                $batchProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$batchFilePath`"" -Verb RunAs -PassThru -Wait
+
+                # Check if successful
+                if ($batchProcess.ExitCode -eq 0) {
+                    Add-ShrinkStatus "Operation completed successfully."
+                    Add-Status "Shrunk drive $driveLetter and created new partition."
+
+                    # Refresh drive list
+                    Add-ShrinkStatus "Refreshing drive list..."
+                    Start-Sleep -Seconds 2
+
+                    # Get updated list of drives
+                    $updatedDrives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name='Name';Expression={$_.DeviceID}},
+                        @{Name='VolumeName';Expression={$_.VolumeName}},
+                        @{Name='Size (GB)';Expression={[math]::round($_.Size/1GB, 0)}},
+                        @{Name='FreeSpace (GB)';Expression={[math]::round($_.FreeSpace/1GB, 0)}}
+
+                    # Display updated drive list
+                    $driveListBox.Items.Clear()
+                    foreach ($drive in $updatedDrives) {
+                        $driveInfo = "$($drive.Name) - $($drive.VolumeName) - Size: $($drive.'Size (GB)') GB - Free: $($drive.'FreeSpace (GB)') GB"
+                        $driveListBox.Items.Add($driveInfo)
+                    }
+
+                    if ($driveListBox.Items.Count -gt 0) {
+                        $driveListBox.SelectedIndex = 0
+                    }
+                } else {
+                    Add-ShrinkStatus "Error: The operation failed with exit code $($batchProcess.ExitCode)"
+                    Add-ShrinkStatus "Please check the command prompt window for more details."
+                }
+            } catch {
+                Add-ShrinkStatus "Error: $_"
+            } finally {
+                # Clean up temp file
+                if (Test-Path $batchFilePath) {
+                    Remove-Item $batchFilePath -Force -ErrorAction SilentlyContinue
+                }
+            }
+        }
+        $shrinkForm.Controls.Add($shrinkButton)
+
+        # Cancel button
+        $cancelButton = New-DynamicButton -text "Cancel" -x 290 -y 450 -width 200 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
+            $shrinkForm.Close()
+        }
+        $shrinkForm.Controls.Add($cancelButton)
+
+        # Show the form
+        Add-Status "Opening Shrink Volume dialog..."
+        $shrinkForm.ShowDialog()
     }
     $volumeForm.Controls.Add($btnShrinkVolume)
 
     # Extend Volume button
     $btnExtendVolume = New-DynamicButton -text "[3] Extend Volume" -x 50 -y 180 -width 400 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
-        Add-Status "Opening Disk Management to extend volume..."
+        # Create Merge Volumes form
+        $mergeForm = New-Object System.Windows.Forms.Form
+        $mergeForm.Text = "Merge Volumes"
+        $mergeForm.Size = New-Object System.Drawing.Size(600, 500)
+        $mergeForm.StartPosition = "CenterScreen"
+        $mergeForm.BackColor = [System.Drawing.Color]::Black
+        $mergeForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+        $mergeForm.MaximizeBox = $false
+        $mergeForm.MinimizeBox = $false
+
+        # Title label
+        $titleLabel = New-Object System.Windows.Forms.Label
+        $titleLabel.Text = "Merge Volumes"
+        $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
+        $titleLabel.Size = New-Object System.Drawing.Size(600, 30)
+        $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+        $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
+        $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+        $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+        $mergeForm.Controls.Add($titleLabel)
+
+        # Drive list label
+        $driveListLabel = New-Object System.Windows.Forms.Label
+        $driveListLabel.Text = "Available Drives:"
+        $driveListLabel.Location = New-Object System.Drawing.Point(20, 60)
+        $driveListLabel.Size = New-Object System.Drawing.Size(200, 20)
+        $driveListLabel.ForeColor = [System.Drawing.Color]::White
+        $driveListLabel.Font = New-Object System.Drawing.Font("Arial", 10)
+        $mergeForm.Controls.Add($driveListLabel)
+
+        # Drive list box
+        $driveListBox = New-Object System.Windows.Forms.ListBox
+        $driveListBox.Location = New-Object System.Drawing.Point(20, 90)
+        $driveListBox.Size = New-Object System.Drawing.Size(560, 150)
+        $driveListBox.BackColor = [System.Drawing.Color]::Black
+        $driveListBox.ForeColor = [System.Drawing.Color]::Lime
+        $driveListBox.Font = New-Object System.Drawing.Font("Consolas", 10)
+        $mergeForm.Controls.Add($driveListBox)
+
+        # Populate drive list
+        Add-Status "Getting list of drives..."
         try {
-            # Open Disk Management
-            Start-Process "diskmgmt.msc" -Verb RunAs
-            Add-Status "Disk Management has been opened. Right-click on a volume and select 'Extend Volume'."
+            $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name='Name';Expression={$_.DeviceID}},
+                @{Name='VolumeName';Expression={$_.VolumeName}},
+                @{Name='Size (GB)';Expression={[math]::round($_.Size/1GB, 0)}},
+                @{Name='FreeSpace (GB)';Expression={[math]::round($_.FreeSpace/1GB, 0)}}
+
+            foreach ($drive in $drives) {
+                $driveInfo = "$($drive.Name) - $($drive.VolumeName) - Size: $($drive.'Size (GB)') GB - Free: $($drive.'FreeSpace (GB)') GB"
+                $driveListBox.Items.Add($driveInfo)
+            }
+
+            if ($driveListBox.Items.Count -gt 0) {
+                $driveListBox.SelectedIndex = 0
+            }
+
+            Add-Status "Found $($drives.Count) drives."
         } catch {
-            Add-Status "Error opening Disk Management: $_"
+            Add-Status "Error getting drive list: $_"
         }
+
+        # Source drive label
+        $sourceDriveLabel = New-Object System.Windows.Forms.Label
+        $sourceDriveLabel.Text = "Source Drive (to delete):"
+        $sourceDriveLabel.Location = New-Object System.Drawing.Point(20, 250)
+        $sourceDriveLabel.Size = New-Object System.Drawing.Size(150, 20)
+        $sourceDriveLabel.ForeColor = [System.Drawing.Color]::White
+        $sourceDriveLabel.Font = New-Object System.Drawing.Font("Arial", 10)
+        $mergeForm.Controls.Add($sourceDriveLabel)
+
+        # Source drive textbox
+        $sourceDriveTextBox = New-Object System.Windows.Forms.TextBox
+        $sourceDriveTextBox.Location = New-Object System.Drawing.Point(180, 250)
+        $sourceDriveTextBox.Size = New-Object System.Drawing.Size(50, 20)
+        $sourceDriveTextBox.BackColor = [System.Drawing.Color]::Black
+        $sourceDriveTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $sourceDriveTextBox.Font = New-Object System.Drawing.Font("Consolas", 10)
+        $sourceDriveTextBox.MaxLength = 1
+        $mergeForm.Controls.Add($sourceDriveTextBox)
+
+        # Target drive label
+        $targetDriveLabel = New-Object System.Windows.Forms.Label
+        $targetDriveLabel.Text = "Target Drive (to expand):"
+        $targetDriveLabel.Location = New-Object System.Drawing.Point(20, 280)
+        $targetDriveLabel.Size = New-Object System.Drawing.Size(150, 20)
+        $targetDriveLabel.ForeColor = [System.Drawing.Color]::White
+        $targetDriveLabel.Font = New-Object System.Drawing.Font("Arial", 10)
+        $mergeForm.Controls.Add($targetDriveLabel)
+
+        # Target drive textbox
+        $targetDriveTextBox = New-Object System.Windows.Forms.TextBox
+        $targetDriveTextBox.Location = New-Object System.Drawing.Point(180, 280)
+        $targetDriveTextBox.Size = New-Object System.Drawing.Size(50, 20)
+        $targetDriveTextBox.BackColor = [System.Drawing.Color]::Black
+        $targetDriveTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $targetDriveTextBox.Font = New-Object System.Drawing.Font("Consolas", 10)
+        $targetDriveTextBox.MaxLength = 1
+        $mergeForm.Controls.Add($targetDriveTextBox)
+
+        # Warning label
+        $warningLabel = New-Object System.Windows.Forms.Label
+        $warningLabel.Text = "WARNING: This will DELETE the source drive and all its data!"
+        $warningLabel.Location = New-Object System.Drawing.Point(20, 310)
+        $warningLabel.Size = New-Object System.Drawing.Size(560, 20)
+        $warningLabel.ForeColor = [System.Drawing.Color]::Red
+        $warningLabel.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $mergeForm.Controls.Add($warningLabel)
+
+        # Status textbox
+        $mergeStatusTextBox = New-Object System.Windows.Forms.TextBox
+        $mergeStatusTextBox.Multiline = $true
+        $mergeStatusTextBox.ScrollBars = "Vertical"
+        $mergeStatusTextBox.Location = New-Object System.Drawing.Point(20, 390)
+        $mergeStatusTextBox.Size = New-Object System.Drawing.Size(560, 70)
+        $mergeStatusTextBox.BackColor = [System.Drawing.Color]::Black
+        $mergeStatusTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $mergeStatusTextBox.Font = New-Object System.Drawing.Font("Consolas", 9)
+        $mergeStatusTextBox.ReadOnly = $true
+        $mergeStatusTextBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+        $mergeStatusTextBox.Text = "Ready to merge volumes..."
+        $mergeForm.Controls.Add($mergeStatusTextBox)
+
+        # Function to add status message to the merge form
+        function Add-MergeStatus {
+            param([string]$message)
+            $mergeStatusTextBox.AppendText("$message`r`n")
+            $mergeStatusTextBox.ScrollToCaret()
+            [System.Windows.Forms.Application]::DoEvents()
+        }
+
+        # Update selected drive when drive is selected
+        $driveListBox.Add_SelectedIndexChanged({
+            if ($driveListBox.SelectedItem) {
+                $selectedDrive = $driveListBox.SelectedItem.ToString()
+                $driveLetter = $selectedDrive.Substring(0, 1)
+
+                # If source drive is empty, fill it
+                if ($sourceDriveTextBox.Text -eq "") {
+                    $sourceDriveTextBox.Text = $driveLetter
+                }
+                # Otherwise, if target drive is empty and different from source, fill it
+                elseif ($targetDriveTextBox.Text -eq "" -and $driveLetter -ne $sourceDriveTextBox.Text) {
+                    $targetDriveTextBox.Text = $driveLetter
+                }
+            }
+        })
+
+        # Merge button
+        $mergeButton = New-DynamicButton -text "Merge Volumes" -x 20 -y 340 -width 250 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+            $sourceDrive = $sourceDriveTextBox.Text.Trim().ToUpper()
+            $targetDrive = $targetDriveTextBox.Text.Trim().ToUpper()
+
+            # Validate input
+            if ($sourceDrive -eq "") {
+                Add-MergeStatus "Error: Please enter a source drive letter."
+                return
+            }
+
+            if ($targetDrive -eq "") {
+                Add-MergeStatus "Error: Please enter a target drive letter."
+                return
+            }
+
+            if ($sourceDrive -eq $targetDrive) {
+                Add-MergeStatus "Error: Source and target drives cannot be the same."
+                return
+            }
+
+            # Confirm operation
+            $confirmResult = [System.Windows.Forms.MessageBox]::Show(
+                "WARNING: This will DELETE drive $sourceDrive and all its data, then extend drive $targetDrive.`n`nAre you sure you want to continue?",
+                "Confirm Merge",
+                [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                [System.Windows.Forms.MessageBoxIcon]::Warning
+            )
+
+            if ($confirmResult -eq [System.Windows.Forms.DialogResult]::No) {
+                Add-MergeStatus "Operation cancelled by user."
+                return
+            }
+
+            # Create a batch file that will run diskpart
+            $batchFilePath = "merge_volumes.bat"
+
+            $batchContent = @"
+@echo off
+echo ============================================================
+echo                  Merging Volumes
+echo ============================================================
+echo.
+
+echo Checking if drives exist...
+powershell -command "(Get-WmiObject Win32_Volume).DriveLetter -contains '%sourceDrive%:\'" >nul 2>&1
+if errorlevel 1 (
+    echo ERROR: Source drive %sourceDrive% does not exist. Exiting...
+    pause
+    exit /b 1
+)
+
+powershell -command "(Get-WmiObject Win32_Volume).DriveLetter -contains '%targetDrive%:\'" >nul 2>&1
+if errorlevel 1 (
+    echo ERROR: Target drive %targetDrive% does not exist. Exiting...
+    pause
+    exit /b 1
+)
+
+echo Deleting source drive %sourceDrive%...
+(
+    echo list volume
+    echo select volume %sourceDrive%
+    echo detail volume
+    echo delete volume override
+) > diskpart_script.txt
+diskpart /s diskpart_script.txt
+if errorlevel 1 (
+    echo ERROR: Failed to delete source drive %sourceDrive%.
+    echo This could be because:
+    echo 1. The volume is in use by Windows or another program
+    echo 2. The volume is a system, boot, or recovery volume
+    echo 3. The volume has open files or folders
+    del diskpart_script.txt
+    pause
+    exit /b 1
+)
+del diskpart_script.txt
+
+echo Extending target drive %targetDrive%...
+(
+    echo list volume
+    echo select volume %targetDrive%
+    echo detail volume
+    echo list disk
+    echo select volume %targetDrive%
+    echo extend
+) > diskpart_script.txt
+diskpart /s diskpart_script.txt
+if errorlevel 1 (
+    echo ERROR: Failed to extend target drive %targetDrive%.
+    echo This could be because:
+    echo 1. The volumes are not on the same physical disk
+    echo 2. There is no unallocated space adjacent to the target volume
+    echo 3. The target volume is not a basic volume
+    del diskpart_script.txt
+    pause
+    exit /b 1
+)
+del diskpart_script.txt
+
+echo Merge completed successfully!
+echo.
+echo ============================================================
+echo                  Updated Drive List
+echo ============================================================
+powershell -command "Get-WmiObject Win32_LogicalDisk | Select-Object @{Name='Name';Expression={`$_.DeviceID}}, @{Name='VolumeName';Expression={`$_.VolumeName}}, @{Name='Size (GB)';Expression={[math]::round(`$_.Size/1GB, 0)}}, @{Name='FreeSpace (GB)';Expression={[math]::round(`$_.FreeSpace/1GB, 0)}} | Format-Table -AutoSize"
+echo ============================================================
+echo.
+pause
+"@
+            Set-Content -Path $batchFilePath -Value $batchContent -Force -Encoding ASCII
+
+            Add-MergeStatus "Merging volumes: deleting drive $sourceDrive and extending drive $targetDrive..."
+            Add-MergeStatus "A command prompt window will open to complete the operation."
+            Add-MergeStatus "Please follow the instructions in the command prompt window."
+
+            try {
+                # Run the batch file with elevated privileges
+                $batchProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$batchFilePath`"" -Verb RunAs -PassThru -Wait
+
+                # Check if successful
+                if ($batchProcess.ExitCode -eq 0) {
+                    Add-MergeStatus "Operation completed successfully."
+                    Add-Status "Merged volumes: deleted drive $sourceDrive and extended drive $targetDrive."
+
+                    # Refresh drive list
+                    Add-MergeStatus "Refreshing drive list..."
+                    Start-Sleep -Seconds 2
+
+                    # Get updated list of drives
+                    $updatedDrives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name='Name';Expression={$_.DeviceID}},
+                        @{Name='VolumeName';Expression={$_.VolumeName}},
+                        @{Name='Size (GB)';Expression={[math]::round($_.Size/1GB, 0)}},
+                        @{Name='FreeSpace (GB)';Expression={[math]::round($_.FreeSpace/1GB, 0)}}
+
+                    # Display updated drive list
+                    $driveListBox.Items.Clear()
+                    foreach ($drive in $updatedDrives) {
+                        $driveInfo = "$($drive.Name) - $($drive.VolumeName) - Size: $($drive.'Size (GB)') GB - Free: $($drive.'FreeSpace (GB)') GB"
+                        $driveListBox.Items.Add($driveInfo)
+                    }
+
+                    if ($driveListBox.Items.Count -gt 0) {
+                        $driveListBox.SelectedIndex = 0
+                    }
+
+                    # Clear the textboxes
+                    $sourceDriveTextBox.Text = ""
+                    $targetDriveTextBox.Text = ""
+                } else {
+                    Add-MergeStatus "Error: The operation failed with exit code $($batchProcess.ExitCode)"
+                    Add-MergeStatus "Please check the command prompt window for more details."
+                }
+            } catch {
+                Add-MergeStatus "Error: $_"
+            } finally {
+                # Clean up temp file
+                if (Test-Path $batchFilePath) {
+                    Remove-Item $batchFilePath -Force -ErrorAction SilentlyContinue
+                }
+            }
+        }
+        $mergeForm.Controls.Add($mergeButton)
+
+        # Cancel button
+        $cancelButton = New-DynamicButton -text "Cancel" -x 290 -y 340 -width 200 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
+            $mergeForm.Close()
+        }
+        $mergeForm.Controls.Add($cancelButton)
+
+        # Show the form
+        Add-Status "Opening Merge Volumes dialog..."
+        $mergeForm.ShowDialog()
     }
     $volumeForm.Controls.Add($btnExtendVolume)
 
     # Rename Volume button
     $btnRenameVolume = New-DynamicButton -text "[4] Rename" -x 50 -y 230 -width 400 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
-        Add-Status "Opening File Explorer to rename volumes..."
+        # Create Rename Volume form
+        $renameVolumeForm = New-Object System.Windows.Forms.Form
+        $renameVolumeForm.Text = "Rename Volume"
+        $renameVolumeForm.Size = New-Object System.Drawing.Size(500, 450)
+        $renameVolumeForm.StartPosition = "CenterScreen"
+        $renameVolumeForm.BackColor = [System.Drawing.Color]::Black
+        $renameVolumeForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+        $renameVolumeForm.MaximizeBox = $false
+        $renameVolumeForm.MinimizeBox = $false
+
+        # Title label
+        $titleLabel = New-Object System.Windows.Forms.Label
+        $titleLabel.Text = "Rename Volume"
+        $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
+        $titleLabel.Size = New-Object System.Drawing.Size(500, 30)
+        $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+        $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
+        $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+        $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+        $renameVolumeForm.Controls.Add($titleLabel)
+
+        # Drive list label
+        $driveListLabel = New-Object System.Windows.Forms.Label
+        $driveListLabel.Text = "Available Drives:"
+        $driveListLabel.Location = New-Object System.Drawing.Point(20, 60)
+        $driveListLabel.Size = New-Object System.Drawing.Size(200, 20)
+        $driveListLabel.ForeColor = [System.Drawing.Color]::White
+        $driveListLabel.Font = New-Object System.Drawing.Font("Arial", 10)
+        $renameVolumeForm.Controls.Add($driveListLabel)
+
+        # Drive list box
+        $driveListBox = New-Object System.Windows.Forms.ListBox
+        $driveListBox.Location = New-Object System.Drawing.Point(20, 90)
+        $driveListBox.Size = New-Object System.Drawing.Size(460, 150)
+        $driveListBox.BackColor = [System.Drawing.Color]::Black
+        $driveListBox.ForeColor = [System.Drawing.Color]::Lime
+        $driveListBox.Font = New-Object System.Drawing.Font("Consolas", 10)
+        $renameVolumeForm.Controls.Add($driveListBox)
+
+        # Populate drive list
+        Add-Status "Getting list of drives..."
         try {
-            # Open File Explorer to This PC
-            Start-Process "explorer.exe" -ArgumentList "shell:::{20D04FE0-3AEA-1069-A2D8-08002B30309D}"
-            Add-Status "File Explorer has been opened. Right-click on a drive and select 'Rename'."
+            $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name='Name';Expression={$_.DeviceID}},
+                @{Name='VolumeName';Expression={$_.VolumeName}},
+                @{Name='Size (GB)';Expression={[math]::round($_.Size/1GB, 0)}},
+                @{Name='FreeSpace (GB)';Expression={[math]::round($_.FreeSpace/1GB, 0)}}
+
+            foreach ($drive in $drives) {
+                $driveInfo = "$($drive.Name) - $($drive.VolumeName) - Size: $($drive.'Size (GB)') GB - Free: $($drive.'FreeSpace (GB)') GB"
+                $driveListBox.Items.Add($driveInfo)
+            }
+
+            if ($driveListBox.Items.Count -gt 0) {
+                $driveListBox.SelectedIndex = 0
+            }
+
+            Add-Status "Found $($drives.Count) drives."
         } catch {
-            Add-Status "Error opening File Explorer: $_"
+            Add-Status "Error getting drive list: $_"
         }
+
+        # Drive letter label
+        $driveLetterLabel = New-Object System.Windows.Forms.Label
+        $driveLetterLabel.Text = "Drive Letter:"
+        $driveLetterLabel.Location = New-Object System.Drawing.Point(20, 250)
+        $driveLetterLabel.Size = New-Object System.Drawing.Size(100, 20)
+        $driveLetterLabel.ForeColor = [System.Drawing.Color]::White
+        $driveLetterLabel.Font = New-Object System.Drawing.Font("Arial", 10)
+        $renameVolumeForm.Controls.Add($driveLetterLabel)
+
+        # Drive letter textbox
+        $driveLetterTextBox = New-Object System.Windows.Forms.TextBox
+        $driveLetterTextBox.Location = New-Object System.Drawing.Point(130, 250)
+        $driveLetterTextBox.Size = New-Object System.Drawing.Size(50, 20)
+        $driveLetterTextBox.BackColor = [System.Drawing.Color]::Black
+        $driveLetterTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $driveLetterTextBox.Font = New-Object System.Drawing.Font("Consolas", 10)
+        $driveLetterTextBox.MaxLength = 1
+        $driveLetterTextBox.ReadOnly = $true
+        $renameVolumeForm.Controls.Add($driveLetterTextBox)
+
+        # New label label
+        $newLabelLabel = New-Object System.Windows.Forms.Label
+        $newLabelLabel.Text = "New Label:"
+        $newLabelLabel.Location = New-Object System.Drawing.Point(20, 280)
+        $newLabelLabel.Size = New-Object System.Drawing.Size(100, 20)
+        $newLabelLabel.ForeColor = [System.Drawing.Color]::White
+        $newLabelLabel.Font = New-Object System.Drawing.Font("Arial", 10)
+        $renameVolumeForm.Controls.Add($newLabelLabel)
+
+        # New label textbox
+        $newLabelTextBox = New-Object System.Windows.Forms.TextBox
+        $newLabelTextBox.Location = New-Object System.Drawing.Point(130, 280)
+        $newLabelTextBox.Size = New-Object System.Drawing.Size(350, 20)
+        $newLabelTextBox.BackColor = [System.Drawing.Color]::Black
+        $newLabelTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $newLabelTextBox.Font = New-Object System.Drawing.Font("Consolas", 10)
+        $renameVolumeForm.Controls.Add($newLabelTextBox)
+
+        # Status textbox
+        $renameStatusTextBox = New-Object System.Windows.Forms.TextBox
+        $renameStatusTextBox.Multiline = $true
+        $renameStatusTextBox.ScrollBars = "Vertical"
+        $renameStatusTextBox.Location = New-Object System.Drawing.Point(20, 360)
+        $renameStatusTextBox.Size = New-Object System.Drawing.Size(460, 70)
+        $renameStatusTextBox.BackColor = [System.Drawing.Color]::Black
+        $renameStatusTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $renameStatusTextBox.Font = New-Object System.Drawing.Font("Consolas", 9)
+        $renameStatusTextBox.ReadOnly = $true
+        $renameStatusTextBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+        $renameStatusTextBox.Text = "Ready to rename volume..."
+        $renameVolumeForm.Controls.Add($renameStatusTextBox)
+
+        # Function to add status message to the rename form
+        function Add-RenameStatus {
+            param([string]$message)
+            $renameStatusTextBox.AppendText("$message`r`n")
+            $renameStatusTextBox.ScrollToCaret()
+            [System.Windows.Forms.Application]::DoEvents()
+        }
+
+        # Update selected drive when drive is selected
+        $driveListBox.Add_SelectedIndexChanged({
+            if ($driveListBox.SelectedItem) {
+                $selectedDrive = $driveListBox.SelectedItem.ToString()
+                $driveLetter = $selectedDrive.Substring(0, 1)
+                $driveLetterTextBox.Text = $driveLetter
+
+                # Get current volume name
+                $currentVolumeName = ""
+                foreach ($drive in $drives) {
+                    if ($drive.Name -eq "$($driveLetter):") {
+                        $currentVolumeName = $drive.VolumeName
+                        break
+                    }
+                }
+
+                # Set current volume name as default text
+                $newLabelTextBox.Text = $currentVolumeName
+            }
+        })
+
+        # Rename button
+        $renameButton = New-DynamicButton -text "Rename Volume" -x 20 -y 320 -width 200 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+            $driveLetter = $driveLetterTextBox.Text.Trim().ToUpper()
+            $newLabel = $newLabelTextBox.Text.Trim()
+
+            # Validate input
+            if ($driveLetter -eq "") {
+                Add-RenameStatus "Error: Please select a drive."
+                return
+            }
+
+            if ($newLabel -eq "") {
+                Add-RenameStatus "Error: Please enter a new label."
+                return
+            }
+
+            # Create a batch file to rename the volume
+            $batchFilePath = "rename_volume.bat"
+
+            $batchContent = @"
+@echo off
+echo ============================================================
+echo                  Renaming Volume %driveLetter%
+echo ============================================================
+echo.
+
+echo Checking if drive exists...
+powershell -command "(Get-WmiObject Win32_LogicalDisk).DeviceID -contains '%driveLetter%:'" >nul 2>&1
+if errorlevel 1 (
+    echo ERROR: Drive %driveLetter%: does not exist. Exiting...
+    pause
+    exit /b 1
+)
+
+echo Setting label for drive %driveLetter%: to "%newLabel%"...
+label %driveLetter%: "%newLabel%"
+if errorlevel 1 (
+    echo ERROR: Failed to rename the drive. Check the drive letter and try again.
+    pause
+    exit /b 1
+) else (
+    echo Drive %driveLetter%: successfully renamed to "%newLabel%".
+)
+
+echo.
+echo ============================================================
+echo                  Updated Drive List
+echo ============================================================
+powershell -command "Get-WmiObject Win32_LogicalDisk | Select-Object @{Name='Name';Expression={`$_.DeviceID}}, @{Name='VolumeName';Expression={`$_.VolumeName}}, @{Name='Size (GB)';Expression={[math]::round(`$_.Size/1GB, 0)}}, @{Name='FreeSpace (GB)';Expression={[math]::round(`$_.FreeSpace/1GB, 0)}} | Format-Table -AutoSize"
+echo ============================================================
+echo.
+pause
+"@
+            Set-Content -Path $batchFilePath -Value $batchContent -Force -Encoding ASCII
+
+            Add-RenameStatus "Renaming drive $driveLetter to '$newLabel'..."
+            Add-RenameStatus "A command prompt window will open to complete the operation."
+            Add-RenameStatus "Please follow the instructions in the command prompt window."
+
+            try {
+                # Run the batch file with elevated privileges
+                $batchProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$batchFilePath`"" -Verb RunAs -PassThru -Wait
+
+                # Check if successful
+                if ($batchProcess.ExitCode -eq 0) {
+                    Add-RenameStatus "Operation completed successfully."
+                    Add-Status "Renamed drive $driveLetter to '$newLabel'."
+
+                    # Refresh drive list
+                    Add-RenameStatus "Refreshing drive list..."
+                    Start-Sleep -Seconds 2
+
+                    # Get updated list of drives
+                    $updatedDrives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name='Name';Expression={$_.DeviceID}},
+                        @{Name='VolumeName';Expression={$_.VolumeName}},
+                        @{Name='Size (GB)';Expression={[math]::round($_.Size/1GB, 0)}},
+                        @{Name='FreeSpace (GB)';Expression={[math]::round($_.FreeSpace/1GB, 0)}}
+
+                    # Display updated drive list
+                    $driveListBox.Items.Clear()
+                    foreach ($drive in $updatedDrives) {
+                        $driveInfo = "$($drive.Name) - $($drive.VolumeName) - Size: $($drive.'Size (GB)') GB - Free: $($drive.'FreeSpace (GB)') GB"
+                        $driveListBox.Items.Add($driveInfo)
+                    }
+
+                    if ($driveListBox.Items.Count -gt 0) {
+                        $driveListBox.SelectedIndex = 0
+                    }
+
+                    # Update global drives variable for future use
+                    $script:drives = $updatedDrives
+                } else {
+                    Add-RenameStatus "Error: The operation failed with exit code $($batchProcess.ExitCode)"
+                    Add-RenameStatus "Please check the command prompt window for more details."
+                }
+            } catch {
+                Add-RenameStatus "Error: $_"
+            } finally {
+                # Clean up temp file
+                if (Test-Path $batchFilePath) {
+                    Remove-Item $batchFilePath -Force -ErrorAction SilentlyContinue
+                }
+            }
+        }
+        $renameVolumeForm.Controls.Add($renameButton)
+
+        # Cancel button
+        $cancelButton = New-DynamicButton -text "Cancel" -x 240 -y 320 -width 200 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
+            $renameVolumeForm.Close()
+        }
+        $renameVolumeForm.Controls.Add($cancelButton)
+
+        # Show the form
+        Add-Status "Opening Rename Volume dialog..."
+        $renameVolumeForm.ShowDialog()
     }
     $volumeForm.Controls.Add($btnRenameVolume)
 
