@@ -1,3 +1,5 @@
+# BAOPROVIP SYSTEM MANAGEMENT TOOL
+# Updated on: 2023-05-04
 # Check if running as administrator and restart with elevation if not
 if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
     Write-Warning "This script requires administrative privileges. Attempting to restart with elevation..."
