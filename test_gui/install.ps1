@@ -201,8 +201,545 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
 
 # Install All Software
 $buttonInstallSoftware = New-DynamicButton -text "Install All Software" -x 30 -y 180 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
-    [System.Windows.Forms.MessageBox]::Show("Installing all software...")
-    # Add installation commands here
+    # Create Software Installation form
+    $installForm = New-Object System.Windows.Forms.Form
+    $installForm.Text = "Software Installation"
+    $installForm.Size = New-Object System.Drawing.Size(600, 600)
+    $installForm.StartPosition = "CenterScreen"
+    $installForm.BackColor = [System.Drawing.Color]::Black
+    $installForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+    $installForm.MaximizeBox = $false
+    $installForm.MinimizeBox = $false
+
+    # Add a gradient background
+    $installForm.Paint = {
+        $graphics = $_.Graphics
+        $rect = New-Object System.Drawing.Rectangle(0, 0, $installForm.Width, $installForm.Height)
+        $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+            $rect,
+            [System.Drawing.Color]::FromArgb(0, 0, 0),  # Black at top
+            [System.Drawing.Color]::FromArgb(0, 40, 0), # Dark green at bottom
+            [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
+        )
+        $graphics.FillRectangle($brush, $rect)
+        $brush.Dispose()
+    }
+
+    # Title label with animation
+    $titleLabel = New-Object System.Windows.Forms.Label
+    $titleLabel.Text = "SOFTWARE INSTALLATION"
+    $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
+    $titleLabel.Size = New-Object System.Drawing.Size(600, 40)
+    $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+    $titleLabel.Font = New-Object System.Drawing.Font("Arial", 16, [System.Drawing.FontStyle]::Bold)
+    $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+    $titleLabel.Padding = New-Object System.Windows.Forms.Padding(5)
+
+    # Add animation to the title
+    $titleTimer = New-Object System.Windows.Forms.Timer
+    $titleTimer.Interval = 500
+    $titleTimer.Add_Tick({
+        if ($titleLabel.ForeColor -eq [System.Drawing.Color]::Lime) {
+            $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 220, 0)
+        } else {
+            $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+        }
+    })
+    $titleTimer.Start()
+
+    $installForm.Controls.Add($titleLabel)
+
+    # Status text box
+    $statusTextBox = New-Object System.Windows.Forms.TextBox
+    $statusTextBox.Multiline = $true
+    $statusTextBox.ScrollBars = "Vertical"
+    $statusTextBox.Location = New-Object System.Drawing.Point(50, 400)
+    $statusTextBox.Size = New-Object System.Drawing.Size(500, 150)
+    $statusTextBox.BackColor = [System.Drawing.Color]::Black
+    $statusTextBox.ForeColor = [System.Drawing.Color]::Lime
+    $statusTextBox.Font = New-Object System.Drawing.Font("Consolas", 9)
+    $statusTextBox.ReadOnly = $true
+    $statusTextBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+    $statusTextBox.Text = "Status messages will appear here..."
+    $installForm.Controls.Add($statusTextBox)
+
+    # Function to add status message
+    function Add-Status {
+        param([string]$message)
+
+        # Clear placeholder text on first message
+        if ($statusTextBox.Text -eq "Status messages will appear here...") {
+            $statusTextBox.Clear()
+        }
+
+        # Add timestamp to message
+        $timestamp = Get-Date -Format "HH:mm:ss"
+        $statusTextBox.AppendText("[$timestamp] $message`r`n")
+        $statusTextBox.ScrollToCaret()
+        [System.Windows.Forms.Application]::DoEvents()
+    }
+
+    # Function to copy files
+    function Copy-SoftwareFiles {
+        param (
+            [string]$deviceType # "Desktop" or "Laptop"
+        )
+
+        try {
+            # Create temp directory
+            $tempDir = "$env:USERPROFILE\Downloads\SETUP"
+            if (-not (Test-Path $tempDir)) {
+                Add-Status "Creating temporary folder..."
+                New-Item -Path $tempDir -ItemType Directory -Force | Out-Null
+                Add-Status "Temporary folder created successfully!"
+            } else {
+                Add-Status "Temporary folder already exists. Skipping..."
+            }
+
+            # Copy setup files
+            if (-not (Test-Path "$tempDir\Software")) {
+                Add-Status "Copying setup files..."
+                $setupSource = "D:\SOFTWARE\PAYOO\SETUP"
+                if (Test-Path $setupSource) {
+                    Copy-Item -Path $setupSource -Destination "$tempDir\Software" -Recurse -Force
+                    Add-Status "SetupFiles has been copied successfully!"
+                } else {
+                    Add-Status "Warning: Setup source folder not found at $setupSource"
+                }
+            } else {
+                Add-Status "SetupFiles is already copied. Skipping..."
+            }
+
+            # Copy Office 2019
+            if (-not (Test-Path "$tempDir\Office2019")) {
+                Add-Status "Copying Office 2019 files..."
+                $officeSource = "D:\SOFTWARE\OFFICE\Office 2019"
+                if (Test-Path $officeSource) {
+                    Copy-Item -Path "$officeSource\*" -Destination "$tempDir\Office2019" -Recurse -Force
+                    Add-Status "Office 2019 has been copied successfully!"
+                } else {
+                    Add-Status "Warning: Office source folder not found at $officeSource"
+                }
+            } else {
+                Add-Status "Office 2019 is already copied. Skipping..."
+            }
+
+            # Copy Unikey
+            if (-not (Test-Path "C:\unikey46RC2-230919-win64")) {
+                Add-Status "Copying Unikey files..."
+                $unikeySource = "D:\SOFTWARE\PAYOO\unikey46RC2-230919-win64"
+                if (Test-Path $unikeySource) {
+                    Copy-Item -Path $unikeySource -Destination "C:\unikey46RC2-230919-win64" -Recurse -Force
+                    Add-Status "Unikey has been copied successfully!"
+                } else {
+                    Add-Status "Warning: Unikey source folder not found at $unikeySource"
+                }
+            } else {
+                Add-Status "Unikey is already copied. Skipping..."
+            }
+
+            # Download Microsoft Teams
+            $teamsSetupPath = "$env:USERPROFILE\Downloads\TeamsSetup_c_w_.exe"
+            if (-not (Test-Path $teamsSetupPath)) {
+                Add-Status "Downloading Microsoft Teams from Microsoft website..."
+                try {
+                    $teamsUrl = "https://go.microsoft.com/fwlink/p/?LinkID=2187327&clcid=0x409&culture=en-us&country=US"
+                    Invoke-WebRequest -Uri $teamsUrl -OutFile $teamsSetupPath -UseBasicParsing
+                    Add-Status "Microsoft Teams has been downloaded successfully!"
+                } catch {
+                    Add-Status "Warning: Failed to download Microsoft Teams. Error: $_"
+                }
+            } else {
+                Add-Status "Microsoft Teams installer already exists. Skipping download..."
+            }
+
+            # Copy ForceScout
+            $forceScoutDest = "$env:USERPROFILE\Downloads\SC-wKgXWicTb0XhUSNethaFN0vkhji53AY5mektJ7O_RSOdc8bEUVIEAAH_OewU.exe"
+            if (-not (Test-Path $forceScoutDest)) {
+                Add-Status "Copying ForceScout file..."
+                $forceScoutSource = "D:\SOFTWARE\PAYOO\SC-wKgXWicTb0XhUSNethaFN0vkhji53AY5mektJ7O_RSOdc8bEUVIEAAH_OewU.exe"
+                if (Test-Path $forceScoutSource) {
+                    Copy-Item -Path $forceScoutSource -Destination $forceScoutDest -Force
+                    Add-Status "ForceScout has been copied successfully!"
+                } else {
+                    Add-Status "Warning: ForceScout source file not found at $forceScoutSource"
+                }
+            } else {
+                Add-Status "ForceScout is already copied. Skipping..."
+            }
+
+            # Copy Trellix
+            $trellixDest = "$env:USERPROFILE\Downloads\TrellixSmartInstall.exe"
+            if (-not (Test-Path $trellixDest)) {
+                Add-Status "Copying Trellix file..."
+                $trellixSource = "D:\SOFTWARE\PAYOO\TrellixSmartInstall.exe"
+                if (Test-Path $trellixSource) {
+                    Copy-Item -Path $trellixSource -Destination $trellixDest -Force
+                    Add-Status "Trellix has been copied successfully!"
+                } else {
+                    Add-Status "Warning: Trellix source file not found at $trellixSource"
+                }
+            } else {
+                Add-Status "Trellix is already copied. Skipping..."
+            }
+
+            # Copy MDM
+            $mdmDest = "$env:USERPROFILE\Downloads\ManageEngine_MDMLaptopEnrollment"
+            if (-not (Test-Path $mdmDest)) {
+                Add-Status "Copying MDM files..."
+                $mdmSource = "D:\SOFTWARE\PAYOO\ManageEngine_MDMLaptopEnrollment"
+                if (Test-Path $mdmSource) {
+                    Copy-Item -Path $mdmSource -Destination $mdmDest -Recurse -Force
+                    Add-Status "MDM has been copied successfully!"
+                } else {
+                    Add-Status "Warning: MDM source folder not found at $mdmSource"
+                }
+            } else {
+                Add-Status "MDM is already copied. Skipping..."
+            }
+
+            # Copy device-specific agent
+            if ($deviceType -eq "Desktop") {
+                $agentDest = "$env:USERPROFILE\Downloads\Desktop Agent.exe"
+                if (-not (Test-Path $agentDest)) {
+                    Add-Status "Copying Desktop Agent file..."
+                    $agentSource = "D:\SOFTWARE\PAYOO\Desktop Agent.exe"
+                    if (Test-Path $agentSource) {
+                        Copy-Item -Path $agentSource -Destination $agentDest -Force
+                        Add-Status "Desktop Agent has been copied successfully!"
+                    } else {
+                        Add-Status "Warning: Desktop Agent source file not found at $agentSource"
+                    }
+                } else {
+                    Add-Status "Desktop Agent is already copied. Skipping..."
+                }
+            } else {
+                $agentDest = "$env:USERPROFILE\Downloads\Laptop Agent.exe"
+                if (-not (Test-Path $agentDest)) {
+                    Add-Status "Copying Laptop Agent file..."
+                    $agentSource = "D:\SOFTWARE\PAYOO\Laptop Agent.exe"
+                    if (Test-Path $agentSource) {
+                        Copy-Item -Path $agentSource -Destination $agentDest -Force
+                        Add-Status "Laptop Agent has been copied successfully!"
+                    } else {
+                        Add-Status "Warning: Laptop Agent source file not found at $agentSource"
+                    }
+                } else {
+                    Add-Status "Laptop Agent is already copied. Skipping..."
+                }
+            }
+
+            Add-Status "All files have been copied successfully."
+            return $true
+        } catch {
+            Add-Status "Error during file copy: $_"
+            return $false
+        }
+    }
+
+    # Function to install software
+    function Install-Software {
+        param (
+            [string]$deviceType # "Desktop" or "Laptop"
+        )
+
+        try {
+            $tempDir = "$env:USERPROFILE\Downloads\SETUP"
+
+            # Install 7-Zip
+            if (-not (Test-Path "$env:ProgramFiles\7-Zip\7zFM.exe")) {
+                Add-Status "Installing 7-Zip..."
+                $zipSetup = "$tempDir\Software\7z2408-x64.exe"
+                if (Test-Path $zipSetup) {
+                    Start-Process -FilePath $zipSetup -ArgumentList "/S" -Wait
+                    Add-Status "7-Zip installed successfully!"
+                } else {
+                    Add-Status "Warning: 7-Zip setup file not found at $zipSetup"
+                }
+            } else {
+                Add-Status "7-Zip is already installed. Skipping..."
+            }
+
+            # Install Google Chrome
+            if (-not (Test-Path "$env:ProgramFiles\Google\Chrome\Application\chrome.exe")) {
+                Add-Status "Installing Google Chrome..."
+                $chromeSetup = "$tempDir\Software\ChromeSetup.exe"
+                if (Test-Path $chromeSetup) {
+                    Start-Process -FilePath $chromeSetup -ArgumentList "/silent /install" -Wait
+                    Add-Status "Google Chrome installed successfully!"
+                } else {
+                    Add-Status "Warning: Chrome setup file not found at $chromeSetup"
+                }
+            } else {
+                Add-Status "Google Chrome is already installed. Skipping..."
+            }
+
+            # Install LAPS_x64
+            if (-not (Test-Path "$env:ProgramFiles\LAPS\CSE\AdmPwd.dll")) {
+                Add-Status "Installing LAPS_x64..."
+                $lapsSetup = "$tempDir\Software\LAPS_x64.msi"
+                if (Test-Path $lapsSetup) {
+                    Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$lapsSetup`" /quiet" -Wait
+                    Add-Status "LAPS_x64 installed successfully!"
+                } else {
+                    Add-Status "Warning: LAPS setup file not found at $lapsSetup"
+                }
+            } else {
+                Add-Status "LAPS_x64 is already installed. Skipping..."
+            }
+
+            # Install Foxit Reader
+            if (-not (Test-Path "${env:ProgramFiles(x86)}\Foxit Software\Foxit PDF Reader\FoxitPDFReader.exe")) {
+                Add-Status "Installing Foxit Reader..."
+                $foxitSetup = "$tempDir\Software\FoxitPDFReader20243_enu_Setup_Prom.exe"
+                if (Test-Path $foxitSetup) {
+                    Start-Process -FilePath $foxitSetup -ArgumentList "/silent /install" -Wait
+                    Add-Status "Foxit Reader installed successfully!"
+                } else {
+                    Add-Status "Warning: Foxit Reader setup file not found at $foxitSetup"
+                }
+            } else {
+                Add-Status "Foxit Reader is already installed. Skipping..."
+            }
+
+            # Install Microsoft Office 2019
+            if (-not (Test-Path "$env:ProgramFiles\Microsoft Office\root\Office16\WINWORD.EXE")) {
+                Add-Status "Installing Microsoft Office 2019..."
+                $officeSetup = "$tempDir\Office2019\setup.exe"
+                $officeConfig = "$tempDir\Office2019\configuration.xml"
+                if ((Test-Path $officeSetup) -and (Test-Path $officeConfig)) {
+                    $currentLocation = Get-Location
+                    Set-Location -Path "$tempDir\Office2019"
+                    Start-Process -FilePath $officeSetup -ArgumentList "/configure configuration.xml" -Wait
+                    Set-Location -Path $currentLocation
+                    Add-Status "Microsoft Office 2019 installed successfully!"
+                } else {
+                    Add-Status "Warning: Office setup files not found at $tempDir\Office2019"
+                }
+            } else {
+                Add-Status "Microsoft Office 2019 is already installed. Skipping..."
+            }
+
+            # Install laptop-specific software
+            if ($deviceType -eq "Laptop") {
+                # Install Zoom
+                if (-not (Test-Path "$env:USERPROFILE\AppData\Roaming\Zoom\bin\Zoom.exe")) {
+                    Add-Status "Installing Zoom..."
+                    $zoomSetup = "$tempDir\Software\ZoomInstallerFull.exe"
+                    if (Test-Path $zoomSetup) {
+                        Start-Process -FilePath $zoomSetup -ArgumentList "/silent /install" -Wait
+                        Add-Status "Zoom installed successfully!"
+                    } else {
+                        Add-Status "Warning: Zoom setup file not found at $zoomSetup"
+                    }
+                } else {
+                    Add-Status "Zoom is already installed. Skipping..."
+                }
+
+                # Install CheckPointVPN
+                if (-not (Test-Path "${env:ProgramFiles(x86)}\CheckPoint\Endpoint Connect\TrGUI.exe")) {
+                    Add-Status "Installing CheckPointVPN..."
+                    $vpnSetup = "$tempDir\Software\CheckPointVPN.msi"
+                    if (Test-Path $vpnSetup) {
+                        Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$vpnSetup`" /quiet" -Wait
+                        Add-Status "CheckPointVPN installed successfully!"
+                    } else {
+                        Add-Status "Warning: CheckPointVPN setup file not found at $vpnSetup"
+                    }
+                } else {
+                    Add-Status "CheckPointVPN is already installed. Skipping..."
+                }
+            }
+
+            Add-Status "All software has been installed successfully."
+            return $true
+        } catch {
+            Add-Status "Error during software installation: $_"
+            return $false
+        }
+    }
+
+    # Install for Desktop button
+    $btnInstallDesktop = New-DynamicButton -text "Install Software for Desktop" -x 50 -y 80 -width 500 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+        Add-Status "Starting desktop software installation process..."
+
+        # First copy all necessary files
+        Add-Status "Step 1: Copying required files..."
+        $copyResult = Copy-SoftwareFiles -deviceType "Desktop"
+
+        if ($copyResult) {
+            # Then install the software
+            Add-Status "Step 2: Installing software..."
+            $installResult = Install-Software -deviceType "Desktop"
+
+            if ($installResult) {
+                Add-Status "Desktop software installation completed successfully."
+            } else {
+                Add-Status "Warning: Some software installations may have failed. Check the log for details."
+            }
+        } else {
+            Add-Status "Error: Failed to copy required files. Installation aborted."
+        }
+    }
+    $installForm.Controls.Add($btnInstallDesktop)
+
+    # Install for Laptop button
+    $btnInstallLaptop = New-DynamicButton -text "Install Software for Laptop" -x 50 -y 160 -width 500 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+        Add-Status "Starting laptop software installation process..."
+
+        # First copy all necessary files
+        Add-Status "Step 1: Copying required files..."
+        $copyResult = Copy-SoftwareFiles -deviceType "Laptop"
+
+        if ($copyResult) {
+            # Then install the software
+            Add-Status "Step 2: Installing software..."
+            $installResult = Install-Software -deviceType "Laptop"
+
+            if ($installResult) {
+                Add-Status "Laptop software installation completed successfully."
+            } else {
+                Add-Status "Warning: Some software installations may have failed. Check the log for details."
+            }
+        } else {
+            Add-Status "Error: Failed to copy required files. Installation aborted."
+        }
+    }
+    $installForm.Controls.Add($btnInstallLaptop)
+
+    # Copy Files Only button
+    $btnCopyOnly = New-DynamicButton -text "Copy Files Only" -x 50 -y 240 -width 500 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+        Add-Status "Starting file copy process..."
+
+        try {
+            # Create temp directory
+            $tempDir = "$env:USERPROFILE\Downloads\SETUP"
+            if (-not (Test-Path $tempDir)) {
+                Add-Status "Creating temporary folder..."
+                New-Item -Path $tempDir -ItemType Directory -Force | Out-Null
+                Add-Status "Temporary folder created successfully!"
+            } else {
+                Add-Status "Temporary folder already exists. Skipping..."
+            }
+
+            # Copy setup files
+            if (-not (Test-Path "$tempDir\Software")) {
+                Add-Status "Copying setup files..."
+                $setupSource = "D:\SOFTWARE\PAYOO\SETUP"
+                if (Test-Path $setupSource) {
+                    Copy-Item -Path $setupSource -Destination "$tempDir\Software" -Recurse -Force
+                    Add-Status "SetupFiles has been copied successfully!"
+                } else {
+                    Add-Status "Warning: Setup source folder not found at $setupSource"
+                }
+            } else {
+                Add-Status "SetupFiles is already copied. Skipping..."
+            }
+
+            # Copy Office 2019
+            if (-not (Test-Path "$tempDir\Office2019")) {
+                Add-Status "Copying Office 2019 files..."
+                $officeSource = "D:\SOFTWARE\OFFICE\Office 2019"
+                if (Test-Path $officeSource) {
+                    Copy-Item -Path "$officeSource\*" -Destination "$tempDir\Office2019" -Recurse -Force
+                    Add-Status "Office 2019 has been copied successfully!"
+                } else {
+                    Add-Status "Warning: Office source folder not found at $officeSource"
+                }
+            } else {
+                Add-Status "Office 2019 is already copied. Skipping..."
+            }
+
+            # Copy Unikey
+            if (-not (Test-Path "C:\unikey46RC2-230919-win64")) {
+                Add-Status "Copying Unikey files..."
+                $unikeySource = "D:\SOFTWARE\PAYOO\unikey46RC2-230919-win64"
+                if (Test-Path $unikeySource) {
+                    Copy-Item -Path $unikeySource -Destination "C:\unikey46RC2-230919-win64" -Recurse -Force
+                    Add-Status "Unikey has been copied successfully!"
+                } else {
+                    Add-Status "Warning: Unikey source folder not found at $unikeySource"
+                }
+            } else {
+                Add-Status "Unikey is already copied. Skipping..."
+            }
+
+            # Copy MSTeamsSetup
+            if (-not (Test-Path "C:\MSTeamsSetup")) {
+                Add-Status "Copying MSTeamsSetup files..."
+                $teamsSource = "D:\SOFTWARE\PAYOO\MSTeamsSetup"
+                if (Test-Path $teamsSource) {
+                    Copy-Item -Path $teamsSource -Destination "C:\MSTeamsSetup" -Recurse -Force
+                    Add-Status "MSTeamsSetup has been copied successfully!"
+                } else {
+                    Add-Status "Warning: MSTeamsSetup source folder not found at $teamsSource"
+                }
+            } else {
+                Add-Status "MSTeamsSetup is already copied. Skipping..."
+            }
+
+            # Copy ForceScout
+            $forceScoutDest = "$env:USERPROFILE\Downloads\SC-wKgXWicTb0XhUSNethaFN0vkhji53AY5mektJ7O_RSOdc8bEUVIEAAH_OewU.exe"
+            if (-not (Test-Path $forceScoutDest)) {
+                Add-Status "Copying ForceScout file..."
+                $forceScoutSource = "D:\SOFTWARE\PAYOO\SC-wKgXWicTb0XhUSNethaFN0vkhji53AY5mektJ7O_RSOdc8bEUVIEAAH_OewU.exe"
+                if (Test-Path $forceScoutSource) {
+                    Copy-Item -Path $forceScoutSource -Destination $forceScoutDest -Force
+                    Add-Status "ForceScout has been copied successfully!"
+                } else {
+                    Add-Status "Warning: ForceScout source file not found at $forceScoutSource"
+                }
+            } else {
+                Add-Status "ForceScout is already copied. Skipping..."
+            }
+
+            # Copy Trellix
+            $trellixDest = "$env:USERPROFILE\Downloads\TrellixSmartInstall.exe"
+            if (-not (Test-Path $trellixDest)) {
+                Add-Status "Copying Trellix file..."
+                $trellixSource = "D:\SOFTWARE\PAYOO\TrellixSmartInstall.exe"
+                if (Test-Path $trellixSource) {
+                    Copy-Item -Path $trellixSource -Destination $trellixDest -Force
+                    Add-Status "Trellix has been copied successfully!"
+                } else {
+                    Add-Status "Warning: Trellix source file not found at $trellixSource"
+                }
+            } else {
+                Add-Status "Trellix is already copied. Skipping..."
+            }
+
+            # Copy MDM
+            $mdmDest = "$env:USERPROFILE\Downloads\ManageEngine_MDMLaptopEnrollment"
+            if (-not (Test-Path $mdmDest)) {
+                Add-Status "Copying MDM files..."
+                $mdmSource = "D:\SOFTWARE\PAYOO\ManageEngine_MDMLaptopEnrollment"
+                if (Test-Path $mdmSource) {
+                    Copy-Item -Path $mdmSource -Destination $mdmDest -Recurse -Force
+                    Add-Status "MDM has been copied successfully!"
+                } else {
+                    Add-Status "Warning: MDM source folder not found at $mdmSource"
+                }
+            } else {
+                Add-Status "MDM is already copied. Skipping..."
+            }
+
+            Add-Status "File copy process completed successfully."
+
+        } catch {
+            Add-Status "Error during file copy: $_"
+        }
+    }
+    $installForm.Controls.Add($btnCopyOnly)
+
+    # Return to Main Menu button
+    $btnReturn = New-DynamicButton -text "Return to Main Menu" -x 50 -y 320 -width 500 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
+        $installForm.Close()
+    }
+    $installForm.Controls.Add($btnReturn)
+
+    # Show the form
+    $installForm.ShowDialog()
 }
 
 # Power Options and Firewall
