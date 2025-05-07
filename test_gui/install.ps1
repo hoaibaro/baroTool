@@ -195,8 +195,914 @@ function New-DynamicButton {
 
 # Run All Options
 $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
-    [System.Windows.Forms.MessageBox]::Show("Running all options...")
-    # Add commands to run here
+    # Create device selection form
+    $deviceForm = New-Object System.Windows.Forms.Form
+    $deviceForm.Text = "Select Device Type"
+    $deviceForm.Size = New-Object System.Drawing.Size(400, 300)
+    $deviceForm.StartPosition = "CenterScreen"
+    $deviceForm.BackColor = [System.Drawing.Color]::Black
+    $deviceForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+    $deviceForm.MaximizeBox = $false
+    $deviceForm.MinimizeBox = $false
+
+    # Add a gradient background
+    $deviceForm.Paint = {
+        $graphics = $_.Graphics
+        $rect = New-Object System.Drawing.Rectangle(0, 0, $deviceForm.Width, $deviceForm.Height)
+        $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+            $rect,
+            [System.Drawing.Color]::FromArgb(0, 0, 0),  # Black at top
+            [System.Drawing.Color]::FromArgb(0, 40, 0), # Dark green at bottom
+            [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
+        )
+        $graphics.FillRectangle($brush, $rect)
+        $brush.Dispose()
+    }
+
+    # Title label
+    $titleLabel = New-Object System.Windows.Forms.Label
+    $titleLabel.Text = "SELECT DEVICE TYPE"
+    $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
+    $titleLabel.Size = New-Object System.Drawing.Size(400, 40)
+    $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+    $titleLabel.Font = New-Object System.Drawing.Font("Arial", 16, [System.Drawing.FontStyle]::Bold)
+    $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+    $deviceForm.Controls.Add($titleLabel)
+
+    # Desktop button
+    $btnDesktop = New-DynamicButton -text "[1] Desktop" -x 50 -y 80 -width 300 -height 50 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+        $deviceForm.Tag = "Desktop"
+        $deviceForm.Close()
+    }
+    $deviceForm.Controls.Add($btnDesktop)
+
+    # Laptop button
+    $btnLaptop = New-DynamicButton -text "[2] Laptop" -x 50 -y 150 -width 300 -height 50 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+        $deviceForm.Tag = "Laptop"
+        $deviceForm.Close()
+    }
+    $deviceForm.Controls.Add($btnLaptop)
+
+    # Cancel button
+    $btnCancel = New-DynamicButton -text "[0] Cancel" -x 50 -y 220 -width 300 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
+        $deviceForm.Tag = "Cancel"
+        $deviceForm.Close()
+    }
+    $deviceForm.Controls.Add($btnCancel)
+
+    # Show the form and get the result
+    $deviceForm.ShowDialog()
+
+    # Process the selection
+    $deviceType = $deviceForm.Tag
+    if ($deviceType -eq "Desktop") {
+        $confirmResult = [System.Windows.Forms.MessageBox]::Show(
+            "You selected Desktop. This will run all options for Desktop devices.`n`nDo you want to continue?",
+            "Confirm Run All",
+            [System.Windows.Forms.MessageBoxButtons]::YesNo,
+            [System.Windows.Forms.MessageBoxIcon]::Question)
+
+        if ($confirmResult -eq [System.Windows.Forms.DialogResult]::Yes) {
+            # Create a progress form
+            $progressForm = New-Object System.Windows.Forms.Form
+            $progressForm.Text = "Running All Options for Desktop"
+            $progressForm.Size = New-Object System.Drawing.Size(600, 400)
+            $progressForm.StartPosition = "CenterScreen"
+            $progressForm.BackColor = [System.Drawing.Color]::Black
+            $progressForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+            $progressForm.MaximizeBox = $false
+            $progressForm.MinimizeBox = $false
+
+            # Add a gradient background
+            $progressForm.Paint = {
+                $graphics = $_.Graphics
+                $rect = New-Object System.Drawing.Rectangle(0, 0, $progressForm.Width, $progressForm.Height)
+                $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+                    $rect,
+                    [System.Drawing.Color]::FromArgb(0, 0, 0),  # Black at top
+                    [System.Drawing.Color]::FromArgb(0, 40, 0), # Dark green at bottom
+                    [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
+                )
+                $graphics.FillRectangle($brush, $rect)
+                $brush.Dispose()
+            }
+
+            # Title label
+            $titleLabel = New-Object System.Windows.Forms.Label
+            $titleLabel.Text = "RUNNING ALL OPTIONS FOR DESKTOP"
+            $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
+            $titleLabel.Size = New-Object System.Drawing.Size(600, 40)
+            $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+            $titleLabel.Font = New-Object System.Drawing.Font("Arial", 16, [System.Drawing.FontStyle]::Bold)
+            $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+            $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+            $progressForm.Controls.Add($titleLabel)
+
+            # Status text box
+            $statusTextBox = New-Object System.Windows.Forms.TextBox
+            $statusTextBox.Multiline = $true
+            $statusTextBox.ScrollBars = "Vertical"
+            $statusTextBox.Location = New-Object System.Drawing.Point(50, 70)
+            $statusTextBox.Size = New-Object System.Drawing.Size(500, 250)
+            $statusTextBox.BackColor = [System.Drawing.Color]::Black
+            $statusTextBox.ForeColor = [System.Drawing.Color]::Lime
+            $statusTextBox.Font = New-Object System.Drawing.Font("Consolas", 10)
+            $statusTextBox.ReadOnly = $true
+            $statusTextBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+            $statusTextBox.Text = "Starting all tasks for Desktop...`r`n"
+            $progressForm.Controls.Add($statusTextBox)
+
+            # Close button
+            $closeButton = New-DynamicButton -text "Close" -x 200 -y 330 -width 200 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
+                $progressForm.Close()
+            }
+            $progressForm.Controls.Add($closeButton)
+            $closeButton.Enabled = $false
+
+            # Function to add status message
+            function Add-RunAllStatus {
+                param([string]$message)
+                $statusTextBox.AppendText("$(Get-Date -Format 'HH:mm:ss') - $message`r`n")
+                $statusTextBox.ScrollToCaret()
+                [System.Windows.Forms.Application]::DoEvents()
+            }
+
+            # Show the form
+            $progressForm.Show()
+            [System.Windows.Forms.Application]::DoEvents()
+
+            # Run all tasks for Desktop
+            try {
+                # 1. Activate Windows
+                Add-RunAllStatus "Step 1/7: Activating Windows 10 Pro..."
+                try {
+                    $windowsStatus = & cscript //nologo "$env:windir\system32\slmgr.vbs" /dli
+                    $isWindowsActivated = $windowsStatus -match "License Status: Licensed"
+
+                    if ($isWindowsActivated) {
+                        Add-RunAllStatus "Windows is already activated."
+                    } else {
+                        Add-RunAllStatus "Windows not activated. Activating Windows 10 Pro..."
+                        $command = "slmgr /ipk R84N4-RPC7Q-W8TKM-VM7Y4-7H66Y && slmgr /ato"
+
+                        # Create a process to run the command with elevated privileges
+                        $psi = New-Object System.Diagnostics.ProcessStartInfo
+                        $psi.FileName = "powershell.exe"
+                        $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
+                        $psi.UseShellExecute = $true
+                        $psi.Verb = "runas"
+                        $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+                        # Start the process
+                        [System.Diagnostics.Process]::Start($psi)
+                        Add-RunAllStatus "Windows activation initiated."
+                    }
+                } catch {
+                    Add-RunAllStatus "Error activating Windows: $_"
+                }
+
+                # 2. Set Time Zone
+                Add-RunAllStatus "Step 2/7: Setting time zone and power options..."
+                try {
+                    # Set timezone to SE Asia Standard Time
+                    Start-Process -FilePath "tzutil.exe" -ArgumentList "/s `"SE Asia Standard Time`"" -Wait -NoNewWindow
+
+                    # Configure Windows Time service
+                    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\w32time\Parameters" -Name "Type" -Value "NTP" -Type String -ErrorAction SilentlyContinue
+
+                    # Resync time
+                    try {
+                        Start-Process -FilePath "w32tm.exe" -ArgumentList "/resync" -Wait -NoNewWindow
+                    } catch {
+                        Add-RunAllStatus "Warning: Could not sync time. $_"
+                    }
+
+                    # Configure power options
+                    $powerCommands = @(
+                        "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS LIDACTION 0",
+                        "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS LIDACTION 0",
+                        "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS SBUTTONACTION 0",
+                        "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS SBUTTONACTION 0",
+                        "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS PBUTTONACTION 0",
+                        "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS PBUTTONACTION 0",
+                        "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_VIDEO VIDEOIDLE 0",
+                        "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_VIDEO VIDEOIDLE 0",
+                        "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 0",
+                        "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 0",
+                        "powercfg /SETACTIVE SCHEME_CURRENT"
+                    )
+
+                    $powerScript = $powerCommands -join "; "
+
+                    # Create a process to run the command with elevated privileges
+                    $psi = New-Object System.Diagnostics.ProcessStartInfo
+                    $psi.FileName = "powershell.exe"
+                    $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $powerScript' -Verb RunAs -WindowStyle Hidden"
+                    $psi.UseShellExecute = $true
+                    $psi.Verb = "runas"
+                    $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+                    # Start the process
+                    [System.Diagnostics.Process]::Start($psi)
+
+                    # Turn off the firewall
+                    $command = "netsh advfirewall set allprofiles state off"
+
+                    # Create a process to run the command with elevated privileges
+                    $psi = New-Object System.Diagnostics.ProcessStartInfo
+                    $psi.FileName = "powershell.exe"
+                    $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
+                    $psi.UseShellExecute = $true
+                    $psi.Verb = "runas"
+                    $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+                    # Start the process
+                    [System.Diagnostics.Process]::Start($psi)
+
+                    Add-RunAllStatus "Time zone, power options, and firewall have been configured."
+                } catch {
+                    Add-RunAllStatus "Error setting time zone and power options: $_"
+                }
+
+                # 3. Install Software for Desktop
+                Add-RunAllStatus "Step 3/7: Installing software for Desktop..."
+                try {
+                    # Copy software files
+                    $tempDir = "$env:USERPROFILE\Downloads\SETUP"
+                    if (-not (Test-Path $tempDir)) {
+                        Add-RunAllStatus "Creating temporary folder..."
+                        New-Item -Path $tempDir -ItemType Directory -Force | Out-Null
+                    }
+
+                    # Copy setup files if source exists
+                    $setupSource = "D:\SOFTWARE\PAYOO\SETUP"
+                    if (Test-Path $setupSource) {
+                        if (-not (Test-Path "$tempDir\Software")) {
+                            Add-RunAllStatus "Copying setup files..."
+                            Copy-Item -Path $setupSource -Destination "$tempDir\Software" -Recurse -Force
+                        }
+                    } else {
+                        Add-RunAllStatus "Warning: Setup source folder not found at $setupSource"
+                    }
+
+                    # Copy Office 2019 if source exists
+                    $officeSource = "D:\SOFTWARE\OFFICE\Office 2019"
+                    if (Test-Path $officeSource) {
+                        if (-not (Test-Path "$tempDir\Office2019")) {
+                            Add-RunAllStatus "Copying Office 2019 files..."
+                            Copy-Item -Path "$officeSource\*" -Destination "$tempDir\Office2019" -Recurse -Force
+                        }
+                    } else {
+                        Add-RunAllStatus "Warning: Office source folder not found at $officeSource"
+                    }
+
+                    # Install software if files exist
+                    if (Test-Path "$tempDir\Software") {
+                        # Install 7-Zip
+                        if (-not (Test-Path "$env:ProgramFiles\7-Zip\7zFM.exe")) {
+                            $zipSetup = "$tempDir\Software\7z2408-x64.exe"
+                            if (Test-Path $zipSetup) {
+                                Add-RunAllStatus "Installing 7-Zip..."
+                                Start-Process -FilePath $zipSetup -ArgumentList "/S" -Wait
+                            }
+                        }
+
+                        # Install Google Chrome
+                        if (-not (Test-Path "$env:ProgramFiles\Google\Chrome\Application\chrome.exe")) {
+                            $chromeSetup = "$tempDir\Software\ChromeSetup.exe"
+                            if (Test-Path $chromeSetup) {
+                                Add-RunAllStatus "Installing Google Chrome..."
+                                Start-Process -FilePath $chromeSetup -ArgumentList "/silent /install" -Wait
+                            }
+                        }
+                    }
+
+                    Add-RunAllStatus "Software installation for Desktop completed."
+                } catch {
+                    Add-RunAllStatus "Error installing software: $_"
+                }
+
+                # 4. Activate Office
+                Add-RunAllStatus "Step 4/7: Activating Office 2019..."
+                try {
+                    # Check if Office16 path exists
+                    $office16Path = "C:\Program Files\Microsoft Office\Office16\ospp.vbs"
+                    $office15Path = "C:\Program Files\Microsoft Office\Office15\ospp.vbs"
+
+                    if (Test-Path $office16Path) {
+                        $officePath = $office16Path
+                        Add-RunAllStatus "Found Office16."
+                    } elseif (Test-Path $office15Path) {
+                        $officePath = $office15Path
+                        Add-RunAllStatus "Found Office15."
+                    } else {
+                        Add-RunAllStatus "Office installation not found. Skipping activation."
+                        $officePath = $null
+                    }
+
+                    if ($officePath) {
+                        # Check activation status
+                        $officeStatus = & cscript //nologo "$officePath" /dstatus
+                        $isOfficeActivated = $officeStatus -match "LICENSE STATUS:  ---LICENSED---"
+
+                        if ($isOfficeActivated) {
+                            Add-RunAllStatus "Office is already activated."
+                        } else {
+                            Add-RunAllStatus "Office not activated. Activating Office 2019 Pro Plus..."
+                            $command = "cscript `"$officePath`" /inpkey:Q2NKY-J42YJ-X2KVK-9Q9PT-MKP63 && cscript `"$officePath`" /act"
+
+                            # Create a process to run the command with elevated privileges
+                            $psi = New-Object System.Diagnostics.ProcessStartInfo
+                            $psi.FileName = "powershell.exe"
+                            $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
+                            $psi.UseShellExecute = $true
+                            $psi.Verb = "runas"
+                            $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+                            # Start the process
+                            [System.Diagnostics.Process]::Start($psi)
+                            Add-RunAllStatus "Office activation initiated."
+                        }
+                    }
+                } catch {
+                    Add-RunAllStatus "Error activating Office: $_"
+                }
+
+                # 5. Turn on Windows Features
+                Add-RunAllStatus "Step 5/7: Enabling Windows features..."
+                try {
+                    # Enable .NET Framework 3.5
+                    Add-RunAllStatus "Enabling .NET Framework 3.5..."
+                    $netfxCommand = "DISM /Online /Enable-Feature /FeatureName:NetFx3 /All /LimitAccess /Source:D:\sources\sxs"
+
+                    # Create a process to run the command with elevated privileges
+                    $psi = New-Object System.Diagnostics.ProcessStartInfo
+                    $psi.FileName = "powershell.exe"
+                    $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $netfxCommand' -Verb RunAs -WindowStyle Hidden"
+                    $psi.UseShellExecute = $true
+                    $psi.Verb = "runas"
+                    $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+                    # Start the process
+                    [System.Diagnostics.Process]::Start($psi)
+                    Add-RunAllStatus "Windows features enabled."
+                } catch {
+                    Add-RunAllStatus "Error enabling Windows features: $_"
+                }
+
+                # 6. Rename Device
+                Add-RunAllStatus "Step 6/7: Setting computer name..."
+                try {
+                    # Create a device name input form
+                    $nameForm = New-Object System.Windows.Forms.Form
+                    $nameForm.Text = "Enter Device Name"
+                    $nameForm.Size = New-Object System.Drawing.Size(400, 250)
+                    $nameForm.StartPosition = "CenterScreen"
+                    $nameForm.BackColor = [System.Drawing.Color]::Black
+                    $nameForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+                    $nameForm.MaximizeBox = $false
+                    $nameForm.MinimizeBox = $false
+                    $nameForm.TopMost = $true
+
+                    # Add a gradient background
+                    $nameForm.Paint = {
+                        $graphics = $_.Graphics
+                        $rect = New-Object System.Drawing.Rectangle(0, 0, $nameForm.Width, $nameForm.Height)
+                        $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+                            $rect,
+                            [System.Drawing.Color]::FromArgb(0, 0, 0),  # Black at top
+                            [System.Drawing.Color]::FromArgb(0, 40, 0), # Dark green at bottom
+                            [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
+                        )
+                        $graphics.FillRectangle($brush, $rect)
+                        $brush.Dispose()
+                    }
+
+                    # Title label
+                    $titleLabel = New-Object System.Windows.Forms.Label
+                    $titleLabel.Text = "ENTER NEW DEVICE NAME"
+                    $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
+                    $titleLabel.Size = New-Object System.Drawing.Size(400, 30)
+                    $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+                    $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
+                    $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+                    $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+                    $nameForm.Controls.Add($titleLabel)
+
+                    # Current name label
+                    $currentName = $env:COMPUTERNAME
+                    $currentLabel = New-Object System.Windows.Forms.Label
+                    $currentLabel.Text = "Current name: $currentName"
+                    $currentLabel.Location = New-Object System.Drawing.Point(50, 60)
+                    $currentLabel.Size = New-Object System.Drawing.Size(300, 20)
+                    $currentLabel.ForeColor = [System.Drawing.Color]::White
+                    $currentLabel.Font = New-Object System.Drawing.Font("Arial", 10)
+                    $currentLabel.BackColor = [System.Drawing.Color]::Transparent
+                    $nameForm.Controls.Add($currentLabel)
+
+                    # Default name suggestion
+                    $defaultName = "DESKTOP-PAYOO"
+
+                    # Name input textbox
+                    $nameTextBox = New-Object System.Windows.Forms.TextBox
+                    $nameTextBox.Location = New-Object System.Drawing.Point(50, 90)
+                    $nameTextBox.Size = New-Object System.Drawing.Size(300, 25)
+                    $nameTextBox.BackColor = [System.Drawing.Color]::Black
+                    $nameTextBox.ForeColor = [System.Drawing.Color]::Lime
+                    $nameTextBox.Font = New-Object System.Drawing.Font("Consolas", 12)
+                    $nameTextBox.Text = $defaultName
+                    $nameForm.Controls.Add($nameTextBox)
+
+                    # Info label
+                    $infoLabel = New-Object System.Windows.Forms.Label
+                    $infoLabel.Text = "Computer name must be 15 characters or less`nand can contain letters, numbers, and hyphens."
+                    $infoLabel.Location = New-Object System.Drawing.Point(50, 120)
+                    $infoLabel.Size = New-Object System.Drawing.Size(300, 40)
+                    $infoLabel.ForeColor = [System.Drawing.Color]::Silver
+                    $infoLabel.Font = New-Object System.Drawing.Font("Arial", 9)
+                    $infoLabel.BackColor = [System.Drawing.Color]::Transparent
+                    $nameForm.Controls.Add($infoLabel)
+
+                    # OK button
+                    $okButton = New-DynamicButton -text "OK" -x 50 -y 170 -width 140 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+                        $nameForm.Tag = $nameTextBox.Text
+                        $nameForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+                        $nameForm.Close()
+                    }
+                    $nameForm.Controls.Add($okButton)
+
+                    # Cancel button
+                    $cancelButton = New-DynamicButton -text "Cancel" -x 210 -y 170 -width 140 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
+                        $nameForm.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+                        $nameForm.Close()
+                    }
+                    $nameForm.Controls.Add($cancelButton)
+
+                    # Set the accept button (Enter key)
+                    $nameForm.AcceptButton = $okButton
+                    $nameForm.CancelButton = $cancelButton
+
+                    # Show the form and get the result
+                    $result = $nameForm.ShowDialog()
+
+                    if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+                        $newName = $nameForm.Tag
+
+                        # Validate the name
+                        if ([string]::IsNullOrWhiteSpace($newName)) {
+                            Add-RunAllStatus "No name provided. Using default name $defaultName."
+                            $newName = $defaultName
+                        } elseif ($newName.Length -gt 15) {
+                            Add-RunAllStatus "Name too long. Truncating to 15 characters."
+                            $newName = $newName.Substring(0, 15)
+                        }
+
+                        # Remove invalid characters
+                        $newName = $newName -replace '[^\w\-]', ''
+
+                        if ($currentName -ne $newName) {
+                            Add-RunAllStatus "Setting computer name to $newName..."
+
+                            # Create a command to rename the computer
+                            $command = "Rename-Computer -NewName '$newName' -Force"
+
+                            # Create a process to run the command with elevated privileges
+                            $psi = New-Object System.Diagnostics.ProcessStartInfo
+                            $psi.FileName = "powershell.exe"
+                            $psi.Arguments = "-Command Start-Process powershell.exe -ArgumentList '-Command $command' -Verb RunAs"
+                            $psi.UseShellExecute = $true
+                            $psi.Verb = "runas"
+
+                            # Start the process
+                            [System.Diagnostics.Process]::Start($psi)
+                            Add-RunAllStatus "Computer name change initiated to $newName."
+                        } else {
+                            Add-RunAllStatus "Computer is already named $newName. Skipping rename."
+                        }
+                    } else {
+                        Add-RunAllStatus "Computer name change cancelled by user."
+                    }
+                } catch {
+                    Add-RunAllStatus "Error renaming computer: $_"
+                }
+
+                # 7. Set Password
+                Add-RunAllStatus "Step 7/7: Setting password for current user..."
+                try {
+                    $currentUser = $env:USERNAME
+                    $newPassword = "Pr0t3ct10c@1@VU"
+
+                    # Create a command to set the password
+                    $command = "net user $currentUser $newPassword"
+
+                    # Create a process to run the command with elevated privileges
+                    $psi = New-Object System.Diagnostics.ProcessStartInfo
+                    $psi.FileName = "powershell.exe"
+                    $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
+                    $psi.UseShellExecute = $true
+                    $psi.Verb = "runas"
+                    $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+                    # Start the process
+                    [System.Diagnostics.Process]::Start($psi)
+                    Add-RunAllStatus "Password set to 'Payoo@123' for user $currentUser."
+                } catch {
+                    Add-RunAllStatus "Error setting password: $_"
+                }
+
+                # All tasks completed
+                Add-RunAllStatus "`r`nAll tasks for Desktop completed successfully!"
+                Add-RunAllStatus "You may need to restart your computer to apply all changes."
+
+            } catch {
+                Add-RunAllStatus "Error running all tasks: $_"
+            } finally {
+                # Enable close button
+                $closeButton.Enabled = $true
+            }
+        }
+    }
+    elseif ($deviceType -eq "Laptop") {
+        $confirmResult = [System.Windows.Forms.MessageBox]::Show(
+            "You selected Laptop. This will run all options for Laptop devices.`n`nDo you want to continue?",
+            "Confirm Run All",
+            [System.Windows.Forms.MessageBoxButtons]::YesNo,
+            [System.Windows.Forms.MessageBoxIcon]::Question)
+
+        if ($confirmResult -eq [System.Windows.Forms.DialogResult]::Yes) {
+            # Create a progress form
+            $progressForm = New-Object System.Windows.Forms.Form
+            $progressForm.Text = "Running All Options for Laptop"
+            $progressForm.Size = New-Object System.Drawing.Size(600, 400)
+            $progressForm.StartPosition = "CenterScreen"
+            $progressForm.BackColor = [System.Drawing.Color]::Black
+            $progressForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+            $progressForm.MaximizeBox = $false
+            $progressForm.MinimizeBox = $false
+
+            # Add a gradient background
+            $progressForm.Paint = {
+                $graphics = $_.Graphics
+                $rect = New-Object System.Drawing.Rectangle(0, 0, $progressForm.Width, $progressForm.Height)
+                $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+                    $rect,
+                    [System.Drawing.Color]::FromArgb(0, 0, 0),  # Black at top
+                    [System.Drawing.Color]::FromArgb(0, 40, 0), # Dark green at bottom
+                    [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
+                )
+                $graphics.FillRectangle($brush, $rect)
+                $brush.Dispose()
+            }
+
+            # Title label
+            $titleLabel = New-Object System.Windows.Forms.Label
+            $titleLabel.Text = "RUNNING ALL OPTIONS FOR LAPTOP"
+            $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
+            $titleLabel.Size = New-Object System.Drawing.Size(600, 40)
+            $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+            $titleLabel.Font = New-Object System.Drawing.Font("Arial", 16, [System.Drawing.FontStyle]::Bold)
+            $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+            $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+            $progressForm.Controls.Add($titleLabel)
+
+            # Status text box
+            $statusTextBox = New-Object System.Windows.Forms.TextBox
+            $statusTextBox.Multiline = $true
+            $statusTextBox.ScrollBars = "Vertical"
+            $statusTextBox.Location = New-Object System.Drawing.Point(50, 70)
+            $statusTextBox.Size = New-Object System.Drawing.Size(500, 250)
+            $statusTextBox.BackColor = [System.Drawing.Color]::Black
+            $statusTextBox.ForeColor = [System.Drawing.Color]::Lime
+            $statusTextBox.Font = New-Object System.Drawing.Font("Consolas", 10)
+            $statusTextBox.ReadOnly = $true
+            $statusTextBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+            $statusTextBox.Text = "Starting all tasks for Laptop...`r`n"
+            $progressForm.Controls.Add($statusTextBox)
+
+            # Close button
+            $closeButton = New-DynamicButton -text "Close" -x 200 -y 330 -width 200 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
+                $progressForm.Close()
+            }
+            $progressForm.Controls.Add($closeButton)
+            $closeButton.Enabled = $false
+
+            # Function to add status message
+            function Add-RunAllStatus {
+                param([string]$message)
+                $statusTextBox.AppendText("$(Get-Date -Format 'HH:mm:ss') - $message`r`n")
+                $statusTextBox.ScrollToCaret()
+                [System.Windows.Forms.Application]::DoEvents()
+            }
+
+            # Show the form
+            $progressForm.Show()
+            [System.Windows.Forms.Application]::DoEvents()
+
+            # Run all tasks for Laptop
+            try {
+                # 1. Activate Windows
+                Add-RunAllStatus "Step 1/7: Activating Windows 10 Pro..."
+                try {
+                    $windowsStatus = & cscript //nologo "$env:windir\system32\slmgr.vbs" /dli
+                    $isWindowsActivated = $windowsStatus -match "License Status: Licensed"
+
+                    if ($isWindowsActivated) {
+                        Add-RunAllStatus "Windows is already activated."
+                    } else {
+                        Add-RunAllStatus "Windows not activated. Activating Windows 10 Pro..."
+                        $command = "slmgr /ipk R84N4-RPC7Q-W8TKM-VM7Y4-7H66Y && slmgr /ato"
+
+                        # Create a process to run the command with elevated privileges
+                        $psi = New-Object System.Diagnostics.ProcessStartInfo
+                        $psi.FileName = "powershell.exe"
+                        $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
+                        $psi.UseShellExecute = $true
+                        $psi.Verb = "runas"
+                        $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+                        # Start the process
+                        [System.Diagnostics.Process]::Start($psi)
+                        Add-RunAllStatus "Windows activation initiated."
+                    }
+                } catch {
+                    Add-RunAllStatus "Error activating Windows: $_"
+                }
+
+                # 2. Set Time Zone
+                Add-RunAllStatus "Step 2/7: Setting time zone and power options..."
+                try {
+                    # Set timezone to SE Asia Standard Time
+                    Start-Process -FilePath "tzutil.exe" -ArgumentList "/s `"SE Asia Standard Time`"" -Wait -NoNewWindow
+
+                    # Configure Windows Time service
+                    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\w32time\Parameters" -Name "Type" -Value "NTP" -Type String -ErrorAction SilentlyContinue
+
+                    # Resync time
+                    try {
+                        Start-Process -FilePath "w32tm.exe" -ArgumentList "/resync" -Wait -NoNewWindow
+                    } catch {
+                        Add-RunAllStatus "Warning: Could not sync time. $_"
+                    }
+
+                    # Configure power options
+                    $powerCommands = @(
+                        "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS LIDACTION 0",
+                        "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS LIDACTION 0",
+                        "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS SBUTTONACTION 0",
+                        "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS SBUTTONACTION 0",
+                        "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS PBUTTONACTION 0",
+                        "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS PBUTTONACTION 0",
+                        "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_VIDEO VIDEOIDLE 0",
+                        "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_VIDEO VIDEOIDLE 0",
+                        "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 0",
+                        "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 0",
+                        "powercfg /SETACTIVE SCHEME_CURRENT"
+                    )
+
+                    $powerScript = $powerCommands -join "; "
+
+                    # Create a process to run the command with elevated privileges
+                    $psi = New-Object System.Diagnostics.ProcessStartInfo
+                    $psi.FileName = "powershell.exe"
+                    $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $powerScript' -Verb RunAs -WindowStyle Hidden"
+                    $psi.UseShellExecute = $true
+                    $psi.Verb = "runas"
+                    $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+                    # Start the process
+                    [System.Diagnostics.Process]::Start($psi)
+
+                    # Turn off the firewall
+                    $command = "netsh advfirewall set allprofiles state off"
+
+                    # Create a process to run the command with elevated privileges
+                    $psi = New-Object System.Diagnostics.ProcessStartInfo
+                    $psi.FileName = "powershell.exe"
+                    $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
+                    $psi.UseShellExecute = $true
+                    $psi.Verb = "runas"
+                    $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+                    # Start the process
+                    [System.Diagnostics.Process]::Start($psi)
+
+                    Add-RunAllStatus "Time zone, power options, and firewall have been configured."
+                } catch {
+                    Add-RunAllStatus "Error setting time zone and power options: $_"
+                }
+
+                # 3. Install Software for Laptop
+                Add-RunAllStatus "Step 3/7: Installing software for Laptop..."
+                try {
+                    # Copy software files
+                    $tempDir = "$env:USERPROFILE\Downloads\SETUP"
+                    if (-not (Test-Path $tempDir)) {
+                        Add-RunAllStatus "Creating temporary folder..."
+                        New-Item -Path $tempDir -ItemType Directory -Force | Out-Null
+                    }
+
+                    # Copy setup files if source exists
+                    $setupSource = "D:\SOFTWARE\PAYOO\SETUP"
+                    if (Test-Path $setupSource) {
+                        if (-not (Test-Path "$tempDir\Software")) {
+                            Add-RunAllStatus "Copying setup files..."
+                            Copy-Item -Path $setupSource -Destination "$tempDir\Software" -Recurse -Force
+                        }
+                    } else {
+                        Add-RunAllStatus "Warning: Setup source folder not found at $setupSource"
+                    }
+
+                    # Copy Office 2019 if source exists
+                    $officeSource = "D:\SOFTWARE\OFFICE\Office 2019"
+                    if (Test-Path $officeSource) {
+                        if (-not (Test-Path "$tempDir\Office2019")) {
+                            Add-RunAllStatus "Copying Office 2019 files..."
+                            Copy-Item -Path "$officeSource\*" -Destination "$tempDir\Office2019" -Recurse -Force
+                        }
+                    } else {
+                        Add-RunAllStatus "Warning: Office source folder not found at $officeSource"
+                    }
+
+                    # Install software if files exist
+                    if (Test-Path "$tempDir\Software") {
+                        # Install 7-Zip
+                        if (-not (Test-Path "$env:ProgramFiles\7-Zip\7zFM.exe")) {
+                            $zipSetup = "$tempDir\Software\7z2408-x64.exe"
+                            if (Test-Path $zipSetup) {
+                                Add-RunAllStatus "Installing 7-Zip..."
+                                Start-Process -FilePath $zipSetup -ArgumentList "/S" -Wait
+                            }
+                        }
+
+                        # Install Google Chrome
+                        if (-not (Test-Path "$env:ProgramFiles\Google\Chrome\Application\chrome.exe")) {
+                            $chromeSetup = "$tempDir\Software\ChromeSetup.exe"
+                            if (Test-Path $chromeSetup) {
+                                Add-RunAllStatus "Installing Google Chrome..."
+                                Start-Process -FilePath $chromeSetup -ArgumentList "/silent /install" -Wait
+                            }
+                        }
+
+                        # Install Zoom (Laptop specific)
+                        if (-not (Test-Path "$env:USERPROFILE\AppData\Roaming\Zoom\bin\Zoom.exe")) {
+                            $zoomSetup = "$tempDir\Software\ZoomInstallerFull.exe"
+                            if (Test-Path $zoomSetup) {
+                                Add-RunAllStatus "Installing Zoom..."
+                                Start-Process -FilePath $zoomSetup -ArgumentList "/silent /install" -Wait
+                            } else {
+                                Add-RunAllStatus "Warning: Zoom setup file not found at $zoomSetup"
+                            }
+                        }
+
+                        # Install CheckPointVPN (Laptop specific)
+                        if (-not (Test-Path "${env:ProgramFiles(x86)}\CheckPoint\Endpoint Connect\TrGUI.exe")) {
+                            $vpnSetup = "$tempDir\Software\CheckPointVPN.msi"
+                            if (Test-Path $vpnSetup) {
+                                Add-RunAllStatus "Installing CheckPointVPN..."
+                                Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$vpnSetup`" /quiet" -Wait
+                            } else {
+                                Add-RunAllStatus "Warning: CheckPointVPN setup file not found at $vpnSetup"
+                            }
+                        }
+                    }
+
+                    Add-RunAllStatus "Software installation for Laptop completed."
+                } catch {
+                    Add-RunAllStatus "Error installing software: $_"
+                }
+
+                # 4. Activate Office
+                Add-RunAllStatus "Step 4/7: Activating Office 2019..."
+                try {
+                    # Check if Office16 path exists
+                    $office16Path = "C:\Program Files\Microsoft Office\Office16\ospp.vbs"
+                    $office15Path = "C:\Program Files\Microsoft Office\Office15\ospp.vbs"
+
+                    if (Test-Path $office16Path) {
+                        $officePath = $office16Path
+                        Add-RunAllStatus "Found Office16."
+                    } elseif (Test-Path $office15Path) {
+                        $officePath = $office15Path
+                        Add-RunAllStatus "Found Office15."
+                    } else {
+                        Add-RunAllStatus "Office installation not found. Skipping activation."
+                        $officePath = $null
+                    }
+
+                    if ($officePath) {
+                        # Check activation status
+                        $officeStatus = & cscript //nologo "$officePath" /dstatus
+                        $isOfficeActivated = $officeStatus -match "LICENSE STATUS:  ---LICENSED---"
+
+                        if ($isOfficeActivated) {
+                            Add-RunAllStatus "Office is already activated."
+                        } else {
+                            Add-RunAllStatus "Office not activated. Activating Office 2019 Pro Plus..."
+                            $command = "cscript `"$officePath`" /inpkey:Q2NKY-J42YJ-X2KVK-9Q9PT-MKP63 && cscript `"$officePath`" /act"
+
+                            # Create a process to run the command with elevated privileges
+                            $psi = New-Object System.Diagnostics.ProcessStartInfo
+                            $psi.FileName = "powershell.exe"
+                            $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
+                            $psi.UseShellExecute = $true
+                            $psi.Verb = "runas"
+                            $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+                            # Start the process
+                            [System.Diagnostics.Process]::Start($psi)
+                            Add-RunAllStatus "Office activation initiated."
+                        }
+                    }
+                } catch {
+                    Add-RunAllStatus "Error activating Office: $_"
+                }
+
+                # 5. Turn on Windows Features
+                Add-RunAllStatus "Step 5/7: Enabling Windows features..."
+                try {
+                    # Enable .NET Framework 3.5
+                    Add-RunAllStatus "Enabling .NET Framework 3.5..."
+                    $netfxCommand = "DISM /Online /Enable-Feature /FeatureName:NetFx3 /All /LimitAccess /Source:D:\sources\sxs"
+
+                    # Create a process to run the command with elevated privileges
+                    $psi = New-Object System.Diagnostics.ProcessStartInfo
+                    $psi.FileName = "powershell.exe"
+                    $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $netfxCommand' -Verb RunAs -WindowStyle Hidden"
+                    $psi.UseShellExecute = $true
+                    $psi.Verb = "runas"
+                    $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+                    # Start the process
+                    [System.Diagnostics.Process]::Start($psi)
+                    Add-RunAllStatus "Windows features enabled."
+                } catch {
+                    Add-RunAllStatus "Error enabling Windows features: $_"
+                }
+
+                # 6. Rename Device
+                Add-RunAllStatus "Step 6/7: Setting computer name to LAPTOP-PAYOO..."
+                try {
+                    $newName = "LAPTOP-PAYOO"
+                    $currentName = $env:COMPUTERNAME
+
+                    if ($currentName -ne $newName) {
+                        # Create a command to rename the computer
+                        $command = "Rename-Computer -NewName '$newName' -Force"
+
+                        # Create a process to run the command with elevated privileges
+                        $psi = New-Object System.Diagnostics.ProcessStartInfo
+                        $psi.FileName = "powershell.exe"
+                        $psi.Arguments = "-Command Start-Process powershell.exe -ArgumentList '-Command $command' -Verb RunAs"
+                        $psi.UseShellExecute = $true
+                        $psi.Verb = "runas"
+
+                        # Start the process
+                        [System.Diagnostics.Process]::Start($psi)
+                        Add-RunAllStatus "Computer name change initiated to $newName."
+                    } else {
+                        Add-RunAllStatus "Computer is already named $newName. Skipping rename."
+                    }
+                } catch {
+                    Add-RunAllStatus "Error renaming computer: $_"
+                }
+
+                # 7. Set Password
+                Add-RunAllStatus "Step 7/7: Setting password for current user..."
+                try {
+                    $currentUser = $env:USERNAME
+                    $newPassword = "Payoo@123"
+
+                    # Create a command to set the password
+                    $command = "net user $currentUser $newPassword"
+
+                    # Create a process to run the command with elevated privileges
+                    $psi = New-Object System.Diagnostics.ProcessStartInfo
+                    $psi.FileName = "powershell.exe"
+                    $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
+                    $psi.UseShellExecute = $true
+                    $psi.Verb = "runas"
+                    $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+                    # Start the process
+                    [System.Diagnostics.Process]::Start($psi)
+                    Add-RunAllStatus "Password set to 'Payoo@123' for user $currentUser."
+                } catch {
+                    Add-RunAllStatus "Error setting password: $_"
+                }
+
+                # All tasks completed
+                Add-RunAllStatus "`r`nAll tasks for Laptop completed successfully!"
+                Add-RunAllStatus "You may need to restart your computer to apply all changes."
+
+            } catch {
+                Add-RunAllStatus "Error running all tasks: $_"
+            } finally {
+                # Enable close button
+                $closeButton.Enabled = $true
+            }
+        }
+    }
 }
 
 # Install All Software
@@ -2840,11 +3746,11 @@ $buttonSetPassword = New-DynamicButton -text "Set Password" -x 430 -y 260 -width
     $passwordForm.ShowDialog()
 }
 
-# Join Domain
-$buttonJoinDomain = New-DynamicButton -text "Join Domain" -x 430 -y 340 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+# Join/Leave Domain
+$buttonJoinDomain = New-DynamicButton -text "Domain Management" -x 430 -y 340 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
     # Create domain/workgroup join form
     $joinForm = New-Object System.Windows.Forms.Form
-    $joinForm.Text = "Join Domain/Workgroup"
+    $joinForm.Text = "Domain Management"
     $joinForm.Size = New-Object System.Drawing.Size(500, 450)
     $joinForm.StartPosition = "CenterScreen"
     $joinForm.BackColor = [System.Drawing.Color]::Black
@@ -2854,7 +3760,7 @@ $buttonJoinDomain = New-DynamicButton -text "Join Domain" -x 430 -y 340 -width 3
 
     # Create title label
     $titleLabel = New-Object System.Windows.Forms.Label
-    $titleLabel.Text = "Join Domain or Workgroup"
+    $titleLabel.Text = "Domain Management"
     $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
     $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 0)
     $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
@@ -2911,7 +3817,7 @@ $buttonJoinDomain = New-DynamicButton -text "Join Domain" -x 430 -y 340 -width 3
     $radioDomain.Font = New-Object System.Drawing.Font("Arial", 10)
     $radioDomain.ForeColor = [System.Drawing.Color]::White
     $radioDomain.Location = New-Object System.Drawing.Point(20, 30)
-    $radioDomain.Size = New-Object System.Drawing.Size(200, 30)
+    $radioDomain.Size = New-Object System.Drawing.Size(120, 30)
     $radioDomain.BackColor = [System.Drawing.Color]::Black
     $radioDomain.Checked = $true
 
@@ -2919,13 +3825,25 @@ $buttonJoinDomain = New-DynamicButton -text "Join Domain" -x 430 -y 340 -width 3
     $radioWorkgroup.Text = "Join Workgroup"
     $radioWorkgroup.Font = New-Object System.Drawing.Font("Arial", 10)
     $radioWorkgroup.ForeColor = [System.Drawing.Color]::White
-    $radioWorkgroup.Location = New-Object System.Drawing.Point(240, 30)
-    $radioWorkgroup.Size = New-Object System.Drawing.Size(200, 30)
+    $radioWorkgroup.Location = New-Object System.Drawing.Point(150, 30)
+    $radioWorkgroup.Size = New-Object System.Drawing.Size(140, 30)
     $radioWorkgroup.BackColor = [System.Drawing.Color]::Black
     $radioWorkgroup.Checked = $false
 
+    $radioLeaveDomain = New-Object System.Windows.Forms.RadioButton
+    $radioLeaveDomain.Text = "Leave Domain"
+    $radioLeaveDomain.Font = New-Object System.Drawing.Font("Arial", 10)
+    $radioLeaveDomain.ForeColor = [System.Drawing.Color]::White
+    $radioLeaveDomain.Location = New-Object System.Drawing.Point(300, 30)
+    $radioLeaveDomain.Size = New-Object System.Drawing.Size(140, 30)
+    $radioLeaveDomain.BackColor = [System.Drawing.Color]::Black
+    $radioLeaveDomain.Checked = $false
+    # Only enable Leave Domain option if currently in a domain
+    $radioLeaveDomain.Enabled = $isDomain
+
     $groupBox.Controls.Add($radioDomain)
     $groupBox.Controls.Add($radioWorkgroup)
+    $groupBox.Controls.Add($radioLeaveDomain)
     $joinForm.Controls.Add($groupBox)
 
     # Name label
@@ -2997,6 +3915,7 @@ $buttonJoinDomain = New-DynamicButton -text "Join Domain" -x 430 -y 340 -width 3
             $usernameTextBox.Visible = $true
             $passwordLabel.Visible = $true
             $passwordTextBox.Visible = $true
+            $joinButton.Text = "Join"
             $joinButton.Location = New-Object System.Drawing.Point(30, 350)
             $cancelButton.Location = New-Object System.Drawing.Point(250, 350)
             $joinForm.Size = New-Object System.Drawing.Size(500, 450)
@@ -3011,6 +3930,22 @@ $buttonJoinDomain = New-DynamicButton -text "Join Domain" -x 430 -y 340 -width 3
             $usernameTextBox.Visible = $false
             $passwordLabel.Visible = $false
             $passwordTextBox.Visible = $false
+            $joinButton.Text = "Join"
+            $joinButton.Location = New-Object System.Drawing.Point(30, 280)
+            $cancelButton.Location = New-Object System.Drawing.Point(250, 280)
+            $joinForm.Size = New-Object System.Drawing.Size(500, 380)
+        }
+    })
+
+    $radioLeaveDomain.Add_CheckedChanged({
+        if ($radioLeaveDomain.Checked) {
+            $nameLabel.Text = "New Workgroup Name:"
+            $nameTextBox.Text = "WORKGROUP"
+            $usernameLabel.Visible = $false
+            $usernameTextBox.Visible = $false
+            $passwordLabel.Visible = $false
+            $passwordTextBox.Visible = $false
+            $joinButton.Text = "Leave Domain"
             $joinButton.Location = New-Object System.Drawing.Point(30, 280)
             $cancelButton.Location = New-Object System.Drawing.Point(250, 280)
             $joinForm.Size = New-Object System.Drawing.Size(500, 380)
@@ -3056,7 +3991,7 @@ $buttonJoinDomain = New-DynamicButton -text "Join Domain" -x 430 -y 340 -width 3
                 [System.Windows.Forms.MessageBox]::Show("Domain join command has been initiated. If prompted, please allow the elevation request. Your computer will restart to apply the changes.", "Domain Join", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
                 $joinForm.Close()
             }
-            else {
+            elseif ($radioWorkgroup.Checked) {
                 # Join workgroup
                 $command = "Add-Computer -WorkgroupName '$name' -Restart -Force"
 
@@ -3074,9 +4009,36 @@ $buttonJoinDomain = New-DynamicButton -text "Join Domain" -x 430 -y 340 -width 3
                 [System.Windows.Forms.MessageBox]::Show("Workgroup join command has been initiated. If prompted, please allow the elevation request. Your computer will restart to apply the changes.", "Workgroup Join", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
                 $joinForm.Close()
             }
+            else {
+                # Leave domain and join workgroup
+                $confirmResult = [System.Windows.Forms.MessageBox]::Show(
+                    "Are you sure you want to leave the current domain and join the workgroup '$name'? Your computer will restart after this operation.",
+                    "Confirm Leave Domain",
+                    [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                    [System.Windows.Forms.MessageBoxIcon]::Question)
+
+                if ($confirmResult -eq [System.Windows.Forms.DialogResult]::Yes) {
+                    # Command to leave domain and join workgroup
+                    $command = "Remove-Computer -WorkgroupName '$name' -Force -Restart"
+
+                    # Create a process to run the command with elevated privileges
+                    $psi = New-Object System.Diagnostics.ProcessStartInfo
+                    $psi.FileName = "powershell.exe"
+                    $psi.Arguments = "-Command Start-Process powershell.exe -ArgumentList '-Command $command' -Verb RunAs"
+                    $psi.UseShellExecute = $true
+                    $psi.Verb = "runas"
+
+                    # Start the process
+                    [System.Diagnostics.Process]::Start($psi)
+
+                    # Show success message
+                    [System.Windows.Forms.MessageBox]::Show("Leave domain command has been initiated. If prompted, please allow the elevation request. Your computer will restart to apply the changes.", "Leave Domain", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                    $joinForm.Close()
+                }
+            }
         }
         catch {
-            [System.Windows.Forms.MessageBox]::Show("Error joining domain/workgroup: $_`n`nNote: This operation requires administrative privileges.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+            [System.Windows.Forms.MessageBox]::Show("Error processing domain/workgroup operation: $_`n`nNote: This operation requires administrative privileges.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
         }
     })
     $joinForm.Controls.Add($joinButton)
