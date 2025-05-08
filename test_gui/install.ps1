@@ -1,6 +1,3 @@
-# BAOPROVIP SYSTEM MANAGEMENT TOOL
-# Updated on: 2023-05-04
-# Check if running as administrator and restart with elevation if not
 if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
     Write-Warning "This script requires administrative privileges. Attempting to restart with elevation..."
     Start-Sleep -Seconds 1
@@ -43,7 +40,7 @@ $form.Paint = {
     $rect = New-Object System.Drawing.Rectangle(0, 0, $form.Width, $form.Height)
     $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
         $rect,
-        [System.Drawing.Color]::FromArgb(0, 0, 0),  # Black at top
+        [System.Drawing.Color]::FromArgb(0, 0, 0), # Black at top
         [System.Drawing.Color]::FromArgb(0, 30, 0), # Dark green at bottom
         [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
     )
@@ -66,12 +63,13 @@ $form.Controls.Add($titleLabel)
 $titleTimer = New-Object System.Windows.Forms.Timer
 $titleTimer.Interval = 800
 $titleTimer.Add_Tick({
-    if ($titleLabel.ForeColor -eq [System.Drawing.Color]::FromArgb(0, 255, 0)) {
-        $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 200, 0)
-    } else {
-        $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 0)
-    }
-})
+        if ($titleLabel.ForeColor -eq [System.Drawing.Color]::FromArgb(0, 255, 0)) {
+            $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 200, 0)
+        }
+        else {
+            $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 0)
+        }
+    })
 $titleTimer.Start()
 
 # Function to create a button with green background
@@ -165,27 +163,27 @@ function New-DynamicButton {
 
     # Mouse enter event - simple hover effect (no border)
     $button.Add_MouseEnter({
-        # No border, just color change handled by FlatAppearance.MouseOverBackColor
-        $this.FlatAppearance.BorderSize = 0
-    })
+            # No border, just color change handled by FlatAppearance.MouseOverBackColor
+            $this.FlatAppearance.BorderSize = 0
+        })
 
     # Mouse leave event
     $button.Add_MouseLeave({
-        # Keep border size at 0
-        $this.FlatAppearance.BorderSize = 0
-    })
+            # Keep border size at 0
+            $this.FlatAppearance.BorderSize = 0
+        })
 
     # Mouse down event
     $button.Add_MouseDown({
-        # No border on press, just color change handled by FlatAppearance.MouseDownBackColor
-        $this.FlatAppearance.BorderSize = 0
-    })
+            # No border on press, just color change handled by FlatAppearance.MouseDownBackColor
+            $this.FlatAppearance.BorderSize = 0
+        })
 
     # Mouse up event
     $button.Add_MouseUp({
-        # Keep border size at 0
-        $this.FlatAppearance.BorderSize = 0
-    })
+            # Keep border size at 0
+            $this.FlatAppearance.BorderSize = 0
+        })
 
     # Click event
     $button.Add_Click($clickAction)
@@ -195,10 +193,10 @@ function New-DynamicButton {
 
 # Run All Options
 $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
-    # First, create a device name input form
+    # First, create a device name input form that matches the dedicated rename form
     $nameForm = New-Object System.Windows.Forms.Form
     $nameForm.Text = "Enter Device Name"
-    $nameForm.Size = New-Object System.Drawing.Size(400, 250)
+    $nameForm.Size = New-Object System.Drawing.Size(500, 400) # Increased size to match rename form
     $nameForm.StartPosition = "CenterScreen"
     $nameForm.BackColor = [System.Drawing.Color]::Black
     $nameForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -212,7 +210,7 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
         $rect = New-Object System.Drawing.Rectangle(0, 0, $nameForm.Width, $nameForm.Height)
         $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
             $rect,
-            [System.Drawing.Color]::FromArgb(0, 0, 0),  # Black at top
+            [System.Drawing.Color]::FromArgb(0, 0, 0), # Black at top
             [System.Drawing.Color]::FromArgb(0, 40, 0), # Dark green at bottom
             [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
         )
@@ -224,7 +222,7 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
     $titleLabel = New-Object System.Windows.Forms.Label
     $titleLabel.Text = "ENTER NEW DEVICE NAME"
     $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
-    $titleLabel.Size = New-Object System.Drawing.Size(400, 30)
+    $titleLabel.Size = New-Object System.Drawing.Size(500, 30)
     $titleLabel.ForeColor = [System.Drawing.Color]::Lime
     $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
     $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
@@ -234,47 +232,115 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
     # Current name label
     $currentName = $env:COMPUTERNAME
     $currentLabel = New-Object System.Windows.Forms.Label
-    $currentLabel.Text = "Current name: $currentName"
-    $currentLabel.Location = New-Object System.Drawing.Point(50, 60)
-    $currentLabel.Size = New-Object System.Drawing.Size(300, 20)
+    $currentLabel.Text = "Current Device Name: $currentName"
+    $currentLabel.Location = New-Object System.Drawing.Point(20, 70)
+    $currentLabel.Size = New-Object System.Drawing.Size(460, 30)
     $currentLabel.ForeColor = [System.Drawing.Color]::White
-    $currentLabel.Font = New-Object System.Drawing.Font("Arial", 10)
+    $currentLabel.Font = New-Object System.Drawing.Font("Arial", 12)
     $currentLabel.BackColor = [System.Drawing.Color]::Transparent
     $nameForm.Controls.Add($currentLabel)
 
+    # Device type selection group box
+    $deviceGroupBox = New-Object System.Windows.Forms.GroupBox
+    $deviceGroupBox.Text = "Device Type"
+    $deviceGroupBox.Font = New-Object System.Drawing.Font("Arial", 10)
+    $deviceGroupBox.ForeColor = [System.Drawing.Color]::White
+    $deviceGroupBox.Size = New-Object System.Drawing.Size(460, 80)
+    $deviceGroupBox.Location = New-Object System.Drawing.Point(20, 110)
+    $deviceGroupBox.BackColor = [System.Drawing.Color]::Black
+    $nameForm.Controls.Add($deviceGroupBox)
+
+    # Desktop radio button
+    $radioDesktop = New-Object System.Windows.Forms.RadioButton
+    $radioDesktop.Text = "Desktop (HOD)"
+    $radioDesktop.Font = New-Object System.Drawing.Font("Arial", 10)
+    $radioDesktop.ForeColor = [System.Drawing.Color]::White
+    $radioDesktop.Location = New-Object System.Drawing.Point(20, 30)
+    $radioDesktop.Size = New-Object System.Drawing.Size(200, 30)
+    $radioDesktop.BackColor = [System.Drawing.Color]::Black
+    $radioDesktop.Checked = $true # Default selection
+    $deviceGroupBox.Controls.Add($radioDesktop)
+
+    # Laptop radio button
+    $radioLaptop = New-Object System.Windows.Forms.RadioButton
+    $radioLaptop.Text = "Laptop (HOL)"
+    $radioLaptop.Font = New-Object System.Drawing.Font("Arial", 10)
+    $radioLaptop.ForeColor = [System.Drawing.Color]::White
+    $radioLaptop.Location = New-Object System.Drawing.Point(240, 30)
+    $radioLaptop.Size = New-Object System.Drawing.Size(200, 30)
+    $radioLaptop.BackColor = [System.Drawing.Color]::Black
+    $deviceGroupBox.Controls.Add($radioLaptop)
+
+    # New name label
+    $newNameLabel = New-Object System.Windows.Forms.Label
+    $newNameLabel.Text = "New Device Name:"
+    $newNameLabel.Font = New-Object System.Drawing.Font("Arial", 12)
+    $newNameLabel.ForeColor = [System.Drawing.Color]::White
+    $newNameLabel.Size = New-Object System.Drawing.Size(150, 30)
+    $newNameLabel.Location = New-Object System.Drawing.Point(20, 200)
+    $nameForm.Controls.Add($newNameLabel)
+
     # Default name suggestion based on device type
-    $defaultName = "PAYOO-PC"
+    $defaultName = "HOD" # Default to Desktop prefix
 
     # Name input textbox
     $nameTextBox = New-Object System.Windows.Forms.TextBox
-    $nameTextBox.Location = New-Object System.Drawing.Point(50, 90)
-    $nameTextBox.Size = New-Object System.Drawing.Size(300, 25)
-    $nameTextBox.BackColor = [System.Drawing.Color]::Black
-    $nameTextBox.ForeColor = [System.Drawing.Color]::Lime
-    $nameTextBox.Font = New-Object System.Drawing.Font("Consolas", 12)
+    $nameTextBox.Location = New-Object System.Drawing.Point(170, 200)
+    $nameTextBox.Size = New-Object System.Drawing.Size(300, 30)
+    $nameTextBox.BackColor = [System.Drawing.Color]::White
+    $nameTextBox.ForeColor = [System.Drawing.Color]::Black
+    $nameTextBox.Font = New-Object System.Drawing.Font("Arial", 12)
     $nameTextBox.Text = $defaultName
     $nameForm.Controls.Add($nameTextBox)
+
+    # Event handlers for radio buttons to update the default name
+    $radioDesktop.Add_CheckedChanged({
+            if ($radioDesktop.Checked) {
+                # Only change if it's the default HOL or empty
+                if ($nameTextBox.Text -eq "HOL" -or $nameTextBox.Text -eq "" -or $nameTextBox.Text.StartsWith("HOL")) {
+                    $nameTextBox.Text = "HOD"
+                }
+            }
+        })
+
+    $radioLaptop.Add_CheckedChanged({
+            if ($radioLaptop.Checked) {
+                # Only change if it's the default HOD or empty
+                if ($nameTextBox.Text -eq "HOD" -or $nameTextBox.Text -eq "" -or $nameTextBox.Text.StartsWith("HOD")) {
+                    $nameTextBox.Text = "HOL"
+                }
+            }
+        })
 
     # Info label
     $infoLabel = New-Object System.Windows.Forms.Label
     $infoLabel.Text = "Computer name must be 15 characters or less`nand can contain letters, numbers, and hyphens."
-    $infoLabel.Location = New-Object System.Drawing.Point(50, 120)
-    $infoLabel.Size = New-Object System.Drawing.Size(300, 40)
+    $infoLabel.Location = New-Object System.Drawing.Point(20, 240)
+    $infoLabel.Size = New-Object System.Drawing.Size(460, 40)
     $infoLabel.ForeColor = [System.Drawing.Color]::Silver
     $infoLabel.Font = New-Object System.Drawing.Font("Arial", 9)
     $infoLabel.BackColor = [System.Drawing.Color]::Transparent
     $nameForm.Controls.Add($infoLabel)
 
     # OK button
-    $okButton = New-DynamicButton -text "OK" -x 50 -y 170 -width 140 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+    $okButton = New-DynamicButton -text "OK" -x 100 -y 290 -width 140 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
         $nameForm.Tag = $nameTextBox.Text
+
+        # Also store the device type
+        if ($radioDesktop.Checked) {
+            $script:selectedDeviceType = "Desktop"
+        }
+        else {
+            $script:selectedDeviceType = "Laptop"
+        }
+
         $nameForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
         $nameForm.Close()
     }
     $nameForm.Controls.Add($okButton)
 
     # Cancel button
-    $cancelButton = New-DynamicButton -text "Cancel" -x 210 -y 170 -width 140 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
+    $cancelButton = New-DynamicButton -text "Cancel" -x 260 -y 290 -width 140 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
         $nameForm.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
         $nameForm.Close()
     }
@@ -293,79 +359,49 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
 
         # Validate the name
         if ([string]::IsNullOrWhiteSpace($newComputerName)) {
-            $newComputerName = $defaultName
-        } elseif ($newComputerName.Length -gt 15) {
+            # Set default based on selected device type
+            if ($script:selectedDeviceType -eq "Desktop") {
+                $newComputerName = "HOD"
+            }
+            else {
+                $newComputerName = "HOL"
+            }
+        }
+        elseif ($newComputerName.Length -gt 15) {
             $newComputerName = $newComputerName.Substring(0, 15)
         }
 
         # Remove invalid characters
         $newComputerName = $newComputerName -replace '[^\w\-]', ''
-    } else {
+
+        # Set device type based on the name prefix if not already set
+        if ($newComputerName.StartsWith("HOD")) {
+            $script:selectedDeviceType = "Desktop"
+        }
+        elseif ($newComputerName.StartsWith("HOL")) {
+            $script:selectedDeviceType = "Laptop"
+        }
+    }
+    else {
         # User cancelled, use current name
         $newComputerName = $currentName
+
+        # Try to determine device type from current name
+        if ($currentName.StartsWith("HOD")) {
+            $script:selectedDeviceType = "Desktop"
+        }
+        elseif ($currentName.StartsWith("HOL")) {
+            $script:selectedDeviceType = "Laptop"
+        }
+        else {
+            # Default to Desktop if can't determine
+            $script:selectedDeviceType = "Desktop"
+        }
     }
 
-    # Now create device selection form
-    $deviceForm = New-Object System.Windows.Forms.Form
-    $deviceForm.Text = "Select Device Type"
-    $deviceForm.Size = New-Object System.Drawing.Size(400, 300)
-    $deviceForm.StartPosition = "CenterScreen"
-    $deviceForm.BackColor = [System.Drawing.Color]::Black
-    $deviceForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
-    $deviceForm.MaximizeBox = $false
-    $deviceForm.MinimizeBox = $false
+    # Use the device type determined from the name
+    $deviceType = $script:selectedDeviceType
 
-    # Add a gradient background
-    $deviceForm.Paint = {
-        $graphics = $_.Graphics
-        $rect = New-Object System.Drawing.Rectangle(0, 0, $deviceForm.Width, $deviceForm.Height)
-        $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
-            $rect,
-            [System.Drawing.Color]::FromArgb(0, 0, 0),  # Black at top
-            [System.Drawing.Color]::FromArgb(0, 40, 0), # Dark green at bottom
-            [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
-        )
-        $graphics.FillRectangle($brush, $rect)
-        $brush.Dispose()
-    }
-
-    # Title label
-    $titleLabel = New-Object System.Windows.Forms.Label
-    $titleLabel.Text = "SELECT DEVICE TYPE"
-    $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
-    $titleLabel.Size = New-Object System.Drawing.Size(400, 40)
-    $titleLabel.ForeColor = [System.Drawing.Color]::Lime
-    $titleLabel.Font = New-Object System.Drawing.Font("Arial", 16, [System.Drawing.FontStyle]::Bold)
-    $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
-    $titleLabel.BackColor = [System.Drawing.Color]::Transparent
-    $deviceForm.Controls.Add($titleLabel)
-
-    # Desktop button
-    $btnDesktop = New-DynamicButton -text "[1] Desktop" -x 50 -y 80 -width 300 -height 50 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
-        $deviceForm.Tag = "Desktop"
-        $deviceForm.Close()
-    }
-    $deviceForm.Controls.Add($btnDesktop)
-
-    # Laptop button
-    $btnLaptop = New-DynamicButton -text "[2] Laptop" -x 50 -y 150 -width 300 -height 50 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
-        $deviceForm.Tag = "Laptop"
-        $deviceForm.Close()
-    }
-    $deviceForm.Controls.Add($btnLaptop)
-
-    # Cancel button
-    $btnCancel = New-DynamicButton -text "[0] Cancel" -x 50 -y 220 -width 300 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
-        $deviceForm.Tag = "Cancel"
-        $deviceForm.Close()
-    }
-    $deviceForm.Controls.Add($btnCancel)
-
-    # Show the form and get the result
-    $deviceForm.ShowDialog()
-
-    # Process the selection
-    $deviceType = $deviceForm.Tag
     if ($deviceType -eq "Desktop") {
         $confirmResult = [System.Windows.Forms.MessageBox]::Show(
             "You selected Desktop. This will run all options for Desktop devices.`n`nDo you want to continue?",
@@ -390,7 +426,7 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                 $rect = New-Object System.Drawing.Rectangle(0, 0, $progressForm.Width, $progressForm.Height)
                 $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
                     $rect,
-                    [System.Drawing.Color]::FromArgb(0, 0, 0),  # Black at top
+                    [System.Drawing.Color]::FromArgb(0, 0, 0), # Black at top
                     [System.Drawing.Color]::FromArgb(0, 40, 0), # Dark green at bottom
                     [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
                 )
@@ -452,7 +488,8 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
 
                     if ($isWindowsActivated) {
                         Add-RunAllStatus "Windows is already activated."
-                    } else {
+                    }
+                    else {
                         Add-RunAllStatus "Windows not activated. Activating Windows 10 Pro..."
                         $command = "slmgr /ipk R84N4-RPC7Q-W8TKM-VM7Y4-7H66Y && slmgr /ato"
 
@@ -468,7 +505,8 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                         [System.Diagnostics.Process]::Start($psi)
                         Add-RunAllStatus "Windows activation initiated."
                     }
-                } catch {
+                }
+                catch {
                     Add-RunAllStatus "Error activating Windows: $_"
                 }
 
@@ -484,7 +522,8 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                     # Resync time
                     try {
                         Start-Process -FilePath "w32tm.exe" -ArgumentList "/resync" -Wait -NoNewWindow
-                    } catch {
+                    }
+                    catch {
                         Add-RunAllStatus "Warning: Could not sync time. $_"
                     }
 
@@ -531,7 +570,8 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                     [System.Diagnostics.Process]::Start($psi)
 
                     Add-RunAllStatus "Time zone, power options, and firewall have been configured."
-                } catch {
+                }
+                catch {
                     Add-RunAllStatus "Error setting time zone and power options: $_"
                 }
 
@@ -552,7 +592,8 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                             Add-RunAllStatus "Copying setup files..."
                             Copy-Item -Path $setupSource -Destination "$tempDir\Software" -Recurse -Force
                         }
-                    } else {
+                    }
+                    else {
                         Add-RunAllStatus "Warning: Setup source folder not found at $setupSource"
                     }
 
@@ -563,7 +604,8 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                             Add-RunAllStatus "Copying Office 2019 files..."
                             Copy-Item -Path "$officeSource\*" -Destination "$tempDir\Office2019" -Recurse -Force
                         }
-                    } else {
+                    }
+                    else {
                         Add-RunAllStatus "Warning: Office source folder not found at $officeSource"
                     }
 
@@ -589,7 +631,8 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                     }
 
                     Add-RunAllStatus "Software installation for Desktop completed."
-                } catch {
+                }
+                catch {
                     Add-RunAllStatus "Error installing software: $_"
                 }
 
@@ -603,10 +646,12 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                     if (Test-Path $office16Path) {
                         $officePath = $office16Path
                         Add-RunAllStatus "Found Office16."
-                    } elseif (Test-Path $office15Path) {
+                    }
+                    elseif (Test-Path $office15Path) {
                         $officePath = $office15Path
                         Add-RunAllStatus "Found Office15."
-                    } else {
+                    }
+                    else {
                         Add-RunAllStatus "Office installation not found. Skipping activation."
                         $officePath = $null
                     }
@@ -618,7 +663,8 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
 
                         if ($isOfficeActivated) {
                             Add-RunAllStatus "Office is already activated."
-                        } else {
+                        }
+                        else {
                             Add-RunAllStatus "Office not activated. Activating Office 2019 Pro Plus..."
                             $command = "cscript `"$officePath`" /inpkey:Q2NKY-J42YJ-X2KVK-9Q9PT-MKP63 && cscript `"$officePath`" /act"
 
@@ -635,29 +681,97 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                             Add-RunAllStatus "Office activation initiated."
                         }
                     }
-                } catch {
+                }
+                catch {
                     Add-RunAllStatus "Error activating Office: $_"
                 }
 
                 # 5. Turn on Windows Features
                 Add-RunAllStatus "Step 5/7: Enabling Windows features..."
                 try {
-                    # Enable .NET Framework 3.5
-                    Add-RunAllStatus "Enabling .NET Framework 3.5..."
-                    $netfxCommand = "DISM /Online /Enable-Feature /FeatureName:NetFx3 /All /LimitAccess /Source:D:\sources\sxs"
+                    # 5.1. Enable .NET Framework 3.5
+                    Add-RunAllStatus "Step 5.1/5.4: Checking .NET Framework 3.5 status..."
+                    try {
+                        $command = "dism /online /get-featureinfo /featurename:NetFx3"
+                        $output = Invoke-Expression $command | Out-String
 
-                    # Create a process to run the command with elevated privileges
-                    $psi = New-Object System.Diagnostics.ProcessStartInfo
-                    $psi.FileName = "powershell.exe"
-                    $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $netfxCommand' -Verb RunAs -WindowStyle Hidden"
-                    $psi.UseShellExecute = $true
-                    $psi.Verb = "runas"
-                    $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+                        if ($output -match "State : Disabled") {
+                            Add-RunAllStatus "Enabling .NET Framework 3.5..."
+                            $enableCmd = "dism /online /enable-feature /featurename:NetFx3 /all /norestart"
+                            Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
+                            Add-RunAllStatus ".NET Framework 3.5 has been enabled."
+                        }
+                        else {
+                            Add-RunAllStatus ".NET Framework 3.5 is already enabled."
+                        }
+                    }
+                    catch {
+                        Add-RunAllStatus "Error enabling .NET Framework 3.5: $_"
+                    }
 
-                    # Start the process
-                    [System.Diagnostics.Process]::Start($psi)
-                    Add-RunAllStatus "Windows features enabled."
-                } catch {
+                    # 5.2. Enable WCF-HTTP-Activation
+                    Add-RunAllStatus "Step 5.2/5.4: Checking WCF-HTTP-Activation status..."
+                    try {
+                        $command = "dism /online /get-featureinfo /featurename:WCF-HTTP-Activation"
+                        $output = Invoke-Expression $command | Out-String
+
+                        if ($output -match "State : Disabled") {
+                            Add-RunAllStatus "Enabling WCF-HTTP-Activation..."
+                            $enableCmd = "DISM /Online /Enable-Feature /FeatureName:WCF-HTTP-Activation /All /Quiet /NoRestart"
+                            Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
+                            Add-RunAllStatus "WCF-HTTP-Activation has been enabled."
+                        }
+                        else {
+                            Add-RunAllStatus "WCF-HTTP-Activation is already enabled."
+                        }
+                    }
+                    catch {
+                        Add-RunAllStatus "Error enabling WCF-HTTP-Activation: $_"
+                    }
+
+                    # 5.3. Enable WCF-NonHTTP-Activation
+                    Add-RunAllStatus "Step 5.3/5.4: Checking WCF-NonHTTP-Activation status..."
+                    try {
+                        $command = "dism /online /get-featureinfo /featurename:WCF-NonHTTP-Activation"
+                        $output = Invoke-Expression $command | Out-String
+
+                        if ($output -match "State : Disabled") {
+                            Add-RunAllStatus "Enabling WCF-NonHTTP-Activation..."
+                            $enableCmd = "DISM /Online /Enable-Feature /FeatureName:WCF-NonHTTP-Activation /All /Quiet /NoRestart"
+                            Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
+                            Add-RunAllStatus "WCF-NonHTTP-Activation has been enabled."
+                        }
+                        else {
+                            Add-RunAllStatus "WCF-NonHTTP-Activation is already enabled."
+                        }
+                    }
+                    catch {
+                        Add-RunAllStatus "Error enabling WCF-NonHTTP-Activation: $_"
+                    }
+
+                    # 5.4. Disable Internet Explorer 11
+                    Add-RunAllStatus "Step 5.4/5.4: Checking Internet Explorer 11 status..."
+                    try {
+                        $command = "dism /online /get-featureinfo /featurename:Internet-Explorer-Optional-amd64"
+                        $output = Invoke-Expression $command | Out-String
+
+                        if ($output -match "State : Enabled") {
+                            Add-RunAllStatus "Disabling Internet Explorer 11..."
+                            $disableCmd = "dism /online /disable-feature /featurename:Internet-Explorer-Optional-amd64 /norestart"
+                            Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $disableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
+                            Add-RunAllStatus "Internet Explorer 11 has been disabled."
+                        }
+                        else {
+                            Add-RunAllStatus "Internet Explorer 11 is already disabled."
+                        }
+                    }
+                    catch {
+                        Add-RunAllStatus "Error disabling Internet Explorer 11: $_"
+                    }
+
+                    Add-RunAllStatus "All Windows features operations completed!"
+                }
+                catch {
                     Add-RunAllStatus "Error enabling Windows features: $_"
                 }
 
@@ -667,26 +781,32 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                     # Use the name collected at the beginning
                     $currentName = $env:COMPUTERNAME
 
-                    if ($currentName -ne $newComputerName) {
-                        Add-RunAllStatus "Setting computer name to $newComputerName..."
-
-                        # Create a command to rename the computer
-                        $command = "Rename-Computer -NewName '$newComputerName' -Force"
-
-                        # Create a process to run the command with elevated privileges
-                        $psi = New-Object System.Diagnostics.ProcessStartInfo
-                        $psi.FileName = "powershell.exe"
-                        $psi.Arguments = "-Command Start-Process powershell.exe -ArgumentList '-Command $command' -Verb RunAs"
-                        $psi.UseShellExecute = $true
-                        $psi.Verb = "runas"
-
-                        # Start the process
-                        [System.Diagnostics.Process]::Start($psi)
-                        Add-RunAllStatus "Computer name change initiated to $newComputerName."
-                    } else {
-                        Add-RunAllStatus "Computer is already named $newComputerName. Skipping rename."
+                    # Create a status callback for the rename function
+                    $statusCallback = {
+                        param([string]$message)
+                        Add-RunAllStatus $message
                     }
-                } catch {
+
+                    # Check if the new name is different from the current name
+                    if ($newComputerName -ne $currentName) {
+                        # Call the rename function with the new name
+                        $result = Rename-DeviceWithBatch -newName $newComputerName -statusCallback $statusCallback -showUI $false
+
+                        if ($result) {
+                            Add-RunAllStatus "Computer name change initiated to $newComputerName."
+                        }
+                        else {
+                            Add-RunAllStatus "Failed to rename computer to $newComputerName."
+                        }
+                    }
+                    else {
+                        # Even if the name is the same, still call the rename function
+                        # This allows the user to rename to the same name if desired
+                        $result = Rename-DeviceWithBatch -newName $newComputerName -statusCallback $statusCallback -showUI $false
+                        Add-RunAllStatus "Computer name remains as $currentName."
+                    }
+                }
+                catch {
                     Add-RunAllStatus "Error renaming computer: $_"
                 }
 
@@ -709,8 +829,9 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
 
                     # Start the process
                     [System.Diagnostics.Process]::Start($psi)
-                    Add-RunAllStatus "Password set to 'Payoo@123' for user $currentUser."
-                } catch {
+                    Add-RunAllStatus "Password for user $currentUser."
+                }
+                catch {
                     Add-RunAllStatus "Error setting password: $_"
                 }
 
@@ -718,9 +839,11 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                 Add-RunAllStatus "`r`nAll tasks for Desktop completed successfully!"
                 Add-RunAllStatus "You may need to restart your computer to apply all changes."
 
-            } catch {
+            }
+            catch {
                 Add-RunAllStatus "Error running all tasks: $_"
-            } finally {
+            }
+            finally {
                 # Enable close button
                 $closeButton.Enabled = $true
             }
@@ -750,7 +873,7 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                 $rect = New-Object System.Drawing.Rectangle(0, 0, $progressForm.Width, $progressForm.Height)
                 $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
                     $rect,
-                    [System.Drawing.Color]::FromArgb(0, 0, 0),  # Black at top
+                    [System.Drawing.Color]::FromArgb(0, 0, 0), # Black at top
                     [System.Drawing.Color]::FromArgb(0, 40, 0), # Dark green at bottom
                     [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
                 )
@@ -812,7 +935,8 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
 
                     if ($isWindowsActivated) {
                         Add-RunAllStatus "Windows is already activated."
-                    } else {
+                    }
+                    else {
                         Add-RunAllStatus "Windows not activated. Activating Windows 10 Pro..."
                         $command = "slmgr /ipk R84N4-RPC7Q-W8TKM-VM7Y4-7H66Y && slmgr /ato"
 
@@ -828,7 +952,8 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                         [System.Diagnostics.Process]::Start($psi)
                         Add-RunAllStatus "Windows activation initiated."
                     }
-                } catch {
+                }
+                catch {
                     Add-RunAllStatus "Error activating Windows: $_"
                 }
 
@@ -844,7 +969,8 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                     # Resync time
                     try {
                         Start-Process -FilePath "w32tm.exe" -ArgumentList "/resync" -Wait -NoNewWindow
-                    } catch {
+                    }
+                    catch {
                         Add-RunAllStatus "Warning: Could not sync time. $_"
                     }
 
@@ -891,7 +1017,8 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                     [System.Diagnostics.Process]::Start($psi)
 
                     Add-RunAllStatus "Time zone, power options, and firewall have been configured."
-                } catch {
+                }
+                catch {
                     Add-RunAllStatus "Error setting time zone and power options: $_"
                 }
 
@@ -912,7 +1039,8 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                             Add-RunAllStatus "Copying setup files..."
                             Copy-Item -Path $setupSource -Destination "$tempDir\Software" -Recurse -Force
                         }
-                    } else {
+                    }
+                    else {
                         Add-RunAllStatus "Warning: Setup source folder not found at $setupSource"
                     }
 
@@ -923,7 +1051,8 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                             Add-RunAllStatus "Copying Office 2019 files..."
                             Copy-Item -Path "$officeSource\*" -Destination "$tempDir\Office2019" -Recurse -Force
                         }
-                    } else {
+                    }
+                    else {
                         Add-RunAllStatus "Warning: Office source folder not found at $officeSource"
                     }
 
@@ -953,7 +1082,8 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                             if (Test-Path $zoomSetup) {
                                 Add-RunAllStatus "Installing Zoom..."
                                 Start-Process -FilePath $zoomSetup -ArgumentList "/silent /install" -Wait
-                            } else {
+                            }
+                            else {
                                 Add-RunAllStatus "Warning: Zoom setup file not found at $zoomSetup"
                             }
                         }
@@ -964,14 +1094,16 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                             if (Test-Path $vpnSetup) {
                                 Add-RunAllStatus "Installing CheckPointVPN..."
                                 Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$vpnSetup`" /quiet" -Wait
-                            } else {
+                            }
+                            else {
                                 Add-RunAllStatus "Warning: CheckPointVPN setup file not found at $vpnSetup"
                             }
                         }
                     }
 
                     Add-RunAllStatus "Software installation for Laptop completed."
-                } catch {
+                }
+                catch {
                     Add-RunAllStatus "Error installing software: $_"
                 }
 
@@ -985,10 +1117,12 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                     if (Test-Path $office16Path) {
                         $officePath = $office16Path
                         Add-RunAllStatus "Found Office16."
-                    } elseif (Test-Path $office15Path) {
+                    }
+                    elseif (Test-Path $office15Path) {
                         $officePath = $office15Path
                         Add-RunAllStatus "Found Office15."
-                    } else {
+                    }
+                    else {
                         Add-RunAllStatus "Office installation not found. Skipping activation."
                         $officePath = $null
                     }
@@ -1000,7 +1134,8 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
 
                         if ($isOfficeActivated) {
                             Add-RunAllStatus "Office is already activated."
-                        } else {
+                        }
+                        else {
                             Add-RunAllStatus "Office not activated. Activating Office 2019 Pro Plus..."
                             $command = "cscript `"$officePath`" /inpkey:Q2NKY-J42YJ-X2KVK-9Q9PT-MKP63 && cscript `"$officePath`" /act"
 
@@ -1017,29 +1152,97 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                             Add-RunAllStatus "Office activation initiated."
                         }
                     }
-                } catch {
+                }
+                catch {
                     Add-RunAllStatus "Error activating Office: $_"
                 }
 
                 # 5. Turn on Windows Features
                 Add-RunAllStatus "Step 5/7: Enabling Windows features..."
                 try {
-                    # Enable .NET Framework 3.5
-                    Add-RunAllStatus "Enabling .NET Framework 3.5..."
-                    $netfxCommand = "DISM /Online /Enable-Feature /FeatureName:NetFx3 /All /LimitAccess /Source:D:\sources\sxs"
+                    # 5.1. Enable .NET Framework 3.5
+                    Add-RunAllStatus "Step 5.1/5.4: Checking .NET Framework 3.5 status..."
+                    try {
+                        $command = "dism /online /get-featureinfo /featurename:NetFx3"
+                        $output = Invoke-Expression $command | Out-String
 
-                    # Create a process to run the command with elevated privileges
-                    $psi = New-Object System.Diagnostics.ProcessStartInfo
-                    $psi.FileName = "powershell.exe"
-                    $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $netfxCommand' -Verb RunAs -WindowStyle Hidden"
-                    $psi.UseShellExecute = $true
-                    $psi.Verb = "runas"
-                    $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+                        if ($output -match "State : Disabled") {
+                            Add-RunAllStatus "Enabling .NET Framework 3.5..."
+                            $enableCmd = "dism /online /enable-feature /featurename:NetFx3 /all /norestart"
+                            Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
+                            Add-RunAllStatus ".NET Framework 3.5 has been enabled."
+                        }
+                        else {
+                            Add-RunAllStatus ".NET Framework 3.5 is already enabled."
+                        }
+                    }
+                    catch {
+                        Add-RunAllStatus "Error enabling .NET Framework 3.5: $_"
+                    }
 
-                    # Start the process
-                    [System.Diagnostics.Process]::Start($psi)
-                    Add-RunAllStatus "Windows features enabled."
-                } catch {
+                    # 5.2. Enable WCF-HTTP-Activation
+                    Add-RunAllStatus "Step 5.2/5.4: Checking WCF-HTTP-Activation status..."
+                    try {
+                        $command = "dism /online /get-featureinfo /featurename:WCF-HTTP-Activation"
+                        $output = Invoke-Expression $command | Out-String
+
+                        if ($output -match "State : Disabled") {
+                            Add-RunAllStatus "Enabling WCF-HTTP-Activation..."
+                            $enableCmd = "DISM /Online /Enable-Feature /FeatureName:WCF-HTTP-Activation /All /Quiet /NoRestart"
+                            Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
+                            Add-RunAllStatus "WCF-HTTP-Activation has been enabled."
+                        }
+                        else {
+                            Add-RunAllStatus "WCF-HTTP-Activation is already enabled."
+                        }
+                    }
+                    catch {
+                        Add-RunAllStatus "Error enabling WCF-HTTP-Activation: $_"
+                    }
+
+                    # 5.3. Enable WCF-NonHTTP-Activation
+                    Add-RunAllStatus "Step 5.3/5.4: Checking WCF-NonHTTP-Activation status..."
+                    try {
+                        $command = "dism /online /get-featureinfo /featurename:WCF-NonHTTP-Activation"
+                        $output = Invoke-Expression $command | Out-String
+
+                        if ($output -match "State : Disabled") {
+                            Add-RunAllStatus "Enabling WCF-NonHTTP-Activation..."
+                            $enableCmd = "DISM /Online /Enable-Feature /FeatureName:WCF-NonHTTP-Activation /All /Quiet /NoRestart"
+                            Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
+                            Add-RunAllStatus "WCF-NonHTTP-Activation has been enabled."
+                        }
+                        else {
+                            Add-RunAllStatus "WCF-NonHTTP-Activation is already enabled."
+                        }
+                    }
+                    catch {
+                        Add-RunAllStatus "Error enabling WCF-NonHTTP-Activation: $_"
+                    }
+
+                    # 5.4. Disable Internet Explorer 11
+                    Add-RunAllStatus "Step 5.4/5.4: Checking Internet Explorer 11 status..."
+                    try {
+                        $command = "dism /online /get-featureinfo /featurename:Internet-Explorer-Optional-amd64"
+                        $output = Invoke-Expression $command | Out-String
+
+                        if ($output -match "State : Enabled") {
+                            Add-RunAllStatus "Disabling Internet Explorer 11..."
+                            $disableCmd = "dism /online /disable-feature /featurename:Internet-Explorer-Optional-amd64 /norestart"
+                            Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $disableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
+                            Add-RunAllStatus "Internet Explorer 11 has been disabled."
+                        }
+                        else {
+                            Add-RunAllStatus "Internet Explorer 11 is already disabled."
+                        }
+                    }
+                    catch {
+                        Add-RunAllStatus "Error disabling Internet Explorer 11: $_"
+                    }
+
+                    Add-RunAllStatus "All Windows features operations completed!"
+                }
+                catch {
                     Add-RunAllStatus "Error enabling Windows features: $_"
                 }
 
@@ -1049,26 +1252,32 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                     # Use the name collected at the beginning
                     $currentName = $env:COMPUTERNAME
 
-                    if ($currentName -ne $newComputerName) {
-                        Add-RunAllStatus "Setting computer name to $newComputerName..."
-
-                        # Create a command to rename the computer
-                        $command = "Rename-Computer -NewName '$newComputerName' -Force"
-
-                        # Create a process to run the command with elevated privileges
-                        $psi = New-Object System.Diagnostics.ProcessStartInfo
-                        $psi.FileName = "powershell.exe"
-                        $psi.Arguments = "-Command Start-Process powershell.exe -ArgumentList '-Command $command' -Verb RunAs"
-                        $psi.UseShellExecute = $true
-                        $psi.Verb = "runas"
-
-                        # Start the process
-                        [System.Diagnostics.Process]::Start($psi)
-                        Add-RunAllStatus "Computer name change initiated to $newComputerName."
-                    } else {
-                        Add-RunAllStatus "Computer is already named $newComputerName. Skipping rename."
+                    # Create a status callback for the rename function
+                    $statusCallback = {
+                        param([string]$message)
+                        Add-RunAllStatus $message
                     }
-                } catch {
+
+                    # Check if the new name is different from the current name
+                    if ($newComputerName -ne $currentName) {
+                        # Call the rename function with the new name
+                        $result = Rename-DeviceWithBatch -newName $newComputerName -statusCallback $statusCallback -showUI $false
+
+                        if ($result) {
+                            Add-RunAllStatus "Computer name change initiated to $newComputerName."
+                        }
+                        else {
+                            Add-RunAllStatus "Failed to rename computer to $newComputerName."
+                        }
+                    }
+                    else {
+                        # Even if the name is the same, still call the rename function
+                        # This allows the user to rename to the same name if desired
+                        $result = Rename-DeviceWithBatch -newName $newComputerName -statusCallback $statusCallback -showUI $false
+                        Add-RunAllStatus "Computer name remains as $currentName."
+                    }
+                }
+                catch {
                     Add-RunAllStatus "Error renaming computer: $_"
                 }
 
@@ -1076,7 +1285,7 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                 Add-RunAllStatus "Step 7/7: Setting password for current user..."
                 try {
                     $currentUser = $env:USERNAME
-                    $newPassword = "Payoo@123"
+                    $newPassword = "Pr0t3ct10c@1@VU"
 
                     # Create a command to set the password
                     $command = "net user $currentUser $newPassword"
@@ -1091,8 +1300,9 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
 
                     # Start the process
                     [System.Diagnostics.Process]::Start($psi)
-                    Add-RunAllStatus "Password set to 'Payoo@123' for user $currentUser."
-                } catch {
+                    Add-RunAllStatus "Password for ''$currentUser'' set to ''$newPassword''."
+                }
+                catch {
                     Add-RunAllStatus "Error setting password: $_"
                 }
 
@@ -1100,9 +1310,11 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                 Add-RunAllStatus "`r`nAll tasks for Laptop completed successfully!"
                 Add-RunAllStatus "You may need to restart your computer to apply all changes."
 
-            } catch {
+            }
+            catch {
                 Add-RunAllStatus "Error running all tasks: $_"
-            } finally {
+            }
+            finally {
                 # Enable close button
                 $closeButton.Enabled = $true
             }
@@ -1112,23 +1324,23 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
 
 # Install All Software
 $buttonInstallSoftware = New-DynamicButton -text "Install All Software" -x 30 -y 180 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
-    # Create Software Installation form
-    $installForm = New-Object System.Windows.Forms.Form
-    $installForm.Text = "Software Installation"
-    $installForm.Size = New-Object System.Drawing.Size(600, 600)
-    $installForm.StartPosition = "CenterScreen"
-    $installForm.BackColor = [System.Drawing.Color]::Black
-    $installForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
-    $installForm.MaximizeBox = $false
-    $installForm.MinimizeBox = $false
+    # Create device type selection form
+    $deviceTypeForm = New-Object System.Windows.Forms.Form
+    $deviceTypeForm.Text = "Select Device Type"
+    $deviceTypeForm.Size = New-Object System.Drawing.Size(500, 400)
+    $deviceTypeForm.StartPosition = "CenterScreen"
+    $deviceTypeForm.BackColor = [System.Drawing.Color]::Black
+    $deviceTypeForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+    $deviceTypeForm.MaximizeBox = $false
+    $deviceTypeForm.MinimizeBox = $false
 
     # Add a gradient background
-    $installForm.Paint = {
+    $deviceTypeForm.Paint = {
         $graphics = $_.Graphics
-        $rect = New-Object System.Drawing.Rectangle(0, 0, $installForm.Width, $installForm.Height)
+        $rect = New-Object System.Drawing.Rectangle(0, 0, $deviceTypeForm.Width, $deviceTypeForm.Height)
         $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
             $rect,
-            [System.Drawing.Color]::FromArgb(0, 0, 0),  # Black at top
+            [System.Drawing.Color]::FromArgb(0, 0, 0), # Black at top
             [System.Drawing.Color]::FromArgb(0, 40, 0), # Dark green at bottom
             [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
         )
@@ -1138,9 +1350,9 @@ $buttonInstallSoftware = New-DynamicButton -text "Install All Software" -x 30 -y
 
     # Title label with animation
     $titleLabel = New-Object System.Windows.Forms.Label
-    $titleLabel.Text = "SOFTWARE INSTALLATION"
+    $titleLabel.Text = "SELECT DEVICE TYPE"
     $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
-    $titleLabel.Size = New-Object System.Drawing.Size(600, 40)
+    $titleLabel.Size = New-Object System.Drawing.Size(500, 40)
     $titleLabel.ForeColor = [System.Drawing.Color]::Lime
     $titleLabel.Font = New-Object System.Drawing.Font("Arial", 16, [System.Drawing.FontStyle]::Bold)
     $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
@@ -1151,36 +1363,37 @@ $buttonInstallSoftware = New-DynamicButton -text "Install All Software" -x 30 -y
     $titleTimer = New-Object System.Windows.Forms.Timer
     $titleTimer.Interval = 500
     $titleTimer.Add_Tick({
-        if ($titleLabel.ForeColor -eq [System.Drawing.Color]::Lime) {
-            $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 220, 0)
-        } else {
-            $titleLabel.ForeColor = [System.Drawing.Color]::Lime
-        }
-    })
+            if ($titleLabel.ForeColor -eq [System.Drawing.Color]::Lime) {
+                $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 220, 0)
+            }
+            else {
+                $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+            }
+        })
     $titleTimer.Start()
 
-    $installForm.Controls.Add($titleLabel)
+    $deviceTypeForm.Controls.Add($titleLabel)
 
     # Status text box
     $statusTextBox = New-Object System.Windows.Forms.TextBox
     $statusTextBox.Multiline = $true
     $statusTextBox.ScrollBars = "Vertical"
-    $statusTextBox.Location = New-Object System.Drawing.Point(50, 400)
-    $statusTextBox.Size = New-Object System.Drawing.Size(500, 150)
+    $statusTextBox.Location = New-Object System.Drawing.Point(50, 250)
+    $statusTextBox.Size = New-Object System.Drawing.Size(400, 100)
     $statusTextBox.BackColor = [System.Drawing.Color]::Black
     $statusTextBox.ForeColor = [System.Drawing.Color]::Lime
     $statusTextBox.Font = New-Object System.Drawing.Font("Consolas", 9)
     $statusTextBox.ReadOnly = $true
     $statusTextBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-    $statusTextBox.Text = "Status messages will appear here..."
-    $installForm.Controls.Add($statusTextBox)
+    $statusTextBox.Text = "Please select a device type..."
+    $deviceTypeForm.Controls.Add($statusTextBox)
 
     # Function to add status message
     function Add-Status {
         param([string]$message)
 
         # Clear placeholder text on first message
-        if ($statusTextBox.Text -eq "Status messages will appear here...") {
+        if ($statusTextBox.Text -eq "Please select a device type...") {
             $statusTextBox.Clear()
         }
 
@@ -1190,6 +1403,61 @@ $buttonInstallSoftware = New-DynamicButton -text "Install All Software" -x 30 -y
         $statusTextBox.ScrollToCaret()
         [System.Windows.Forms.Application]::DoEvents()
     }
+
+    # Desktop button
+    $btnDesktop = New-DynamicButton -text "DESKTOP" -x 100 -y 80 -width 300 -height 70 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+        Add-Status "Starting desktop software installation process..."
+
+        # First copy all necessary files
+        Add-Status "Step 1: Copying required files..."
+        $copyResult = Copy-SoftwareFiles -deviceType "Desktop"
+
+        if ($copyResult) {
+            # Then install the software
+            Add-Status "Step 2: Installing software..."
+            $installResult = Install-Software -deviceType "Desktop"
+
+            if ($installResult) {
+                Add-Status "Desktop software installation completed successfully!"
+            }
+            else {
+                Add-Status "Warning: Some software installations may have failed. Check the log for details."
+            }
+        }
+        else {
+            Add-Status "Error: Failed to copy required files. Installation aborted."
+        }
+    }
+    $deviceTypeForm.Controls.Add($btnDesktop)
+
+    # Laptop button
+    $btnLaptop = New-DynamicButton -text "LAPTOP" -x 100 -y 170 -width 300 -height 70 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+        Add-Status "Starting laptop software installation process..."
+
+        # First copy all necessary files
+        Add-Status "Step 1: Copying required files..."
+        $copyResult = Copy-SoftwareFiles -deviceType "Laptop"
+
+        if ($copyResult) {
+            # Then install the software
+            Add-Status "Step 2: Installing software..."
+            $installResult = Install-Software -deviceType "Laptop"
+
+            if ($installResult) {
+                Add-Status "Laptop software installation completed successfully!"
+            }
+            else {
+                Add-Status "Warning: Some software installations may have failed. Check the log for details."
+            }
+        }
+        else {
+            Add-Status "Error: Failed to copy required files. Installation aborted."
+        }
+    }
+    $deviceTypeForm.Controls.Add($btnLaptop)
+
+    # Show the form
+    $deviceTypeForm.ShowDialog()
 
     # Function to copy files
     function Copy-SoftwareFiles {
@@ -1204,7 +1472,8 @@ $buttonInstallSoftware = New-DynamicButton -text "Install All Software" -x 30 -y
                 Add-Status "Creating temporary folder..."
                 New-Item -Path $tempDir -ItemType Directory -Force | Out-Null
                 Add-Status "Temporary folder created successfully!"
-            } else {
+            }
+            else {
                 Add-Status "Temporary folder already exists. Skipping..."
             }
 
@@ -1215,10 +1484,12 @@ $buttonInstallSoftware = New-DynamicButton -text "Install All Software" -x 30 -y
                 if (Test-Path $setupSource) {
                     Copy-Item -Path $setupSource -Destination "$tempDir\Software" -Recurse -Force
                     Add-Status "SetupFiles has been copied successfully!"
-                } else {
+                }
+                else {
                     Add-Status "Warning: Setup source folder not found at $setupSource"
                 }
-            } else {
+            }
+            else {
                 Add-Status "SetupFiles is already copied. Skipping..."
             }
 
@@ -1229,10 +1500,12 @@ $buttonInstallSoftware = New-DynamicButton -text "Install All Software" -x 30 -y
                 if (Test-Path $officeSource) {
                     Copy-Item -Path "$officeSource\*" -Destination "$tempDir\Office2019" -Recurse -Force
                     Add-Status "Office 2019 has been copied successfully!"
-                } else {
+                }
+                else {
                     Add-Status "Warning: Office source folder not found at $officeSource"
                 }
-            } else {
+            }
+            else {
                 Add-Status "Office 2019 is already copied. Skipping..."
             }
 
@@ -1243,10 +1516,12 @@ $buttonInstallSoftware = New-DynamicButton -text "Install All Software" -x 30 -y
                 if (Test-Path $unikeySource) {
                     Copy-Item -Path $unikeySource -Destination "C:\unikey46RC2-230919-win64" -Recurse -Force
                     Add-Status "Unikey has been copied successfully!"
-                } else {
+                }
+                else {
                     Add-Status "Warning: Unikey source folder not found at $unikeySource"
                 }
-            } else {
+            }
+            else {
                 Add-Status "Unikey is already copied. Skipping..."
             }
 
@@ -1258,10 +1533,12 @@ $buttonInstallSoftware = New-DynamicButton -text "Install All Software" -x 30 -y
                     $teamsUrl = "https://go.microsoft.com/fwlink/p/?LinkID=2187327&clcid=0x409&culture=en-us&country=US"
                     Invoke-WebRequest -Uri $teamsUrl -OutFile $teamsSetupPath -UseBasicParsing
                     Add-Status "Microsoft Teams has been downloaded successfully!"
-                } catch {
+                }
+                catch {
                     Add-Status "Warning: Failed to download Microsoft Teams. Error: $_"
                 }
-            } else {
+            }
+            else {
                 Add-Status "Microsoft Teams installer already exists. Skipping download..."
             }
 
@@ -1273,10 +1550,12 @@ $buttonInstallSoftware = New-DynamicButton -text "Install All Software" -x 30 -y
                 if (Test-Path $forceScoutSource) {
                     Copy-Item -Path $forceScoutSource -Destination $forceScoutDest -Force
                     Add-Status "ForceScout has been copied successfully!"
-                } else {
+                }
+                else {
                     Add-Status "Warning: ForceScout source file not found at $forceScoutSource"
                 }
-            } else {
+            }
+            else {
                 Add-Status "ForceScout is already copied. Skipping..."
             }
 
@@ -1288,10 +1567,12 @@ $buttonInstallSoftware = New-DynamicButton -text "Install All Software" -x 30 -y
                 if (Test-Path $trellixSource) {
                     Copy-Item -Path $trellixSource -Destination $trellixDest -Force
                     Add-Status "Trellix has been copied successfully!"
-                } else {
+                }
+                else {
                     Add-Status "Warning: Trellix source file not found at $trellixSource"
                 }
-            } else {
+            }
+            else {
                 Add-Status "Trellix is already copied. Skipping..."
             }
 
@@ -1303,10 +1584,12 @@ $buttonInstallSoftware = New-DynamicButton -text "Install All Software" -x 30 -y
                 if (Test-Path $mdmSource) {
                     Copy-Item -Path $mdmSource -Destination $mdmDest -Recurse -Force
                     Add-Status "MDM has been copied successfully!"
-                } else {
+                }
+                else {
                     Add-Status "Warning: MDM source folder not found at $mdmSource"
                 }
-            } else {
+            }
+            else {
                 Add-Status "MDM is already copied. Skipping..."
             }
 
@@ -1319,13 +1602,16 @@ $buttonInstallSoftware = New-DynamicButton -text "Install All Software" -x 30 -y
                     if (Test-Path $agentSource) {
                         Copy-Item -Path $agentSource -Destination $agentDest -Force
                         Add-Status "Desktop Agent has been copied successfully!"
-                    } else {
+                    }
+                    else {
                         Add-Status "Warning: Desktop Agent source file not found at $agentSource"
                     }
-                } else {
+                }
+                else {
                     Add-Status "Desktop Agent is already copied. Skipping..."
                 }
-            } else {
+            }
+            else {
                 $agentDest = "$env:USERPROFILE\Downloads\Laptop Agent.exe"
                 if (-not (Test-Path $agentDest)) {
                     Add-Status "Copying Laptop Agent file..."
@@ -1333,17 +1619,20 @@ $buttonInstallSoftware = New-DynamicButton -text "Install All Software" -x 30 -y
                     if (Test-Path $agentSource) {
                         Copy-Item -Path $agentSource -Destination $agentDest -Force
                         Add-Status "Laptop Agent has been copied successfully!"
-                    } else {
+                    }
+                    else {
                         Add-Status "Warning: Laptop Agent source file not found at $agentSource"
                     }
-                } else {
+                }
+                else {
                     Add-Status "Laptop Agent is already copied. Skipping..."
                 }
             }
 
             Add-Status "All files have been copied successfully."
             return $true
-        } catch {
+        }
+        catch {
             Add-Status "Error during file copy: $_"
             return $false
         }
@@ -1365,10 +1654,12 @@ $buttonInstallSoftware = New-DynamicButton -text "Install All Software" -x 30 -y
                 if (Test-Path $zipSetup) {
                     Start-Process -FilePath $zipSetup -ArgumentList "/S" -Wait
                     Add-Status "7-Zip installed successfully!"
-                } else {
+                }
+                else {
                     Add-Status "Warning: 7-Zip setup file not found at $zipSetup"
                 }
-            } else {
+            }
+            else {
                 Add-Status "7-Zip is already installed. Skipping..."
             }
 
@@ -1379,10 +1670,12 @@ $buttonInstallSoftware = New-DynamicButton -text "Install All Software" -x 30 -y
                 if (Test-Path $chromeSetup) {
                     Start-Process -FilePath $chromeSetup -ArgumentList "/silent /install" -Wait
                     Add-Status "Google Chrome installed successfully!"
-                } else {
+                }
+                else {
                     Add-Status "Warning: Chrome setup file not found at $chromeSetup"
                 }
-            } else {
+            }
+            else {
                 Add-Status "Google Chrome is already installed. Skipping..."
             }
 
@@ -1393,10 +1686,12 @@ $buttonInstallSoftware = New-DynamicButton -text "Install All Software" -x 30 -y
                 if (Test-Path $lapsSetup) {
                     Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$lapsSetup`" /quiet" -Wait
                     Add-Status "LAPS_x64 installed successfully!"
-                } else {
+                }
+                else {
                     Add-Status "Warning: LAPS setup file not found at $lapsSetup"
                 }
-            } else {
+            }
+            else {
                 Add-Status "LAPS_x64 is already installed. Skipping..."
             }
 
@@ -1407,10 +1702,12 @@ $buttonInstallSoftware = New-DynamicButton -text "Install All Software" -x 30 -y
                 if (Test-Path $foxitSetup) {
                     Start-Process -FilePath $foxitSetup -ArgumentList "/silent /install" -Wait
                     Add-Status "Foxit Reader installed successfully!"
-                } else {
+                }
+                else {
                     Add-Status "Warning: Foxit Reader setup file not found at $foxitSetup"
                 }
-            } else {
+            }
+            else {
                 Add-Status "Foxit Reader is already installed. Skipping..."
             }
 
@@ -1425,10 +1722,12 @@ $buttonInstallSoftware = New-DynamicButton -text "Install All Software" -x 30 -y
                     Start-Process -FilePath $officeSetup -ArgumentList "/configure configuration.xml" -Wait
                     Set-Location -Path $currentLocation
                     Add-Status "Microsoft Office 2019 installed successfully!"
-                } else {
+                }
+                else {
                     Add-Status "Warning: Office setup files not found at $tempDir\Office2019"
                 }
-            } else {
+            }
+            else {
                 Add-Status "Microsoft Office 2019 is already installed. Skipping..."
             }
 
@@ -1441,10 +1740,12 @@ $buttonInstallSoftware = New-DynamicButton -text "Install All Software" -x 30 -y
                     if (Test-Path $zoomSetup) {
                         Start-Process -FilePath $zoomSetup -ArgumentList "/silent /install" -Wait
                         Add-Status "Zoom installed successfully!"
-                    } else {
+                    }
+                    else {
                         Add-Status "Warning: Zoom setup file not found at $zoomSetup"
                     }
-                } else {
+                }
+                else {
                     Add-Status "Zoom is already installed. Skipping..."
                 }
 
@@ -1455,202 +1756,26 @@ $buttonInstallSoftware = New-DynamicButton -text "Install All Software" -x 30 -y
                     if (Test-Path $vpnSetup) {
                         Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$vpnSetup`" /quiet" -Wait
                         Add-Status "CheckPointVPN installed successfully!"
-                    } else {
+                    }
+                    else {
                         Add-Status "Warning: CheckPointVPN setup file not found at $vpnSetup"
                     }
-                } else {
+                }
+                else {
                     Add-Status "CheckPointVPN is already installed. Skipping..."
                 }
             }
 
             Add-Status "All software has been installed successfully."
             return $true
-        } catch {
+        }
+        catch {
             Add-Status "Error during software installation: $_"
             return $false
         }
     }
 
-    # Install for Desktop button
-    $btnInstallDesktop = New-DynamicButton -text "Install Software for Desktop" -x 50 -y 80 -width 500 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
-        Add-Status "Starting desktop software installation process..."
 
-        # First copy all necessary files
-        Add-Status "Step 1: Copying required files..."
-        $copyResult = Copy-SoftwareFiles -deviceType "Desktop"
-
-        if ($copyResult) {
-            # Then install the software
-            Add-Status "Step 2: Installing software..."
-            $installResult = Install-Software -deviceType "Desktop"
-
-            if ($installResult) {
-                Add-Status "Desktop software installation completed successfully."
-            } else {
-                Add-Status "Warning: Some software installations may have failed. Check the log for details."
-            }
-        } else {
-            Add-Status "Error: Failed to copy required files. Installation aborted."
-        }
-    }
-    $installForm.Controls.Add($btnInstallDesktop)
-
-    # Install for Laptop button
-    $btnInstallLaptop = New-DynamicButton -text "Install Software for Laptop" -x 50 -y 160 -width 500 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
-        Add-Status "Starting laptop software installation process..."
-
-        # First copy all necessary files
-        Add-Status "Step 1: Copying required files..."
-        $copyResult = Copy-SoftwareFiles -deviceType "Laptop"
-
-        if ($copyResult) {
-            # Then install the software
-            Add-Status "Step 2: Installing software..."
-            $installResult = Install-Software -deviceType "Laptop"
-
-            if ($installResult) {
-                Add-Status "Laptop software installation completed successfully."
-            } else {
-                Add-Status "Warning: Some software installations may have failed. Check the log for details."
-            }
-        } else {
-            Add-Status "Error: Failed to copy required files. Installation aborted."
-        }
-    }
-    $installForm.Controls.Add($btnInstallLaptop)
-
-    # Copy Files Only button
-    $btnCopyOnly = New-DynamicButton -text "Copy Files Only" -x 50 -y 240 -width 500 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
-        Add-Status "Starting file copy process..."
-
-        try {
-            # Create temp directory
-            $tempDir = "$env:USERPROFILE\Downloads\SETUP"
-            if (-not (Test-Path $tempDir)) {
-                Add-Status "Creating temporary folder..."
-                New-Item -Path $tempDir -ItemType Directory -Force | Out-Null
-                Add-Status "Temporary folder created successfully!"
-            } else {
-                Add-Status "Temporary folder already exists. Skipping..."
-            }
-
-            # Copy setup files
-            if (-not (Test-Path "$tempDir\Software")) {
-                Add-Status "Copying setup files..."
-                $setupSource = "D:\SOFTWARE\PAYOO\SETUP"
-                if (Test-Path $setupSource) {
-                    Copy-Item -Path $setupSource -Destination "$tempDir\Software" -Recurse -Force
-                    Add-Status "SetupFiles has been copied successfully!"
-                } else {
-                    Add-Status "Warning: Setup source folder not found at $setupSource"
-                }
-            } else {
-                Add-Status "SetupFiles is already copied. Skipping..."
-            }
-
-            # Copy Office 2019
-            if (-not (Test-Path "$tempDir\Office2019")) {
-                Add-Status "Copying Office 2019 files..."
-                $officeSource = "D:\SOFTWARE\OFFICE\Office 2019"
-                if (Test-Path $officeSource) {
-                    Copy-Item -Path "$officeSource\*" -Destination "$tempDir\Office2019" -Recurse -Force
-                    Add-Status "Office 2019 has been copied successfully!"
-                } else {
-                    Add-Status "Warning: Office source folder not found at $officeSource"
-                }
-            } else {
-                Add-Status "Office 2019 is already copied. Skipping..."
-            }
-
-            # Copy Unikey
-            if (-not (Test-Path "C:\unikey46RC2-230919-win64")) {
-                Add-Status "Copying Unikey files..."
-                $unikeySource = "D:\SOFTWARE\PAYOO\unikey46RC2-230919-win64"
-                if (Test-Path $unikeySource) {
-                    Copy-Item -Path $unikeySource -Destination "C:\unikey46RC2-230919-win64" -Recurse -Force
-                    Add-Status "Unikey has been copied successfully!"
-                } else {
-                    Add-Status "Warning: Unikey source folder not found at $unikeySource"
-                }
-            } else {
-                Add-Status "Unikey is already copied. Skipping..."
-            }
-
-            # Copy MSTeamsSetup
-            if (-not (Test-Path "C:\MSTeamsSetup")) {
-                Add-Status "Copying MSTeamsSetup files..."
-                $teamsSource = "D:\SOFTWARE\PAYOO\MSTeamsSetup"
-                if (Test-Path $teamsSource) {
-                    Copy-Item -Path $teamsSource -Destination "C:\MSTeamsSetup" -Recurse -Force
-                    Add-Status "MSTeamsSetup has been copied successfully!"
-                } else {
-                    Add-Status "Warning: MSTeamsSetup source folder not found at $teamsSource"
-                }
-            } else {
-                Add-Status "MSTeamsSetup is already copied. Skipping..."
-            }
-
-            # Copy ForceScout
-            $forceScoutDest = "$env:USERPROFILE\Downloads\SC-wKgXWicTb0XhUSNethaFN0vkhji53AY5mektJ7O_RSOdc8bEUVIEAAH_OewU.exe"
-            if (-not (Test-Path $forceScoutDest)) {
-                Add-Status "Copying ForceScout file..."
-                $forceScoutSource = "D:\SOFTWARE\PAYOO\SC-wKgXWicTb0XhUSNethaFN0vkhji53AY5mektJ7O_RSOdc8bEUVIEAAH_OewU.exe"
-                if (Test-Path $forceScoutSource) {
-                    Copy-Item -Path $forceScoutSource -Destination $forceScoutDest -Force
-                    Add-Status "ForceScout has been copied successfully!"
-                } else {
-                    Add-Status "Warning: ForceScout source file not found at $forceScoutSource"
-                }
-            } else {
-                Add-Status "ForceScout is already copied. Skipping..."
-            }
-
-            # Copy Trellix
-            $trellixDest = "$env:USERPROFILE\Downloads\TrellixSmartInstall.exe"
-            if (-not (Test-Path $trellixDest)) {
-                Add-Status "Copying Trellix file..."
-                $trellixSource = "D:\SOFTWARE\PAYOO\TrellixSmartInstall.exe"
-                if (Test-Path $trellixSource) {
-                    Copy-Item -Path $trellixSource -Destination $trellixDest -Force
-                    Add-Status "Trellix has been copied successfully!"
-                } else {
-                    Add-Status "Warning: Trellix source file not found at $trellixSource"
-                }
-            } else {
-                Add-Status "Trellix is already copied. Skipping..."
-            }
-
-            # Copy MDM
-            $mdmDest = "$env:USERPROFILE\Downloads\ManageEngine_MDMLaptopEnrollment"
-            if (-not (Test-Path $mdmDest)) {
-                Add-Status "Copying MDM files..."
-                $mdmSource = "D:\SOFTWARE\PAYOO\ManageEngine_MDMLaptopEnrollment"
-                if (Test-Path $mdmSource) {
-                    Copy-Item -Path $mdmSource -Destination $mdmDest -Recurse -Force
-                    Add-Status "MDM has been copied successfully!"
-                } else {
-                    Add-Status "Warning: MDM source folder not found at $mdmSource"
-                }
-            } else {
-                Add-Status "MDM is already copied. Skipping..."
-            }
-
-            Add-Status "File copy process completed successfully."
-
-        } catch {
-            Add-Status "Error during file copy: $_"
-        }
-    }
-    $installForm.Controls.Add($btnCopyOnly)
-
-    # Return to Main Menu button
-    $btnReturn = New-DynamicButton -text "Return to Main Menu" -x 50 -y 320 -width 500 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
-        $installForm.Close()
-    }
-    $installForm.Controls.Add($btnReturn)
-
-    # Show the form
-    $installForm.ShowDialog()
 }
 
 # Power Options and Firewall
@@ -1671,7 +1796,7 @@ $buttonPowerOptions = New-DynamicButton -text "Power Options and Firewall" -x 30
         $rect = New-Object System.Drawing.Rectangle(0, 0, $powerForm.Width, $powerForm.Height)
         $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
             $rect,
-            [System.Drawing.Color]::FromArgb(0, 0, 0),  # Black at top
+            [System.Drawing.Color]::FromArgb(0, 0, 0), # Black at top
             [System.Drawing.Color]::FromArgb(0, 40, 0), # Dark green at bottom
             [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
         )
@@ -1694,12 +1819,13 @@ $buttonPowerOptions = New-DynamicButton -text "Power Options and Firewall" -x 30
     $titleTimer = New-Object System.Windows.Forms.Timer
     $titleTimer.Interval = 500
     $titleTimer.Add_Tick({
-        if ($titleLabel.ForeColor -eq [System.Drawing.Color]::Lime) {
-            $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 220, 0)
-        } else {
-            $titleLabel.ForeColor = [System.Drawing.Color]::Lime
-        }
-    })
+            if ($titleLabel.ForeColor -eq [System.Drawing.Color]::Lime) {
+                $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 220, 0)
+            }
+            else {
+                $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+            }
+        })
     $titleTimer.Start()
 
     $powerForm.Controls.Add($titleLabel)
@@ -1898,7 +2024,7 @@ $buttonChangeVolume = New-DynamicButton -text "Change / Edit Volume" -x 30 -y 34
         $rect = New-Object System.Drawing.Rectangle(0, 0, $volumeForm.Width, $volumeForm.Height)
         $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
             $rect,
-            [System.Drawing.Color]::FromArgb(0, 0, 0),  # Black at top
+            [System.Drawing.Color]::FromArgb(0, 0, 0), # Black at top
             [System.Drawing.Color]::FromArgb(0, 40, 0), # Dark green at bottom
             [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
         )
@@ -1921,12 +2047,13 @@ $buttonChangeVolume = New-DynamicButton -text "Change / Edit Volume" -x 30 -y 34
     $titleTimer = New-Object System.Windows.Forms.Timer
     $titleTimer.Interval = 500
     $titleTimer.Add_Tick({
-        if ($titleLabel.ForeColor -eq [System.Drawing.Color]::Lime) {
-            $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 220, 0)
-        } else {
-            $titleLabel.ForeColor = [System.Drawing.Color]::Lime
-        }
-    })
+            if ($titleLabel.ForeColor -eq [System.Drawing.Color]::Lime) {
+                $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 220, 0)
+            }
+            else {
+                $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+            }
+        })
     $titleTimer.Start()
 
     $volumeForm.Controls.Add($titleLabel)
@@ -2007,10 +2134,10 @@ $buttonChangeVolume = New-DynamicButton -text "Change / Edit Volume" -x 30 -y 34
         # Populate drive list
         Add-Status "Getting list of drives..."
         try {
-            $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name='Name';Expression={$_.DeviceID}},
-                @{Name='VolumeName';Expression={$_.VolumeName}},
-                @{Name='Size (GB)';Expression={[math]::round($_.Size/1GB, 0)}},
-                @{Name='FreeSpace (GB)';Expression={[math]::round($_.FreeSpace/1GB, 0)}}
+            $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } },
+            @{Name = 'VolumeName'; Expression = { $_.VolumeName } },
+            @{Name = 'Size (GB)'; Expression = { [math]::round($_.Size / 1GB, 0) } },
+            @{Name = 'FreeSpace (GB)'; Expression = { [math]::round($_.FreeSpace / 1GB, 0) } }
 
             foreach ($drive in $drives) {
                 $driveInfo = "$($drive.Name) - $($drive.VolumeName) - Size: $($drive.'Size (GB)') GB - Free: $($drive.'FreeSpace (GB)') GB"
@@ -2022,7 +2149,8 @@ $buttonChangeVolume = New-DynamicButton -text "Change / Edit Volume" -x 30 -y 34
             }
 
             Add-Status "Found $($drives.Count) drives."
-        } catch {
+        }
+        catch {
             Add-Status "Error getting drive list: $_"
         }
 
@@ -2088,12 +2216,12 @@ $buttonChangeVolume = New-DynamicButton -text "Change / Edit Volume" -x 30 -y 34
 
         # Update old letter when drive is selected
         $driveListBox.Add_SelectedIndexChanged({
-            if ($driveListBox.SelectedItem) {
-                $selectedDrive = $driveListBox.SelectedItem.ToString()
-                $driveLetter = $selectedDrive.Substring(0, 1)
-                $oldLetterTextBox.Text = $driveLetter
-            }
-        })
+                if ($driveListBox.SelectedItem) {
+                    $selectedDrive = $driveListBox.SelectedItem.ToString()
+                    $driveLetter = $selectedDrive.Substring(0, 1)
+                    $oldLetterTextBox.Text = $driveLetter
+                }
+            })
 
         # Change button
         $changeButton = New-DynamicButton -text "Change Drive Letter" -x 20 -y 330 -width 200 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
@@ -2152,10 +2280,10 @@ assign letter=$newLetter
 
                     # Refresh drive list
                     $driveListBox.Items.Clear()
-                    $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name='Name';Expression={$_.DeviceID}},
-                        @{Name='VolumeName';Expression={$_.VolumeName}},
-                        @{Name='Size (GB)';Expression={[math]::round($_.Size/1GB, 0)}},
-                        @{Name='FreeSpace (GB)';Expression={[math]::round($_.FreeSpace/1GB, 0)}}
+                    $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } },
+                    @{Name = 'VolumeName'; Expression = { $_.VolumeName } },
+                    @{Name = 'Size (GB)'; Expression = { [math]::round($_.Size / 1GB, 0) } },
+                    @{Name = 'FreeSpace (GB)'; Expression = { [math]::round($_.FreeSpace / 1GB, 0) } }
 
                     foreach ($drive in $drives) {
                         $driveInfo = "$($drive.Name) - $($drive.VolumeName) - Size: $($drive.'Size (GB)') GB - Free: $($drive.'FreeSpace (GB)') GB"
@@ -2165,12 +2293,15 @@ assign letter=$newLetter
                     if ($driveListBox.Items.Count -gt 0) {
                         $driveListBox.SelectedIndex = 0
                     }
-                } else {
+                }
+                else {
                     Add-ChangeStatus "Error changing drive letter. Exit code: $($process.ExitCode)"
                 }
-            } catch {
+            }
+            catch {
                 Add-ChangeStatus "Error: $_"
-            } finally {
+            }
+            finally {
                 # Clean up temp file
                 if (Test-Path $tempFile) {
                     Remove-Item $tempFile -Force
@@ -2235,10 +2366,10 @@ assign letter=$newLetter
         # Populate drive list
         Add-Status "Getting list of drives..."
         try {
-            $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name='Name';Expression={$_.DeviceID}},
-                @{Name='VolumeName';Expression={$_.VolumeName}},
-                @{Name='Size (GB)';Expression={[math]::round($_.Size/1GB, 0)}},
-                @{Name='FreeSpace (GB)';Expression={[math]::round($_.FreeSpace/1GB, 0)}}
+            $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } },
+            @{Name = 'VolumeName'; Expression = { $_.VolumeName } },
+            @{Name = 'Size (GB)'; Expression = { [math]::round($_.Size / 1GB, 0) } },
+            @{Name = 'FreeSpace (GB)'; Expression = { [math]::round($_.FreeSpace / 1GB, 0) } }
 
             foreach ($drive in $drives) {
                 $driveInfo = "$($drive.Name) - $($drive.VolumeName) - Size: $($drive.'Size (GB)') GB - Free: $($drive.'FreeSpace (GB)') GB"
@@ -2250,7 +2381,8 @@ assign letter=$newLetter
             }
 
             Add-Status "Found $($drives.Count) drives."
-        } catch {
+        }
+        catch {
             Add-Status "Error getting drive list: $_"
         }
 
@@ -2351,12 +2483,12 @@ assign letter=$newLetter
 
         # Update selected drive when drive is selected
         $driveListBox.Add_SelectedIndexChanged({
-            if ($driveListBox.SelectedItem) {
-                $selectedDrive = $driveListBox.SelectedItem.ToString()
-                $driveLetter = $selectedDrive.Substring(0, 1)
-                $selectedDriveTextBox.Text = $driveLetter
-            }
-        })
+                if ($driveListBox.SelectedItem) {
+                    $selectedDrive = $driveListBox.SelectedItem.ToString()
+                    $driveLetter = $selectedDrive.Substring(0, 1)
+                    $selectedDriveTextBox.Text = $driveLetter
+                }
+            })
 
         # Shrink button
         $shrinkButton = New-DynamicButton -text "Shrink and Create Partition" -x 20 -y 450 -width 250 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
@@ -2379,10 +2511,12 @@ assign letter=$newLetter
             if ($radio80GB.Checked) {
                 $sizeMB = 82020
                 Add-ShrinkStatus "Selected 80GB partition."
-            } elseif ($radio200GB.Checked) {
+            }
+            elseif ($radio200GB.Checked) {
                 $sizeMB = 204955
                 Add-ShrinkStatus "Selected 200GB partition."
-            } elseif ($radio500GB.Checked) {
+            }
+            elseif ($radio500GB.Checked) {
                 $sizeMB = 512000
                 Add-ShrinkStatus "Selected 500GB partition."
             }
@@ -2463,10 +2597,10 @@ pause
                     Start-Sleep -Seconds 2
 
                     # Get updated list of drives
-                    $updatedDrives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name='Name';Expression={$_.DeviceID}},
-                        @{Name='VolumeName';Expression={$_.VolumeName}},
-                        @{Name='Size (GB)';Expression={[math]::round($_.Size/1GB, 0)}},
-                        @{Name='FreeSpace (GB)';Expression={[math]::round($_.FreeSpace/1GB, 0)}}
+                    $updatedDrives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } },
+                    @{Name = 'VolumeName'; Expression = { $_.VolumeName } },
+                    @{Name = 'Size (GB)'; Expression = { [math]::round($_.Size / 1GB, 0) } },
+                    @{Name = 'FreeSpace (GB)'; Expression = { [math]::round($_.FreeSpace / 1GB, 0) } }
 
                     # Display updated drive list
                     $driveListBox.Items.Clear()
@@ -2478,13 +2612,16 @@ pause
                     if ($driveListBox.Items.Count -gt 0) {
                         $driveListBox.SelectedIndex = 0
                     }
-                } else {
+                }
+                else {
                     Add-ShrinkStatus "Error: The operation failed with exit code $($batchProcess.ExitCode)"
                     Add-ShrinkStatus "Please check the command prompt window for more details."
                 }
-            } catch {
+            }
+            catch {
                 Add-ShrinkStatus "Error: $_"
-            } finally {
+            }
+            finally {
                 # Clean up temp file
                 if (Test-Path $batchFilePath) {
                     Remove-Item $batchFilePath -Force -ErrorAction SilentlyContinue
@@ -2549,10 +2686,10 @@ pause
         # Populate drive list
         Add-Status "Getting list of drives..."
         try {
-            $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name='Name';Expression={$_.DeviceID}},
-                @{Name='VolumeName';Expression={$_.VolumeName}},
-                @{Name='Size (GB)';Expression={[math]::round($_.Size/1GB, 0)}},
-                @{Name='FreeSpace (GB)';Expression={[math]::round($_.FreeSpace/1GB, 0)}}
+            $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } },
+            @{Name = 'VolumeName'; Expression = { $_.VolumeName } },
+            @{Name = 'Size (GB)'; Expression = { [math]::round($_.Size / 1GB, 0) } },
+            @{Name = 'FreeSpace (GB)'; Expression = { [math]::round($_.FreeSpace / 1GB, 0) } }
 
             foreach ($drive in $drives) {
                 $driveInfo = "$($drive.Name) - $($drive.VolumeName) - Size: $($drive.'Size (GB)') GB - Free: $($drive.'FreeSpace (GB)') GB"
@@ -2564,7 +2701,8 @@ pause
             }
 
             Add-Status "Found $($drives.Count) drives."
-        } catch {
+        }
+        catch {
             Add-Status "Error getting drive list: $_"
         }
 
@@ -2639,20 +2777,20 @@ pause
 
         # Update selected drive when drive is selected
         $driveListBox.Add_SelectedIndexChanged({
-            if ($driveListBox.SelectedItem) {
-                $selectedDrive = $driveListBox.SelectedItem.ToString()
-                $driveLetter = $selectedDrive.Substring(0, 1)
+                if ($driveListBox.SelectedItem) {
+                    $selectedDrive = $driveListBox.SelectedItem.ToString()
+                    $driveLetter = $selectedDrive.Substring(0, 1)
 
-                # If source drive is empty, fill it
-                if ($sourceDriveTextBox.Text -eq "") {
-                    $sourceDriveTextBox.Text = $driveLetter
+                    # If source drive is empty, fill it
+                    if ($sourceDriveTextBox.Text -eq "") {
+                        $sourceDriveTextBox.Text = $driveLetter
+                    }
+                    # Otherwise, if target drive is empty and different from source, fill it
+                    elseif ($targetDriveTextBox.Text -eq "" -and $driveLetter -ne $sourceDriveTextBox.Text) {
+                        $targetDriveTextBox.Text = $driveLetter
+                    }
                 }
-                # Otherwise, if target drive is empty and different from source, fill it
-                elseif ($targetDriveTextBox.Text -eq "" -and $driveLetter -ne $sourceDriveTextBox.Text) {
-                    $targetDriveTextBox.Text = $driveLetter
-                }
-            }
-        })
+            })
 
         # Merge button
         $mergeButton = New-DynamicButton -text "Merge Volumes" -x 20 -y 340 -width 250 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
@@ -2785,10 +2923,10 @@ pause
                     Start-Sleep -Seconds 2
 
                     # Get updated list of drives
-                    $updatedDrives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name='Name';Expression={$_.DeviceID}},
-                        @{Name='VolumeName';Expression={$_.VolumeName}},
-                        @{Name='Size (GB)';Expression={[math]::round($_.Size/1GB, 0)}},
-                        @{Name='FreeSpace (GB)';Expression={[math]::round($_.FreeSpace/1GB, 0)}}
+                    $updatedDrives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } },
+                    @{Name = 'VolumeName'; Expression = { $_.VolumeName } },
+                    @{Name = 'Size (GB)'; Expression = { [math]::round($_.Size / 1GB, 0) } },
+                    @{Name = 'FreeSpace (GB)'; Expression = { [math]::round($_.FreeSpace / 1GB, 0) } }
 
                     # Display updated drive list
                     $driveListBox.Items.Clear()
@@ -2804,13 +2942,16 @@ pause
                     # Clear the textboxes
                     $sourceDriveTextBox.Text = ""
                     $targetDriveTextBox.Text = ""
-                } else {
+                }
+                else {
                     Add-MergeStatus "Error: The operation failed with exit code $($batchProcess.ExitCode)"
                     Add-MergeStatus "Please check the command prompt window for more details."
                 }
-            } catch {
+            }
+            catch {
                 Add-MergeStatus "Error: $_"
-            } finally {
+            }
+            finally {
                 # Clean up temp file
                 if (Test-Path $batchFilePath) {
                     Remove-Item $batchFilePath -Force -ErrorAction SilentlyContinue
@@ -2875,10 +3016,10 @@ pause
         # Populate drive list
         Add-Status "Getting list of drives..."
         try {
-            $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name='Name';Expression={$_.DeviceID}},
-                @{Name='VolumeName';Expression={$_.VolumeName}},
-                @{Name='Size (GB)';Expression={[math]::round($_.Size/1GB, 0)}},
-                @{Name='FreeSpace (GB)';Expression={[math]::round($_.FreeSpace/1GB, 0)}}
+            $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } },
+            @{Name = 'VolumeName'; Expression = { $_.VolumeName } },
+            @{Name = 'Size (GB)'; Expression = { [math]::round($_.Size / 1GB, 0) } },
+            @{Name = 'FreeSpace (GB)'; Expression = { [math]::round($_.FreeSpace / 1GB, 0) } }
 
             foreach ($drive in $drives) {
                 $driveInfo = "$($drive.Name) - $($drive.VolumeName) - Size: $($drive.'Size (GB)') GB - Free: $($drive.'FreeSpace (GB)') GB"
@@ -2890,7 +3031,8 @@ pause
             }
 
             Add-Status "Found $($drives.Count) drives."
-        } catch {
+        }
+        catch {
             Add-Status "Error getting drive list: $_"
         }
 
@@ -2956,24 +3098,24 @@ pause
 
         # Update selected drive when drive is selected
         $driveListBox.Add_SelectedIndexChanged({
-            if ($driveListBox.SelectedItem) {
-                $selectedDrive = $driveListBox.SelectedItem.ToString()
-                $driveLetter = $selectedDrive.Substring(0, 1)
-                $driveLetterTextBox.Text = $driveLetter
+                if ($driveListBox.SelectedItem) {
+                    $selectedDrive = $driveListBox.SelectedItem.ToString()
+                    $driveLetter = $selectedDrive.Substring(0, 1)
+                    $driveLetterTextBox.Text = $driveLetter
 
-                # Get current volume name
-                $currentVolumeName = ""
-                foreach ($drive in $drives) {
-                    if ($drive.Name -eq "$($driveLetter):") {
-                        $currentVolumeName = $drive.VolumeName
-                        break
+                    # Get current volume name
+                    $currentVolumeName = ""
+                    foreach ($drive in $drives) {
+                        if ($drive.Name -eq "$($driveLetter):") {
+                            $currentVolumeName = $drive.VolumeName
+                            break
+                        }
                     }
-                }
 
-                # Set current volume name as default text
-                $newLabelTextBox.Text = $currentVolumeName
-            }
-        })
+                    # Set current volume name as default text
+                    $newLabelTextBox.Text = $currentVolumeName
+                }
+            })
 
         # Rename button
         $renameButton = New-DynamicButton -text "Rename Volume" -x 20 -y 320 -width 200 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
@@ -3048,10 +3190,10 @@ pause
                     Start-Sleep -Seconds 2
 
                     # Get updated list of drives
-                    $updatedDrives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name='Name';Expression={$_.DeviceID}},
-                        @{Name='VolumeName';Expression={$_.VolumeName}},
-                        @{Name='Size (GB)';Expression={[math]::round($_.Size/1GB, 0)}},
-                        @{Name='FreeSpace (GB)';Expression={[math]::round($_.FreeSpace/1GB, 0)}}
+                    $updatedDrives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } },
+                    @{Name = 'VolumeName'; Expression = { $_.VolumeName } },
+                    @{Name = 'Size (GB)'; Expression = { [math]::round($_.Size / 1GB, 0) } },
+                    @{Name = 'FreeSpace (GB)'; Expression = { [math]::round($_.FreeSpace / 1GB, 0) } }
 
                     # Display updated drive list
                     $driveListBox.Items.Clear()
@@ -3066,13 +3208,16 @@ pause
 
                     # Update global drives variable for future use
                     $script:drives = $updatedDrives
-                } else {
+                }
+                else {
                     Add-RenameStatus "Error: The operation failed with exit code $($batchProcess.ExitCode)"
                     Add-RenameStatus "Please check the command prompt window for more details."
                 }
-            } catch {
+            }
+            catch {
                 Add-RenameStatus "Error: $_"
-            } finally {
+            }
+            finally {
                 # Clean up temp file
                 if (Test-Path $batchFilePath) {
                     Remove-Item $batchFilePath -Force -ErrorAction SilentlyContinue
@@ -3103,7 +3248,7 @@ pause
     $volumeForm.ShowDialog()
 }
 
-# Activate Windows 10 Pro and Office 2019 Pro Plus
+# [5] Activate Windows 10 Pro and Office 2019 Pro Plus
 $buttonActivate = New-DynamicButton -text "Activate" -x 30 -y 420 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
     # Create activation form
     $activateForm = New-Object System.Windows.Forms.Form
@@ -3121,7 +3266,7 @@ $buttonActivate = New-DynamicButton -text "Activate" -x 30 -y 420 -width 380 -he
         $rect = New-Object System.Drawing.Rectangle(0, 0, $activateForm.Width, $activateForm.Height)
         $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
             $rect,
-            [System.Drawing.Color]::FromArgb(0, 0, 0),  # Black at top
+            [System.Drawing.Color]::FromArgb(0, 0, 0), # Black at top
             [System.Drawing.Color]::FromArgb(0, 30, 0), # Dark green at bottom
             [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
         )
@@ -3144,12 +3289,13 @@ $buttonActivate = New-DynamicButton -text "Activate" -x 30 -y 420 -width 380 -he
     $titleTimer = New-Object System.Windows.Forms.Timer
     $titleTimer.Interval = 800
     $titleTimer.Add_Tick({
-        if ($titleLabel.ForeColor -eq [System.Drawing.Color]::Lime) {
-            $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 200, 0)
-        } else {
-            $titleLabel.ForeColor = [System.Drawing.Color]::Lime
-        }
-    })
+            if ($titleLabel.ForeColor -eq [System.Drawing.Color]::Lime) {
+                $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 200, 0)
+            }
+            else {
+                $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+            }
+        })
     $titleTimer.Start()
 
     # Status text box
@@ -3209,7 +3355,8 @@ $buttonActivate = New-DynamicButton -text "Activate" -x 30 -y 420 -width 380 -he
             [System.Diagnostics.Process]::Start($psi)
 
             Add-Status "Starting activation process for Windows 10 Pro."
-        } catch {
+        }
+        catch {
             Add-Status "Lỗi khi kích hoạt Windows: $_"
         }
     }
@@ -3227,10 +3374,12 @@ $buttonActivate = New-DynamicButton -text "Activate" -x 30 -y 420 -width 380 -he
             if (Test-Path $office16Path) {
                 $officePath = $office16Path
                 Add-Status "Found Office16."
-            } elseif (Test-Path $office15Path) {
+            }
+            elseif (Test-Path $office15Path) {
                 $officePath = $office15Path
                 Add-Status "Found Office15."
-            } else {
+            }
+            else {
                 Add-Status "Not found Office16 or Office15. Using Office16 path by default."
                 $officePath = $office16Path
             }
@@ -3259,7 +3408,8 @@ $buttonActivate = New-DynamicButton -text "Activate" -x 30 -y 420 -width 380 -he
             [System.Diagnostics.Process]::Start($psi)
 
             Add-Status "Starting activation process for Office 2019."
-        } catch {
+        }
+        catch {
             Add-Status "Error activating Office: $_"
         }
     }
@@ -3298,7 +3448,8 @@ $buttonActivate = New-DynamicButton -text "Activate" -x 30 -y 420 -width 380 -he
             [System.Diagnostics.Process]::Start($psi)
 
             Add-Status "Starting upgrade process for Windows 10 Home to Pro."
-        } catch {
+        }
+        catch {
             Add-Status "Error upgrading Windows: $_"
         }
     }
@@ -3314,12 +3465,12 @@ $buttonActivate = New-DynamicButton -text "Activate" -x 30 -y 420 -width 380 -he
     $activateForm.ShowDialog()
 }
 
-# Edit Features
+# [6] Edit Features
 $buttonTurnOnFeatures = New-DynamicButton -text "Turn On Features" -x 430 -y 100 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
     # Create Windows Features form
     $featuresForm = New-Object System.Windows.Forms.Form
     $featuresForm.Text = "Windows Features"
-    $featuresForm.Size = New-Object System.Drawing.Size(500, 500)
+    $featuresForm.Size = New-Object System.Drawing.Size(500, 550)
     $featuresForm.StartPosition = "CenterScreen"
     $featuresForm.BackColor = [System.Drawing.Color]::Black
     $featuresForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -3332,7 +3483,7 @@ $buttonTurnOnFeatures = New-DynamicButton -text "Turn On Features" -x 430 -y 100
         $rect = New-Object System.Drawing.Rectangle(0, 0, $featuresForm.Width, $featuresForm.Height)
         $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
             $rect,
-            [System.Drawing.Color]::FromArgb(0, 0, 0),  # Black at top
+            [System.Drawing.Color]::FromArgb(0, 0, 0), # Black at top
             [System.Drawing.Color]::FromArgb(0, 40, 0), # Dark green at bottom
             [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
         )
@@ -3355,12 +3506,13 @@ $buttonTurnOnFeatures = New-DynamicButton -text "Turn On Features" -x 430 -y 100
     $titleTimer = New-Object System.Windows.Forms.Timer
     $titleTimer.Interval = 500
     $titleTimer.Add_Tick({
-        if ($titleLabel.ForeColor -eq [System.Drawing.Color]::Lime) {
-            $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 220, 0)
-        } else {
-            $titleLabel.ForeColor = [System.Drawing.Color]::Lime
-        }
-    })
+            if ($titleLabel.ForeColor -eq [System.Drawing.Color]::Lime) {
+                $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 220, 0)
+            }
+            else {
+                $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+            }
+        })
     $titleTimer.Start()
 
     $featuresForm.Controls.Add($titleLabel)
@@ -3369,7 +3521,7 @@ $buttonTurnOnFeatures = New-DynamicButton -text "Turn On Features" -x 430 -y 100
     $statusTextBox = New-Object System.Windows.Forms.TextBox
     $statusTextBox.Multiline = $true
     $statusTextBox.ScrollBars = "Vertical"
-    $statusTextBox.Location = New-Object System.Drawing.Point(50, 330)
+    $statusTextBox.Location = New-Object System.Drawing.Point(50, 380)
     $statusTextBox.Size = New-Object System.Drawing.Size(400, 120)
     $statusTextBox.BackColor = [System.Drawing.Color]::Black
     $statusTextBox.ForeColor = [System.Drawing.Color]::Lime
@@ -3405,8 +3557,96 @@ $buttonTurnOnFeatures = New-DynamicButton -text "Turn On Features" -x 430 -y 100
         [System.Windows.Forms.Application]::DoEvents()
     }
 
+    # Run All Features button
+    $btnRunAllFeatures = New-DynamicButton -text "Run All Features" -x 50 -y 80 -width 400 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 180)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 220)) -pressColor ([System.Drawing.Color]::FromArgb(140, 0, 140)) -clickAction {
+        Add-Status "Starting to run all Windows features operations..."
+
+        # 1. Enable .NET Framework 3.5
+        Add-Status "Step 1/4: Checking .NET Framework 3.5 status..."
+        try {
+            $command = "dism /online /get-featureinfo /featurename:NetFx3"
+            $output = Invoke-Expression $command | Out-String
+
+            if ($output -match "State : Disabled") {
+                Add-Status "Enabling .NET Framework 3.5..."
+                $enableCmd = "dism /online /enable-feature /featurename:NetFx3 /all /norestart"
+                Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
+                Add-Status ".NET Framework 3.5 has been enabled."
+            }
+            else {
+                Add-Status ".NET Framework 3.5 is already enabled."
+            }
+        }
+        catch {
+            Add-Status "Error enabling .NET Framework 3.5: $_"
+        }
+
+        # 2. Enable WCF-HTTP-Activation
+        Add-Status "Step 2/4: Checking WCF-HTTP-Activation status..."
+        try {
+            $command = "dism /online /get-featureinfo /featurename:WCF-HTTP-Activation"
+            $output = Invoke-Expression $command | Out-String
+
+            if ($output -match "State : Disabled") {
+                Add-Status "Enabling WCF-HTTP-Activation..."
+                $enableCmd = "DISM /Online /Enable-Feature /FeatureName:WCF-HTTP-Activation /All /Quiet /NoRestart"
+                Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
+                Add-Status "WCF-HTTP-Activation has been enabled."
+            }
+            else {
+                Add-Status "WCF-HTTP-Activation is already enabled."
+            }
+        }
+        catch {
+            Add-Status "Error enabling WCF-HTTP-Activation: $_"
+        }
+
+        # 3. Enable WCF-NonHTTP-Activation
+        Add-Status "Step 3/4: Checking WCF-NonHTTP-Activation status..."
+        try {
+            $command = "dism /online /get-featureinfo /featurename:WCF-NonHTTP-Activation"
+            $output = Invoke-Expression $command | Out-String
+
+            if ($output -match "State : Disabled") {
+                Add-Status "Enabling WCF-NonHTTP-Activation..."
+                $enableCmd = "DISM /Online /Enable-Feature /FeatureName:WCF-NonHTTP-Activation /All /Quiet /NoRestart"
+                Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
+                Add-Status "WCF-NonHTTP-Activation has been enabled."
+            }
+            else {
+                Add-Status "WCF-NonHTTP-Activation is already enabled."
+            }
+        }
+        catch {
+            Add-Status "Error enabling WCF-NonHTTP-Activation: $_"
+        }
+
+        # 4. Disable Internet Explorer 11
+        Add-Status "Step 4/4: Checking Internet Explorer 11 status..."
+        try {
+            $command = "dism /online /get-featureinfo /featurename:Internet-Explorer-Optional-amd64"
+            $output = Invoke-Expression $command | Out-String
+
+            if ($output -match "State : Enabled") {
+                Add-Status "Disabling Internet Explorer 11..."
+                $disableCmd = "dism /online /disable-feature /featurename:Internet-Explorer-Optional-amd64 /norestart"
+                Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $disableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
+                Add-Status "Internet Explorer 11 has been disabled."
+            }
+            else {
+                Add-Status "Internet Explorer 11 is already disabled."
+            }
+        }
+        catch {
+            Add-Status "Error disabling Internet Explorer 11: $_"
+        }
+
+        Add-Status "All Windows features operations completed!"
+    }
+    $featuresForm.Controls.Add($btnRunAllFeatures)
+
     # Enable .NET Framework 3.5 button
-    $btnEnableNetFx = New-DynamicButton -text "Enable .NET Framework 3.5" -x 50 -y 80 -width 400 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+    $btnEnableNetFx = New-DynamicButton -text "Enable .NET Framework 3.5" -x 50 -y 130 -width 400 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
         Add-Status "Checking .NET Framework 3.5 status..."
         try {
             $command = "dism /online /get-featureinfo /featurename:NetFx3"
@@ -3417,17 +3657,19 @@ $buttonTurnOnFeatures = New-DynamicButton -text "Turn On Features" -x 430 -y 100
                 $enableCmd = "dism /online /enable-feature /featurename:NetFx3 /all /norestart"
                 Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
                 Add-Status ".NET Framework 3.5 has been enabled."
-            } else {
+            }
+            else {
                 Add-Status ".NET Framework 3.5 is already enabled."
             }
-        } catch {
+        }
+        catch {
             Add-Status "Error: $_"
         }
     }
     $featuresForm.Controls.Add($btnEnableNetFx)
 
     # Enable WCF-HTTP-Activation button
-    $btnEnableWcfHttp = New-DynamicButton -text "Enable WCF-HTTP-Activation" -x 50 -y 130 -width 400 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+    $btnEnableWcfHttp = New-DynamicButton -text "Enable WCF-HTTP-Activation" -x 50 -y 180 -width 400 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
         Add-Status "Checking WCF-HTTP-Activation status..."
         try {
             $command = "dism /online /get-featureinfo /featurename:WCF-HTTP-Activation"
@@ -3438,17 +3680,19 @@ $buttonTurnOnFeatures = New-DynamicButton -text "Turn On Features" -x 430 -y 100
                 $enableCmd = "DISM /Online /Enable-Feature /FeatureName:WCF-HTTP-Activation /All /Quiet /NoRestart"
                 Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
                 Add-Status "WCF-HTTP-Activation has been enabled."
-            } else {
+            }
+            else {
                 Add-Status "WCF-HTTP-Activation is already enabled."
             }
-        } catch {
+        }
+        catch {
             Add-Status "Error: $_"
         }
     }
     $featuresForm.Controls.Add($btnEnableWcfHttp)
 
     # Enable WCF-NonHTTP-Activation button
-    $btnEnableWcfNonHttp = New-DynamicButton -text "Enable WCF-NonHTTP-Activation" -x 50 -y 180 -width 400 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+    $btnEnableWcfNonHttp = New-DynamicButton -text "Enable WCF-NonHTTP-Activation" -x 50 -y 230 -width 400 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
         Add-Status "Checking WCF-NonHTTP-Activation status..."
         try {
             $command = "dism /online /get-featureinfo /featurename:WCF-NonHTTP-Activation"
@@ -3459,17 +3703,19 @@ $buttonTurnOnFeatures = New-DynamicButton -text "Turn On Features" -x 430 -y 100
                 $enableCmd = "DISM /Online /Enable-Feature /FeatureName:WCF-NonHTTP-Activation /All /Quiet /NoRestart"
                 Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
                 Add-Status "WCF-NonHTTP-Activation has been enabled."
-            } else {
+            }
+            else {
                 Add-Status "WCF-NonHTTP-Activation is already enabled."
             }
-        } catch {
+        }
+        catch {
             Add-Status "Error: $_"
         }
     }
     $featuresForm.Controls.Add($btnEnableWcfNonHttp)
 
     # Disable Internet Explorer 11 button
-    $btnDisableIE = New-DynamicButton -text "Disable Internet Explorer 11" -x 50 -y 230 -width 400 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+    $btnDisableIE = New-DynamicButton -text "Disable Internet Explorer 11" -x 50 -y 280 -width 400 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
         Add-Status "Checking Internet Explorer 11 status..."
         try {
             $command = "dism /online /get-featureinfo /featurename:Internet-Explorer-Optional-amd64"
@@ -3480,17 +3726,19 @@ $buttonTurnOnFeatures = New-DynamicButton -text "Turn On Features" -x 430 -y 100
                 $disableCmd = "dism /online /disable-feature /featurename:Internet-Explorer-Optional-amd64 /norestart"
                 Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $disableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
                 Add-Status "Internet Explorer 11 has been disabled."
-            } else {
+            }
+            else {
                 Add-Status "Internet Explorer 11 is already disabled."
             }
-        } catch {
+        }
+        catch {
             Add-Status "Error: $_"
         }
     }
     $featuresForm.Controls.Add($btnDisableIE)
 
     # Return to Main Menu button
-    $btnReturn = New-DynamicButton -text "Return to Main Menu" -x 50 -y 280 -width 400 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
+    $btnReturn = New-DynamicButton -text "Return to Main Menu" -x 50 -y 330 -width 400 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
         $featuresForm.Close()
     }
     $featuresForm.Controls.Add($btnReturn)
@@ -3499,12 +3747,144 @@ $buttonTurnOnFeatures = New-DynamicButton -text "Turn On Features" -x 430 -y 100
     $featuresForm.ShowDialog()
 }
 
-# Rename Device
+# Function to rename device - can be called from multiple places
+function Rename-DeviceWithBatch {
+    param(
+        [string]$newName,
+        [scriptblock]$statusCallback = $null,
+        [bool]$showUI = $true
+    )
+
+    # Validate new name
+    if ($newName -eq "") {
+        if ($showUI) {
+            [System.Windows.Forms.MessageBox]::Show("Device name cannot be empty.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        }
+        if ($statusCallback) { & $statusCallback "Error: Device name cannot be empty." }
+        return $false
+    }
+
+    # Check if name is valid (15 characters max, no special characters)
+    if ($newName.Length -gt 15) {
+        if ($showUI) {
+            [System.Windows.Forms.MessageBox]::Show("Device name must be 15 characters or less.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        }
+        if ($statusCallback) { & $statusCallback "Error: Device name must be 15 characters or less." }
+        return $false
+    }
+
+    if ($newName -match '[^\w.-]') {
+        if ($showUI) {
+            [System.Windows.Forms.MessageBox]::Show("Device name contains invalid characters. Use only letters, numbers, hyphens, and periods.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        }
+        if ($statusCallback) { & $statusCallback "Error: Device name contains invalid characters." }
+        return $false
+    }
+
+    try {
+        if ($statusCallback) { & $statusCallback "Starting device rename process..." }
+        if ($statusCallback) { & $statusCallback "Attempting to rename computer to '$newName'..." }
+
+        # Create a simple batch file to rename the computer
+        $batchPath = "$env:TEMP\rename_computer.bat"
+        $batchContent = @"
+@echo off
+echo Renaming computer to $newName...
+wmic computersystem where name="%COMPUTERNAME%" call rename name="$newName"
+if %errorlevel% equ 0 (
+    echo SUCCESS: Computer renamed to $newName
+    echo The device name will be changed after reboot!
+    echo SUCCESS|Computer renamed successfully to $newName. The device name will be changed after reboot! > "%TEMP%\rename_result.txt"
+) else (
+    echo ERROR: Failed to rename computer
+    echo ERROR|Failed to rename computer. WMIC command returned error code: %errorlevel% > "%TEMP%\rename_result.txt"
+)
+"@
+        Set-Content -Path $batchPath -Value $batchContent -Force -Encoding ASCII
+
+        # Run the batch file with elevated privileges
+        if ($statusCallback) { & $statusCallback "Requesting administrative privileges..." }
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = "cmd.exe"
+        $psi.Arguments = "/c `"$batchPath`""
+        $psi.UseShellExecute = $true
+        $psi.Verb = "runas"
+        $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Minimized
+
+        # Start the process
+        [System.Diagnostics.Process]::Start($psi)
+
+        if ($statusCallback) { & $statusCallback "Rename command sent. A minimized command prompt window will appear briefly." }
+
+        # If we're not showing UI, we'll just return success at this point
+        if (-not $showUI) {
+            return $true
+        }
+
+        # Create a timer to check for the result file
+        $resultFile = "$env:TEMP\rename_result.txt"
+        $checkTimer = New-Object System.Windows.Forms.Timer
+        $checkTimer.Interval = 1000 # Check every second
+        $script:checkCount = 0
+        $maxChecks = 30 # Wait up to 30 seconds
+
+        $checkTimer.Add_Tick({
+                $script:checkCount++
+                if (Test-Path $resultFile) {
+                    $checkTimer.Stop()
+                    try {
+                        $resultContent = Get-Content -Path $resultFile -Raw
+                        $resultParts = $resultContent -split '\|', 2
+                        $status = $resultParts[0]
+                        $message = $resultParts[1]
+
+                        if ($status -eq "SUCCESS") {
+                            if ($statusCallback) { & $statusCallback "SUCCESS: $message" }
+                            [System.Windows.Forms.MessageBox]::Show($message, "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                        }
+                        else {
+                            if ($statusCallback) { & $statusCallback "ERROR: $message" }
+                            [System.Windows.Forms.MessageBox]::Show($message, "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+                        }
+                    }
+                    catch {
+                        if ($statusCallback) { & $statusCallback "ERROR: Failed to read result file: $_" }
+                    }
+                    finally {
+                        # Clean up
+                        if (Test-Path $resultFile) { Remove-Item $resultFile -Force -ErrorAction SilentlyContinue }
+                        if (Test-Path $batchPath) { Remove-Item $batchPath -Force -ErrorAction SilentlyContinue }
+                    }
+                }
+                elseif ($script:checkCount -ge $maxChecks) {
+                    $checkTimer.Stop()
+                    if ($statusCallback) { & $statusCallback "ERROR: Timed out waiting for rename operation to complete." }
+                    [System.Windows.Forms.MessageBox]::Show("Timed out waiting for rename operation to complete. The operation may still be in progress.", "Timeout", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+                }
+                else {
+                    if ($statusCallback) { & $statusCallback "Waiting for rename operation to complete... ($script:checkCount/$maxChecks)" }
+                }
+            })
+
+        # Start the timer
+        $checkTimer.Start()
+        return $true
+    }
+    catch {
+        if ($statusCallback) { & $statusCallback "ERROR: $_" }
+        if ($showUI) {
+            [System.Windows.Forms.MessageBox]::Show("Error renaming device: $_`n`nNote: This operation requires administrative privileges.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        }
+        return $false
+    }
+}
+
+# [7] Rename Device
 $buttonRenameDevice = New-DynamicButton -text "Rename Device" -x 430 -y 180 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
     # Create device rename form
     $renameForm = New-Object System.Windows.Forms.Form
     $renameForm.Text = "Rename Device"
-    $renameForm.Size = New-Object System.Drawing.Size(500, 300)
+    $renameForm.Size = New-Object System.Drawing.Size(500, 480) # Increased height for status box
     $renameForm.StartPosition = "CenterScreen"
     $renameForm.BackColor = [System.Drawing.Color]::Black
     $renameForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -3533,24 +3913,92 @@ $buttonRenameDevice = New-DynamicButton -text "Rename Device" -x 430 -y 180 -wid
     $currentLabel.Location = New-Object System.Drawing.Point(20, 70)
     $renameForm.Controls.Add($currentLabel)
 
+    # Device type selection group box
+    $deviceGroupBox = New-Object System.Windows.Forms.GroupBox
+    $deviceGroupBox.Text = "Device Type"
+    $deviceGroupBox.Font = New-Object System.Drawing.Font("Arial", 10)
+    $deviceGroupBox.ForeColor = [System.Drawing.Color]::White
+    $deviceGroupBox.Size = New-Object System.Drawing.Size(460, 80)
+    $deviceGroupBox.Location = New-Object System.Drawing.Point(20, 110)
+    $deviceGroupBox.BackColor = [System.Drawing.Color]::Black
+
+    # Desktop radio button
+    $radioDesktop = New-Object System.Windows.Forms.RadioButton
+    $radioDesktop.Text = "Desktop (HOD)"
+    $radioDesktop.Font = New-Object System.Drawing.Font("Arial", 10)
+    $radioDesktop.ForeColor = [System.Drawing.Color]::White
+    $radioDesktop.Location = New-Object System.Drawing.Point(20, 30)
+    $radioDesktop.Size = New-Object System.Drawing.Size(200, 30)
+    $radioDesktop.BackColor = [System.Drawing.Color]::Black
+    $radioDesktop.Checked = $true # Default selection
+
+    # Laptop radio button
+    $radioLaptop = New-Object System.Windows.Forms.RadioButton
+    $radioLaptop.Text = "Laptop (HOL)"
+    $radioLaptop.Font = New-Object System.Drawing.Font("Arial", 10)
+    $radioLaptop.ForeColor = [System.Drawing.Color]::White
+    $radioLaptop.Location = New-Object System.Drawing.Point(240, 30)
+    $radioLaptop.Size = New-Object System.Drawing.Size(200, 30)
+    $radioLaptop.BackColor = [System.Drawing.Color]::Black
+
+    # Add radio buttons to group box
+    $deviceGroupBox.Controls.Add($radioDesktop)
+    $deviceGroupBox.Controls.Add($radioLaptop)
+    $renameForm.Controls.Add($deviceGroupBox)
+
     # New name label
     $newNameLabel = New-Object System.Windows.Forms.Label
     $newNameLabel.Text = "New Device Name:"
     $newNameLabel.Font = New-Object System.Drawing.Font("Arial", 12)
     $newNameLabel.ForeColor = [System.Drawing.Color]::White
     $newNameLabel.Size = New-Object System.Drawing.Size(150, 30)
-    $newNameLabel.Location = New-Object System.Drawing.Point(20, 120)
+    $newNameLabel.Location = New-Object System.Drawing.Point(20, 200)
     $renameForm.Controls.Add($newNameLabel)
 
     # New name textbox
     $newNameTextBox = New-Object System.Windows.Forms.TextBox
     $newNameTextBox.Font = New-Object System.Drawing.Font("Arial", 12)
     $newNameTextBox.Size = New-Object System.Drawing.Size(300, 30)
-    $newNameTextBox.Location = New-Object System.Drawing.Point(170, 120)
-    $newNameTextBox.BackColor = [System.Drawing.Color]::Black
-    $newNameTextBox.ForeColor = [System.Drawing.Color]::Green
-    $newNameTextBox.Text = $currentName
+    $newNameTextBox.Location = New-Object System.Drawing.Point(170, 200)
+    $newNameTextBox.BackColor = [System.Drawing.Color]::White
+    $newNameTextBox.ForeColor = [System.Drawing.Color]::Black
+    $newNameTextBox.Text = "HOD" # Default to Desktop
     $renameForm.Controls.Add($newNameTextBox)
+
+    # Event handlers for radio buttons to update the default name
+    $radioDesktop.Add_CheckedChanged({
+            if ($radioDesktop.Checked) {
+                $newNameTextBox.Text = "HOD"
+            }
+        })
+
+    $radioLaptop.Add_CheckedChanged({
+            if ($radioLaptop.Checked) {
+                $newNameTextBox.Text = "HOL"
+            }
+        })
+
+    # Status text box
+    $statusTextBox = New-Object System.Windows.Forms.TextBox
+    $statusTextBox.Multiline = $true
+    $statusTextBox.ScrollBars = "Vertical"
+    $statusTextBox.Location = New-Object System.Drawing.Point(20, 320)
+    $statusTextBox.Size = New-Object System.Drawing.Size(460, 120)
+    $statusTextBox.BackColor = [System.Drawing.Color]::Black
+    $statusTextBox.ForeColor = [System.Drawing.Color]::Lime
+    $statusTextBox.Font = New-Object System.Drawing.Font("Consolas", 9)
+    $statusTextBox.ReadOnly = $true
+    $statusTextBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+    $statusTextBox.Text = "Ready to rename device..."
+    $renameForm.Controls.Add($statusTextBox)
+
+    # Function to add status message
+    function Add-Status {
+        param([string]$message)
+        $statusTextBox.AppendText("`r`n$(Get-Date -Format 'HH:mm:ss') - $message")
+        $statusTextBox.ScrollToCaret()
+        [System.Windows.Forms.Application]::DoEvents()
+    }
 
     # Rename button
     $renameButton = New-Object System.Windows.Forms.Button
@@ -3559,74 +4007,44 @@ $buttonRenameDevice = New-DynamicButton -text "Rename Device" -x 430 -y 180 -wid
     $renameButton.ForeColor = [System.Drawing.Color]::White
     $renameButton.BackColor = [System.Drawing.Color]::FromArgb(0, 180, 0)
     $renameButton.Size = New-Object System.Drawing.Size(200, 40)
-    $renameButton.Location = New-Object System.Drawing.Point(30, 180)
+    $renameButton.Location = New-Object System.Drawing.Point(30, 260)
     $renameButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
     $renameButton.Add_Click({
-        $newName = $newNameTextBox.Text.Trim()
+            $newName = $newNameTextBox.Text.Trim()
 
-        # Validate new name
-        if ($newName -eq "") {
-            [System.Windows.Forms.MessageBox]::Show("Device name cannot be empty.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-            return
-        }
+            # Disable the rename button to prevent multiple clicks
+            $renameButton.Enabled = $false
 
-        # Check if name is valid (15 characters max, no special characters)
-        if ($newName.Length -gt 15) {
-            [System.Windows.Forms.MessageBox]::Show("Device name must be 15 characters or less.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-            return
-        }
+            # Call the rename function with a status callback
+            [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', 'result')]
+            $result = Rename-DeviceWithBatch -newName $newName -statusCallback ${function:Add-Status} -showUI $true
 
-        if ($newName -match '[^\w.-]') {
-            [System.Windows.Forms.MessageBox]::Show("Device name contains invalid characters. Use only letters, numbers, hyphens, and periods.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-            return
-        }
-
-        # Check if name is the same as current
-        if ($newName -eq $currentName) {
-            [System.Windows.Forms.MessageBox]::Show("New name is the same as current name. No changes needed.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-            return
-        }
-
-        try {
-            # Create a command to rename the computer
-            $command = "Rename-Computer -NewName '$newName' -Force -Restart"
-
-            # Create a process to run the command with elevated privileges
-            $psi = New-Object System.Diagnostics.ProcessStartInfo
-            $psi.FileName = "powershell.exe"
-            $psi.Arguments = "-Command Start-Process powershell.exe -ArgumentList '-Command $command' -Verb RunAs"
-            $psi.UseShellExecute = $true
-            $psi.Verb = "runas"
-
-            # Start the process
-            [System.Diagnostics.Process]::Start($psi)
-
-            # Show success message
-            [System.Windows.Forms.MessageBox]::Show("Device rename command has been initiated. If prompted, please allow the elevation request. Your computer will restart to apply the changes.", "Device Rename", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-            $renameForm.Close()
-        }
-        catch {
-            [System.Windows.Forms.MessageBox]::Show("Error renaming device: $_`n`nNote: This operation requires administrative privileges.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        }
-    })
+            # Re-enable the rename button
+            $renameButton.Enabled = $true
+        })
     $renameForm.Controls.Add($renameButton)
 
     # Cancel button
-    $cancelButton = New-RedButton -text "Cancel" -x 250 -y 180 -width 200 -height 40 -clickAction {
+    $cancelButton = New-RedButton -text "Cancel" -x 250 -y 260 -width 200 -height 40 -clickAction {
         $renameForm.Close()
     }
     $renameForm.Controls.Add($cancelButton)
+
+    # Set the accept button (Enter key)
+    $renameForm.AcceptButton = $renameButton
+    # Set the cancel button (Escape key)
+    $renameForm.CancelButton = $cancelButton
 
     # Show the form
     $renameForm.ShowDialog()
 }
 
-# Set Password
+# [8] Set Password "DONE"
 $buttonSetPassword = New-DynamicButton -text "Set Password" -x 430 -y 260 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
     # Create password setting form
     $passwordForm = New-Object System.Windows.Forms.Form
     $passwordForm.Text = "Set Password"
-    $passwordForm.Size = New-Object System.Drawing.Size(500, 350)
+    $passwordForm.Size = New-Object System.Drawing.Size(500, 280) # Reduced height since we removed confirm password
     $passwordForm.StartPosition = "CenterScreen"
     $passwordForm.BackColor = [System.Drawing.Color]::Black
     $passwordForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -3667,29 +4085,10 @@ $buttonSetPassword = New-DynamicButton -text "Set Password" -x 430 -y 260 -width
     $passwordTextBox.Font = New-Object System.Drawing.Font("Arial", 12)
     $passwordTextBox.Size = New-Object System.Drawing.Size(300, 30)
     $passwordTextBox.Location = New-Object System.Drawing.Point(170, 120)
-    $passwordTextBox.UseSystemPasswordChar = $true
-    $passwordTextBox.BackColor = [System.Drawing.Color]::Black
-    $passwordTextBox.ForeColor = [System.Drawing.Color]::Green
+    # Password is visible (no UseSystemPasswordChar)
+    $passwordTextBox.BackColor = [System.Drawing.Color]::White
+    $passwordTextBox.ForeColor = [System.Drawing.Color]::Black
     $passwordForm.Controls.Add($passwordTextBox)
-
-    # Confirm password label
-    $confirmLabel = New-Object System.Windows.Forms.Label
-    $confirmLabel.Text = "Confirm Password:"
-    $confirmLabel.Font = New-Object System.Drawing.Font("Arial", 12)
-    $confirmLabel.ForeColor = [System.Drawing.Color]::White
-    $confirmLabel.Size = New-Object System.Drawing.Size(150, 30)
-    $confirmLabel.Location = New-Object System.Drawing.Point(20, 170)
-    $passwordForm.Controls.Add($confirmLabel)
-
-    # Confirm password textbox
-    $confirmTextBox = New-Object System.Windows.Forms.TextBox
-    $confirmTextBox.Font = New-Object System.Drawing.Font("Arial", 12)
-    $confirmTextBox.Size = New-Object System.Drawing.Size(300, 30)
-    $confirmTextBox.Location = New-Object System.Drawing.Point(170, 170)
-    $confirmTextBox.UseSystemPasswordChar = $true
-    $confirmTextBox.BackColor = [System.Drawing.Color]::Black
-    $confirmTextBox.ForeColor = [System.Drawing.Color]::Green
-    $passwordForm.Controls.Add($confirmTextBox)
 
     # Set Password button
     $setButton = New-Object System.Windows.Forms.Button
@@ -3698,60 +4097,51 @@ $buttonSetPassword = New-DynamicButton -text "Set Password" -x 430 -y 260 -width
     $setButton.ForeColor = [System.Drawing.Color]::White
     $setButton.BackColor = [System.Drawing.Color]::FromArgb(0, 180, 0)
     $setButton.Size = New-Object System.Drawing.Size(200, 40)
-    $setButton.Location = New-Object System.Drawing.Point(30, 230)
+    $setButton.Location = New-Object System.Drawing.Point(30, 180) # Moved up since we removed confirm password
     $setButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
     $setButton.Add_Click({
-        $password = $passwordTextBox.Text
-        $confirm = $confirmTextBox.Text
+            $password = $passwordTextBox.Text
+            try {
+                # Create a command to set the password
+                $command = "net user $currentUser $password"
 
-        # Validate password
-        if ($password -eq "") {
-            [System.Windows.Forms.MessageBox]::Show("Password cannot be empty.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-            return
-        }
+                # Create a process to run the command with elevated privileges
+                $psi = New-Object System.Diagnostics.ProcessStartInfo
+                $psi.FileName = "powershell.exe"
+                $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
+                $psi.UseShellExecute = $true
+                $psi.Verb = "runas"
+                $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
 
-        # Check if passwords match
-        if ($password -ne $confirm) {
-            [System.Windows.Forms.MessageBox]::Show("Passwords do not match.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-            return
-        }
+                # Start the process
+                [System.Diagnostics.Process]::Start($psi)
 
-        try {
-            # Create a command to set the password
-            $command = "net user $currentUser $password"
-
-            # Create a process to run the command with elevated privileges
-            $psi = New-Object System.Diagnostics.ProcessStartInfo
-            $psi.FileName = "powershell.exe"
-            $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
-            $psi.UseShellExecute = $true
-            $psi.Verb = "runas"
-            $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-
-            # Start the process
-            [System.Diagnostics.Process]::Start($psi)
-
-            # Show success message
-            [System.Windows.Forms.MessageBox]::Show("Password change command has been initiated. If prompted, please allow the elevation request.", "Password Change", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-            $passwordForm.Close()
-        }
-        catch {
-            [System.Windows.Forms.MessageBox]::Show("Error setting password: $_`n`nNote: This operation requires administrative privileges.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        }
-    })
+                # Show success message
+                [System.Windows.Forms.MessageBox]::Show("Password change command has been initiated. If prompted, please allow the elevation request.", "Password Change", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                $passwordForm.Close()
+            }
+            catch {
+                [System.Windows.Forms.MessageBox]::Show("Error setting password: $_`n`nNote: This operation requires administrative privileges.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+            }
+        })
     $passwordForm.Controls.Add($setButton)
 
     # Cancel button
-    $cancelButton = New-RedButton -text "Cancel" -x 250 -y 230 -width 200 -height 40 -clickAction {
+    $cancelButton = New-RedButton -text "Cancel" -x 250 -y 180 -width 200 -height 40 -clickAction {
         $passwordForm.Close()
     }
     $passwordForm.Controls.Add($cancelButton)
+
+    # Set the accept button (Enter key)
+    $passwordForm.AcceptButton = $setButton
+    # Set the cancel button (Escape key)
+    $passwordForm.CancelButton = $cancelButton
 
     # Show the form
     $passwordForm.ShowDialog()
 }
 
-# Join/Leave Domain
+# [9] Join/Leave Domain "DONE"
 $buttonJoinDomain = New-DynamicButton -text "Domain Management" -x 430 -y 340 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
     # Create domain/workgroup join form
     $joinForm = New-Object System.Windows.Forms.Form
@@ -3865,8 +4255,8 @@ $buttonJoinDomain = New-DynamicButton -text "Domain Management" -x 430 -y 340 -w
     $nameTextBox.Font = New-Object System.Drawing.Font("Arial", 12)
     $nameTextBox.Size = New-Object System.Drawing.Size(300, 30)
     $nameTextBox.Location = New-Object System.Drawing.Point(170, 230)
-    $nameTextBox.BackColor = [System.Drawing.Color]::Black
-    $nameTextBox.ForeColor = [System.Drawing.Color]::Green
+    $nameTextBox.BackColor = [System.Drawing.Color]::White
+    $nameTextBox.ForeColor = [System.Drawing.Color]::Black
     $nameTextBox.Text = ""
     $joinForm.Controls.Add($nameTextBox)
 
@@ -3885,8 +4275,8 @@ $buttonJoinDomain = New-DynamicButton -text "Domain Management" -x 430 -y 340 -w
     $usernameTextBox.Font = New-Object System.Drawing.Font("Arial", 12)
     $usernameTextBox.Size = New-Object System.Drawing.Size(300, 30)
     $usernameTextBox.Location = New-Object System.Drawing.Point(170, 270)
-    $usernameTextBox.BackColor = [System.Drawing.Color]::Black
-    $usernameTextBox.ForeColor = [System.Drawing.Color]::Green
+    $usernameTextBox.BackColor = [System.Drawing.Color]::White
+    $usernameTextBox.ForeColor = [System.Drawing.Color]::Black
     $usernameTextBox.Visible = $true
     $joinForm.Controls.Add($usernameTextBox)
 
@@ -3905,126 +4295,82 @@ $buttonJoinDomain = New-DynamicButton -text "Domain Management" -x 430 -y 340 -w
     $passwordTextBox.Font = New-Object System.Drawing.Font("Arial", 12)
     $passwordTextBox.Size = New-Object System.Drawing.Size(300, 30)
     $passwordTextBox.Location = New-Object System.Drawing.Point(170, 310)
-    $passwordTextBox.BackColor = [System.Drawing.Color]::Black
-    $passwordTextBox.ForeColor = [System.Drawing.Color]::Green
+    $passwordTextBox.BackColor = [System.Drawing.Color]::White
+    $passwordTextBox.ForeColor = [System.Drawing.Color]::Black
     $passwordTextBox.UseSystemPasswordChar = $true
     $passwordTextBox.Visible = $true
     $joinForm.Controls.Add($passwordTextBox)
 
     # Event handlers for radio buttons
     $radioDomain.Add_CheckedChanged({
-        if ($radioDomain.Checked) {
-            $nameLabel.Text = "Domain Name:"
-            $nameTextBox.Text = ""
-            $usernameLabel.Visible = $true
-            $usernameTextBox.Visible = $true
-            $passwordLabel.Visible = $true
-            $passwordTextBox.Visible = $true
-            $joinButton.Text = "Join"
-            $joinButton.Location = New-Object System.Drawing.Point(30, 350)
-            $cancelButton.Location = New-Object System.Drawing.Point(250, 350)
-            $joinForm.Size = New-Object System.Drawing.Size(500, 450)
-        }
-    })
+            if ($radioDomain.Checked) {
+                $nameLabel.Text = "Domain Name:"
+                $nameTextBox.Text = ""
+                $usernameLabel.Visible = $true
+                $usernameTextBox.Visible = $true
+                $passwordLabel.Visible = $true
+                $passwordTextBox.Visible = $true
+                $joinButton.Text = "Join"
+                $joinButton.Location = New-Object System.Drawing.Point(30, 350)
+                $cancelButton.Location = New-Object System.Drawing.Point(250, 350)
+                $joinForm.Size = New-Object System.Drawing.Size(500, 450)
+            }
+        })
 
     $radioWorkgroup.Add_CheckedChanged({
-        if ($radioWorkgroup.Checked) {
-            $nameLabel.Text = "Workgroup Name:"
-            $nameTextBox.Text = "WORKGROUP"
-            $usernameLabel.Visible = $false
-            $usernameTextBox.Visible = $false
-            $passwordLabel.Visible = $false
-            $passwordTextBox.Visible = $false
-            $joinButton.Text = "Join"
-            $joinButton.Location = New-Object System.Drawing.Point(30, 280)
-            $cancelButton.Location = New-Object System.Drawing.Point(250, 280)
-            $joinForm.Size = New-Object System.Drawing.Size(500, 380)
-        }
-    })
+            if ($radioWorkgroup.Checked) {
+                $nameLabel.Text = "Workgroup Name:"
+                $nameTextBox.Text = "WORKGROUP"
+                $usernameLabel.Visible = $false
+                $usernameTextBox.Visible = $false
+                $passwordLabel.Visible = $false
+                $passwordTextBox.Visible = $false
+                $joinButton.Text = "Join"
+                $joinButton.Location = New-Object System.Drawing.Point(30, 280)
+                $cancelButton.Location = New-Object System.Drawing.Point(250, 280)
+                $joinForm.Size = New-Object System.Drawing.Size(500, 380)
+            }
+        })
 
     $radioLeaveDomain.Add_CheckedChanged({
-        if ($radioLeaveDomain.Checked) {
-            $nameLabel.Text = "New Workgroup Name:"
-            $nameTextBox.Text = "WORKGROUP"
-            $usernameLabel.Visible = $false
-            $usernameTextBox.Visible = $false
-            $passwordLabel.Visible = $false
-            $passwordTextBox.Visible = $false
-            $joinButton.Text = "Leave Domain"
-            $joinButton.Location = New-Object System.Drawing.Point(30, 280)
-            $cancelButton.Location = New-Object System.Drawing.Point(250, 280)
-            $joinForm.Size = New-Object System.Drawing.Size(500, 380)
-        }
-    })
+            if ($radioLeaveDomain.Checked) {
+                $nameLabel.Text = "New Workgroup Name:"
+                $nameTextBox.Text = "WORKGROUP"
+                $usernameLabel.Visible = $false
+                $usernameTextBox.Visible = $false
+                $passwordLabel.Visible = $false
+                $passwordTextBox.Visible = $false
+                $joinButton.Text = "Leave Domain"
+                $joinButton.Location = New-Object System.Drawing.Point(30, 280)
+                $cancelButton.Location = New-Object System.Drawing.Point(250, 280)
+                $joinForm.Size = New-Object System.Drawing.Size(500, 380)
+            }
+        })
 
     # Join button
     $joinButton = New-DynamicButton -text "Join" -x 30 -y 350 -width 200 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 180, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 220, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 140, 0)) -textColor ([System.Drawing.Color]::White) -fontSize 12 -fontStyle ([System.Drawing.FontStyle]::Bold)
     $joinButton.Add_Click({
-        $name = $nameTextBox.Text.Trim()
+            $name = $nameTextBox.Text.Trim()
 
-        # Validate name
-        if ($name -eq "") {
-            [System.Windows.Forms.MessageBox]::Show("Name cannot be empty.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-            return
-        }
-
-        try {
-            if ($radioDomain.Checked) {
-                # Join domain
-                $username = $usernameTextBox.Text.Trim()
-                $password = $passwordTextBox.Text
-
-                if ($username -eq "" -or $password -eq "") {
-                    [System.Windows.Forms.MessageBox]::Show("Username and password are required for domain join.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-                    return
-                }
-
-                # Create a command to join domain
-                $command = "Add-Computer -DomainName '$name' -Credential (New-Object System.Management.Automation.PSCredential ('$username', (ConvertTo-SecureString '$password' -AsPlainText -Force))) -Restart -Force"
-
-                # Create a process to run the command with elevated privileges
-                $psi = New-Object System.Diagnostics.ProcessStartInfo
-                $psi.FileName = "powershell.exe"
-                $psi.Arguments = "-Command Start-Process powershell.exe -ArgumentList '-Command $command' -Verb RunAs"
-                $psi.UseShellExecute = $true
-                $psi.Verb = "runas"
-
-                # Start the process
-                [System.Diagnostics.Process]::Start($psi)
-
-                # Show success message
-                [System.Windows.Forms.MessageBox]::Show("Domain join command has been initiated. If prompted, please allow the elevation request. Your computer will restart to apply the changes.", "Domain Join", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-                $joinForm.Close()
+            # Validate name
+            if ($name -eq "") {
+                [System.Windows.Forms.MessageBox]::Show("Name cannot be empty.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+                return
             }
-            elseif ($radioWorkgroup.Checked) {
-                # Join workgroup
-                $command = "Add-Computer -WorkgroupName '$name' -Restart -Force"
 
-                # Create a process to run the command with elevated privileges
-                $psi = New-Object System.Diagnostics.ProcessStartInfo
-                $psi.FileName = "powershell.exe"
-                $psi.Arguments = "-Command Start-Process powershell.exe -ArgumentList '-Command $command' -Verb RunAs"
-                $psi.UseShellExecute = $true
-                $psi.Verb = "runas"
+            try {
+                if ($radioDomain.Checked) {
+                    # Join domain
+                    $username = $usernameTextBox.Text.Trim()
+                    $password = $passwordTextBox.Text
 
-                # Start the process
-                [System.Diagnostics.Process]::Start($psi)
+                    if ($username -eq "" -or $password -eq "") {
+                        [System.Windows.Forms.MessageBox]::Show("Username and password are required for domain join.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+                        return
+                    }
 
-                # Show success message
-                [System.Windows.Forms.MessageBox]::Show("Workgroup join command has been initiated. If prompted, please allow the elevation request. Your computer will restart to apply the changes.", "Workgroup Join", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-                $joinForm.Close()
-            }
-            else {
-                # Leave domain and join workgroup
-                $confirmResult = [System.Windows.Forms.MessageBox]::Show(
-                    "Are you sure you want to leave the current domain and join the workgroup '$name'? Your computer will restart after this operation.",
-                    "Confirm Leave Domain",
-                    [System.Windows.Forms.MessageBoxButtons]::YesNo,
-                    [System.Windows.Forms.MessageBoxIcon]::Question)
-
-                if ($confirmResult -eq [System.Windows.Forms.DialogResult]::Yes) {
-                    # Command to leave domain and join workgroup
-                    $command = "Remove-Computer -WorkgroupName '$name' -Force -Restart"
+                    # Create a command to join domain
+                    $command = "Add-Computer -DomainName '$name' -Credential (New-Object System.Management.Automation.PSCredential ('$username', (ConvertTo-SecureString '$password' -AsPlainText -Force))) -Restart -Force"
 
                     # Create a process to run the command with elevated privileges
                     $psi = New-Object System.Diagnostics.ProcessStartInfo
@@ -4037,15 +4383,59 @@ $buttonJoinDomain = New-DynamicButton -text "Domain Management" -x 430 -y 340 -w
                     [System.Diagnostics.Process]::Start($psi)
 
                     # Show success message
-                    [System.Windows.Forms.MessageBox]::Show("Leave domain command has been initiated. If prompted, please allow the elevation request. Your computer will restart to apply the changes.", "Leave Domain", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                    [System.Windows.Forms.MessageBox]::Show("Domain join command has been initiated. If prompted, please allow the elevation request. Your computer will restart to apply the changes.", "Domain Join", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
                     $joinForm.Close()
                 }
+                elseif ($radioWorkgroup.Checked) {
+                    # Join workgroup
+                    $command = "Add-Computer -WorkgroupName '$name' -Restart -Force"
+
+                    # Create a process to run the command with elevated privileges
+                    $psi = New-Object System.Diagnostics.ProcessStartInfo
+                    $psi.FileName = "powershell.exe"
+                    $psi.Arguments = "-Command Start-Process powershell.exe -ArgumentList '-Command $command' -Verb RunAs"
+                    $psi.UseShellExecute = $true
+                    $psi.Verb = "runas"
+
+                    # Start the process
+                    [System.Diagnostics.Process]::Start($psi)
+
+                    # Show success message
+                    [System.Windows.Forms.MessageBox]::Show("Workgroup join command has been initiated. If prompted, please allow the elevation request. Your computer will restart to apply the changes.", "Workgroup Join", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                    $joinForm.Close()
+                }
+                else {
+                    # Leave domain and join workgroup
+                    $confirmResult = [System.Windows.Forms.MessageBox]::Show(
+                        "Are you sure you want to leave the current domain and join the workgroup '$name'? Your computer will restart after this operation.",
+                        "Confirm Leave Domain",
+                        [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                        [System.Windows.Forms.MessageBoxIcon]::Question)
+
+                    if ($confirmResult -eq [System.Windows.Forms.DialogResult]::Yes) {
+                        # Command to leave domain and join workgroup
+                        $command = "Remove-Computer -WorkgroupName '$name' -Force -Restart"
+
+                        # Create a process to run the command with elevated privileges
+                        $psi = New-Object System.Diagnostics.ProcessStartInfo
+                        $psi.FileName = "powershell.exe"
+                        $psi.Arguments = "-Command Start-Process powershell.exe -ArgumentList '-Command $command' -Verb RunAs"
+                        $psi.UseShellExecute = $true
+                        $psi.Verb = "runas"
+
+                        # Start the process
+                        [System.Diagnostics.Process]::Start($psi)
+
+                        # Show success message
+                        [System.Windows.Forms.MessageBox]::Show("Leave domain command has been initiated. If prompted, please allow the elevation request. Your computer will restart to apply the changes.", "Leave Domain", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                        $joinForm.Close()
+                    }
+                }
             }
-        }
-        catch {
-            [System.Windows.Forms.MessageBox]::Show("Error processing domain/workgroup operation: $_`n`nNote: This operation requires administrative privileges.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        }
-    })
+            catch {
+                [System.Windows.Forms.MessageBox]::Show("Error processing domain/workgroup operation: $_`n`nNote: This operation requires administrative privileges.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+            }
+        })
     $joinForm.Controls.Add($joinButton)
 
     # Cancel button
@@ -4054,11 +4444,16 @@ $buttonJoinDomain = New-DynamicButton -text "Domain Management" -x 430 -y 340 -w
     }
     $joinForm.Controls.Add($cancelButton)
 
+    # Set the accept button (Enter key)
+    $joinForm.AcceptButton = $joinButton
+    # Set the cancel button (Escape key)
+    $joinForm.CancelButton = $cancelButton
+
     # Show the form
     $joinForm.ShowDialog()
 }
 
-# Exit button
+# [0] Exit button "DONE"
 $buttonExit = New-DynamicButton -text "Exit" -x 430 -y 420 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
     $form.Close()
 }
