@@ -195,7 +195,117 @@ function New-DynamicButton {
 
 # Run All Options
 $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
-    # Create device selection form
+    # First, create a device name input form
+    $nameForm = New-Object System.Windows.Forms.Form
+    $nameForm.Text = "Enter Device Name"
+    $nameForm.Size = New-Object System.Drawing.Size(400, 250)
+    $nameForm.StartPosition = "CenterScreen"
+    $nameForm.BackColor = [System.Drawing.Color]::Black
+    $nameForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+    $nameForm.MaximizeBox = $false
+    $nameForm.MinimizeBox = $false
+    $nameForm.TopMost = $true
+
+    # Add a gradient background
+    $nameForm.Paint = {
+        $graphics = $_.Graphics
+        $rect = New-Object System.Drawing.Rectangle(0, 0, $nameForm.Width, $nameForm.Height)
+        $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+            $rect,
+            [System.Drawing.Color]::FromArgb(0, 0, 0),  # Black at top
+            [System.Drawing.Color]::FromArgb(0, 40, 0), # Dark green at bottom
+            [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
+        )
+        $graphics.FillRectangle($brush, $rect)
+        $brush.Dispose()
+    }
+
+    # Title label
+    $titleLabel = New-Object System.Windows.Forms.Label
+    $titleLabel.Text = "ENTER NEW DEVICE NAME"
+    $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
+    $titleLabel.Size = New-Object System.Drawing.Size(400, 30)
+    $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+    $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
+    $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+    $nameForm.Controls.Add($titleLabel)
+
+    # Current name label
+    $currentName = $env:COMPUTERNAME
+    $currentLabel = New-Object System.Windows.Forms.Label
+    $currentLabel.Text = "Current name: $currentName"
+    $currentLabel.Location = New-Object System.Drawing.Point(50, 60)
+    $currentLabel.Size = New-Object System.Drawing.Size(300, 20)
+    $currentLabel.ForeColor = [System.Drawing.Color]::White
+    $currentLabel.Font = New-Object System.Drawing.Font("Arial", 10)
+    $currentLabel.BackColor = [System.Drawing.Color]::Transparent
+    $nameForm.Controls.Add($currentLabel)
+
+    # Default name suggestion based on device type
+    $defaultName = "PAYOO-PC"
+
+    # Name input textbox
+    $nameTextBox = New-Object System.Windows.Forms.TextBox
+    $nameTextBox.Location = New-Object System.Drawing.Point(50, 90)
+    $nameTextBox.Size = New-Object System.Drawing.Size(300, 25)
+    $nameTextBox.BackColor = [System.Drawing.Color]::Black
+    $nameTextBox.ForeColor = [System.Drawing.Color]::Lime
+    $nameTextBox.Font = New-Object System.Drawing.Font("Consolas", 12)
+    $nameTextBox.Text = $defaultName
+    $nameForm.Controls.Add($nameTextBox)
+
+    # Info label
+    $infoLabel = New-Object System.Windows.Forms.Label
+    $infoLabel.Text = "Computer name must be 15 characters or less`nand can contain letters, numbers, and hyphens."
+    $infoLabel.Location = New-Object System.Drawing.Point(50, 120)
+    $infoLabel.Size = New-Object System.Drawing.Size(300, 40)
+    $infoLabel.ForeColor = [System.Drawing.Color]::Silver
+    $infoLabel.Font = New-Object System.Drawing.Font("Arial", 9)
+    $infoLabel.BackColor = [System.Drawing.Color]::Transparent
+    $nameForm.Controls.Add($infoLabel)
+
+    # OK button
+    $okButton = New-DynamicButton -text "OK" -x 50 -y 170 -width 140 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+        $nameForm.Tag = $nameTextBox.Text
+        $nameForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+        $nameForm.Close()
+    }
+    $nameForm.Controls.Add($okButton)
+
+    # Cancel button
+    $cancelButton = New-DynamicButton -text "Cancel" -x 210 -y 170 -width 140 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
+        $nameForm.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+        $nameForm.Close()
+    }
+    $nameForm.Controls.Add($cancelButton)
+
+    # Set the accept button (Enter key)
+    $nameForm.AcceptButton = $okButton
+    $nameForm.CancelButton = $cancelButton
+
+    # Show the form and get the result
+    $nameResult = $nameForm.ShowDialog()
+
+    # Process the name result
+    if ($nameResult -eq [System.Windows.Forms.DialogResult]::OK) {
+        $newComputerName = $nameForm.Tag
+
+        # Validate the name
+        if ([string]::IsNullOrWhiteSpace($newComputerName)) {
+            $newComputerName = $defaultName
+        } elseif ($newComputerName.Length -gt 15) {
+            $newComputerName = $newComputerName.Substring(0, 15)
+        }
+
+        # Remove invalid characters
+        $newComputerName = $newComputerName -replace '[^\w\-]', ''
+    } else {
+        # User cancelled, use current name
+        $newComputerName = $currentName
+    }
+
+    # Now create device selection form
     $deviceForm = New-Object System.Windows.Forms.Form
     $deviceForm.Text = "Select Device Type"
     $deviceForm.Size = New-Object System.Drawing.Size(400, 300)
@@ -554,134 +664,27 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                 # 6. Rename Device
                 Add-RunAllStatus "Step 6/7: Setting computer name..."
                 try {
-                    # Create a device name input form
-                    $nameForm = New-Object System.Windows.Forms.Form
-                    $nameForm.Text = "Enter Device Name"
-                    $nameForm.Size = New-Object System.Drawing.Size(400, 250)
-                    $nameForm.StartPosition = "CenterScreen"
-                    $nameForm.BackColor = [System.Drawing.Color]::Black
-                    $nameForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
-                    $nameForm.MaximizeBox = $false
-                    $nameForm.MinimizeBox = $false
-                    $nameForm.TopMost = $true
-
-                    # Add a gradient background
-                    $nameForm.Paint = {
-                        $graphics = $_.Graphics
-                        $rect = New-Object System.Drawing.Rectangle(0, 0, $nameForm.Width, $nameForm.Height)
-                        $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
-                            $rect,
-                            [System.Drawing.Color]::FromArgb(0, 0, 0),  # Black at top
-                            [System.Drawing.Color]::FromArgb(0, 40, 0), # Dark green at bottom
-                            [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
-                        )
-                        $graphics.FillRectangle($brush, $rect)
-                        $brush.Dispose()
-                    }
-
-                    # Title label
-                    $titleLabel = New-Object System.Windows.Forms.Label
-                    $titleLabel.Text = "ENTER NEW DEVICE NAME"
-                    $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
-                    $titleLabel.Size = New-Object System.Drawing.Size(400, 30)
-                    $titleLabel.ForeColor = [System.Drawing.Color]::Lime
-                    $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
-                    $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
-                    $titleLabel.BackColor = [System.Drawing.Color]::Transparent
-                    $nameForm.Controls.Add($titleLabel)
-
-                    # Current name label
+                    # Use the name collected at the beginning
                     $currentName = $env:COMPUTERNAME
-                    $currentLabel = New-Object System.Windows.Forms.Label
-                    $currentLabel.Text = "Current name: $currentName"
-                    $currentLabel.Location = New-Object System.Drawing.Point(50, 60)
-                    $currentLabel.Size = New-Object System.Drawing.Size(300, 20)
-                    $currentLabel.ForeColor = [System.Drawing.Color]::White
-                    $currentLabel.Font = New-Object System.Drawing.Font("Arial", 10)
-                    $currentLabel.BackColor = [System.Drawing.Color]::Transparent
-                    $nameForm.Controls.Add($currentLabel)
 
-                    # Default name suggestion
-                    $defaultName = "DESKTOP-PAYOO"
+                    if ($currentName -ne $newComputerName) {
+                        Add-RunAllStatus "Setting computer name to $newComputerName..."
 
-                    # Name input textbox
-                    $nameTextBox = New-Object System.Windows.Forms.TextBox
-                    $nameTextBox.Location = New-Object System.Drawing.Point(50, 90)
-                    $nameTextBox.Size = New-Object System.Drawing.Size(300, 25)
-                    $nameTextBox.BackColor = [System.Drawing.Color]::Black
-                    $nameTextBox.ForeColor = [System.Drawing.Color]::Lime
-                    $nameTextBox.Font = New-Object System.Drawing.Font("Consolas", 12)
-                    $nameTextBox.Text = $defaultName
-                    $nameForm.Controls.Add($nameTextBox)
+                        # Create a command to rename the computer
+                        $command = "Rename-Computer -NewName '$newComputerName' -Force"
 
-                    # Info label
-                    $infoLabel = New-Object System.Windows.Forms.Label
-                    $infoLabel.Text = "Computer name must be 15 characters or less`nand can contain letters, numbers, and hyphens."
-                    $infoLabel.Location = New-Object System.Drawing.Point(50, 120)
-                    $infoLabel.Size = New-Object System.Drawing.Size(300, 40)
-                    $infoLabel.ForeColor = [System.Drawing.Color]::Silver
-                    $infoLabel.Font = New-Object System.Drawing.Font("Arial", 9)
-                    $infoLabel.BackColor = [System.Drawing.Color]::Transparent
-                    $nameForm.Controls.Add($infoLabel)
+                        # Create a process to run the command with elevated privileges
+                        $psi = New-Object System.Diagnostics.ProcessStartInfo
+                        $psi.FileName = "powershell.exe"
+                        $psi.Arguments = "-Command Start-Process powershell.exe -ArgumentList '-Command $command' -Verb RunAs"
+                        $psi.UseShellExecute = $true
+                        $psi.Verb = "runas"
 
-                    # OK button
-                    $okButton = New-DynamicButton -text "OK" -x 50 -y 170 -width 140 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
-                        $nameForm.Tag = $nameTextBox.Text
-                        $nameForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
-                        $nameForm.Close()
-                    }
-                    $nameForm.Controls.Add($okButton)
-
-                    # Cancel button
-                    $cancelButton = New-DynamicButton -text "Cancel" -x 210 -y 170 -width 140 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
-                        $nameForm.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-                        $nameForm.Close()
-                    }
-                    $nameForm.Controls.Add($cancelButton)
-
-                    # Set the accept button (Enter key)
-                    $nameForm.AcceptButton = $okButton
-                    $nameForm.CancelButton = $cancelButton
-
-                    # Show the form and get the result
-                    $result = $nameForm.ShowDialog()
-
-                    if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
-                        $newName = $nameForm.Tag
-
-                        # Validate the name
-                        if ([string]::IsNullOrWhiteSpace($newName)) {
-                            Add-RunAllStatus "No name provided. Using default name $defaultName."
-                            $newName = $defaultName
-                        } elseif ($newName.Length -gt 15) {
-                            Add-RunAllStatus "Name too long. Truncating to 15 characters."
-                            $newName = $newName.Substring(0, 15)
-                        }
-
-                        # Remove invalid characters
-                        $newName = $newName -replace '[^\w\-]', ''
-
-                        if ($currentName -ne $newName) {
-                            Add-RunAllStatus "Setting computer name to $newName..."
-
-                            # Create a command to rename the computer
-                            $command = "Rename-Computer -NewName '$newName' -Force"
-
-                            # Create a process to run the command with elevated privileges
-                            $psi = New-Object System.Diagnostics.ProcessStartInfo
-                            $psi.FileName = "powershell.exe"
-                            $psi.Arguments = "-Command Start-Process powershell.exe -ArgumentList '-Command $command' -Verb RunAs"
-                            $psi.UseShellExecute = $true
-                            $psi.Verb = "runas"
-
-                            # Start the process
-                            [System.Diagnostics.Process]::Start($psi)
-                            Add-RunAllStatus "Computer name change initiated to $newName."
-                        } else {
-                            Add-RunAllStatus "Computer is already named $newName. Skipping rename."
-                        }
+                        # Start the process
+                        [System.Diagnostics.Process]::Start($psi)
+                        Add-RunAllStatus "Computer name change initiated to $newComputerName."
                     } else {
-                        Add-RunAllStatus "Computer name change cancelled by user."
+                        Add-RunAllStatus "Computer is already named $newComputerName. Skipping rename."
                     }
                 } catch {
                     Add-RunAllStatus "Error renaming computer: $_"
@@ -1041,14 +1044,16 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
                 }
 
                 # 6. Rename Device
-                Add-RunAllStatus "Step 6/7: Setting computer name to LAPTOP-PAYOO..."
+                Add-RunAllStatus "Step 6/7: Setting computer name..."
                 try {
-                    $newName = "LAPTOP-PAYOO"
+                    # Use the name collected at the beginning
                     $currentName = $env:COMPUTERNAME
 
-                    if ($currentName -ne $newName) {
+                    if ($currentName -ne $newComputerName) {
+                        Add-RunAllStatus "Setting computer name to $newComputerName..."
+
                         # Create a command to rename the computer
-                        $command = "Rename-Computer -NewName '$newName' -Force"
+                        $command = "Rename-Computer -NewName '$newComputerName' -Force"
 
                         # Create a process to run the command with elevated privileges
                         $psi = New-Object System.Diagnostics.ProcessStartInfo
@@ -1059,9 +1064,9 @@ $buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 38
 
                         # Start the process
                         [System.Diagnostics.Process]::Start($psi)
-                        Add-RunAllStatus "Computer name change initiated to $newName."
+                        Add-RunAllStatus "Computer name change initiated to $newComputerName."
                     } else {
-                        Add-RunAllStatus "Computer is already named $newName. Skipping rename."
+                        Add-RunAllStatus "Computer is already named $newComputerName. Skipping rename."
                     }
                 } catch {
                     Add-RunAllStatus "Error renaming computer: $_"
