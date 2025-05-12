@@ -192,1138 +192,15 @@ function New-DynamicButton {
 }
 
 # Run All Options
-$buttonRunAll = New-DynamicButton -text "Run All Options" -x 30 -y 100 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
-    # First, create a device name input form that matches the dedicated rename form
-    $nameForm = New-Object System.Windows.Forms.Form
-    $nameForm.Text = "Enter Device Name"
-    $nameForm.Size = New-Object System.Drawing.Size(500, 400) # Increased size to match rename form
-    $nameForm.StartPosition = "CenterScreen"
-    $nameForm.BackColor = [System.Drawing.Color]::Black
-    $nameForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
-    $nameForm.MaximizeBox = $false
-    $nameForm.MinimizeBox = $false
-    $nameForm.TopMost = $true
-
-    # Add a gradient background
-    $nameForm.Paint = {
-        $graphics = $_.Graphics
-        $rect = New-Object System.Drawing.Rectangle(0, 0, $nameForm.Width, $nameForm.Height)
-        $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
-            $rect,
-            [System.Drawing.Color]::FromArgb(0, 0, 0), # Black at top
-            [System.Drawing.Color]::FromArgb(0, 40, 0), # Dark green at bottom
-            [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
-        )
-        $graphics.FillRectangle($brush, $rect)
-        $brush.Dispose()
-    }
-
-    # Title label
-    $titleLabel = New-Object System.Windows.Forms.Label
-    $titleLabel.Text = "ENTER NEW DEVICE NAME"
-    $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
-    $titleLabel.Size = New-Object System.Drawing.Size(500, 30)
-    $titleLabel.ForeColor = [System.Drawing.Color]::Lime
-    $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
-    $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
-    $titleLabel.BackColor = [System.Drawing.Color]::Transparent
-    $nameForm.Controls.Add($titleLabel)
-
-    # Current name label
-    $currentName = $env:COMPUTERNAME
-    $currentLabel = New-Object System.Windows.Forms.Label
-    $currentLabel.Text = "Current Device Name: $currentName"
-    $currentLabel.Location = New-Object System.Drawing.Point(20, 70)
-    $currentLabel.Size = New-Object System.Drawing.Size(460, 30)
-    $currentLabel.ForeColor = [System.Drawing.Color]::White
-    $currentLabel.Font = New-Object System.Drawing.Font("Arial", 12)
-    $currentLabel.BackColor = [System.Drawing.Color]::Transparent
-    $nameForm.Controls.Add($currentLabel)
-
-    # Device type selection group box
-    $deviceGroupBox = New-Object System.Windows.Forms.GroupBox
-    $deviceGroupBox.Text = "Device Type"
-    $deviceGroupBox.Font = New-Object System.Drawing.Font("Arial", 10)
-    $deviceGroupBox.ForeColor = [System.Drawing.Color]::White
-    $deviceGroupBox.Size = New-Object System.Drawing.Size(460, 80)
-    $deviceGroupBox.Location = New-Object System.Drawing.Point(20, 110)
-    $deviceGroupBox.BackColor = [System.Drawing.Color]::Black
-    $nameForm.Controls.Add($deviceGroupBox)
-
-    # Desktop radio button
-    $radioDesktop = New-Object System.Windows.Forms.RadioButton
-    $radioDesktop.Text = "Desktop (HOD)"
-    $radioDesktop.Font = New-Object System.Drawing.Font("Arial", 10)
-    $radioDesktop.ForeColor = [System.Drawing.Color]::White
-    $radioDesktop.Location = New-Object System.Drawing.Point(20, 30)
-    $radioDesktop.Size = New-Object System.Drawing.Size(200, 30)
-    $radioDesktop.BackColor = [System.Drawing.Color]::Black
-    $radioDesktop.Checked = $true # Default selection
-    $deviceGroupBox.Controls.Add($radioDesktop)
-
-    # Laptop radio button
-    $radioLaptop = New-Object System.Windows.Forms.RadioButton
-    $radioLaptop.Text = "Laptop (HOL)"
-    $radioLaptop.Font = New-Object System.Drawing.Font("Arial", 10)
-    $radioLaptop.ForeColor = [System.Drawing.Color]::White
-    $radioLaptop.Location = New-Object System.Drawing.Point(240, 30)
-    $radioLaptop.Size = New-Object System.Drawing.Size(200, 30)
-    $radioLaptop.BackColor = [System.Drawing.Color]::Black
-    $deviceGroupBox.Controls.Add($radioLaptop)
-
-    # New name label
-    $newNameLabel = New-Object System.Windows.Forms.Label
-    $newNameLabel.Text = "New Device Name:"
-    $newNameLabel.Font = New-Object System.Drawing.Font("Arial", 12)
-    $newNameLabel.ForeColor = [System.Drawing.Color]::White
-    $newNameLabel.Size = New-Object System.Drawing.Size(150, 30)
-    $newNameLabel.Location = New-Object System.Drawing.Point(20, 200)
-    $nameForm.Controls.Add($newNameLabel)
-
-    # Default name suggestion based on device type
-    $defaultName = "HOD" # Default to Desktop prefix
-
-    # Name input textbox
-    $nameTextBox = New-Object System.Windows.Forms.TextBox
-    $nameTextBox.Location = New-Object System.Drawing.Point(170, 200)
-    $nameTextBox.Size = New-Object System.Drawing.Size(300, 30)
-    $nameTextBox.BackColor = [System.Drawing.Color]::White
-    $nameTextBox.ForeColor = [System.Drawing.Color]::Black
-    $nameTextBox.Font = New-Object System.Drawing.Font("Arial", 12)
-    $nameTextBox.Text = $defaultName
-    $nameForm.Controls.Add($nameTextBox)
-
-    # Event handlers for radio buttons to update the default name
-    $radioDesktop.Add_CheckedChanged({
-            if ($radioDesktop.Checked) {
-                # Only change if it's the default HOL or empty
-                if ($nameTextBox.Text -eq "HOL" -or $nameTextBox.Text -eq "" -or $nameTextBox.Text.StartsWith("HOL")) {
-                    $nameTextBox.Text = "HOD"
-                }
-            }
-        })
-
-    $radioLaptop.Add_CheckedChanged({
-            if ($radioLaptop.Checked) {
-                # Only change if it's the default HOD or empty
-                if ($nameTextBox.Text -eq "HOD" -or $nameTextBox.Text -eq "" -or $nameTextBox.Text.StartsWith("HOD")) {
-                    $nameTextBox.Text = "HOL"
-                }
-            }
-        })
-
-    # Info label
-    $infoLabel = New-Object System.Windows.Forms.Label
-    $infoLabel.Text = "Computer name must be 15 characters or less`nand can contain letters, numbers, and hyphens."
-    $infoLabel.Location = New-Object System.Drawing.Point(20, 240)
-    $infoLabel.Size = New-Object System.Drawing.Size(460, 40)
-    $infoLabel.ForeColor = [System.Drawing.Color]::Silver
-    $infoLabel.Font = New-Object System.Drawing.Font("Arial", 9)
-    $infoLabel.BackColor = [System.Drawing.Color]::Transparent
-    $nameForm.Controls.Add($infoLabel)
-
-    # OK button
-    $okButton = New-DynamicButton -text "OK" -x 100 -y 290 -width 140 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
-        $nameForm.Tag = $nameTextBox.Text
-
-        # Also store the device type
-        if ($radioDesktop.Checked) {
-            $script:selectedDeviceType = "Desktop"
-        }
-        else {
-            $script:selectedDeviceType = "Laptop"
-        }
-
-        $nameForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
-        $nameForm.Close()
-    }
-    $nameForm.Controls.Add($okButton)
-
-    # Cancel button
-    $cancelButton = New-DynamicButton -text "Cancel" -x 260 -y 290 -width 140 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
-        $nameForm.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-        $nameForm.Close()
-    }
-    $nameForm.Controls.Add($cancelButton)
-
-    # Set the accept button (Enter key)
-    $nameForm.AcceptButton = $okButton
-    $nameForm.CancelButton = $cancelButton
-
-    # Show the form and get the result
-    $nameResult = $nameForm.ShowDialog()
-
-    # Process the name result
-    if ($nameResult -eq [System.Windows.Forms.DialogResult]::OK) {
-        $newComputerName = $nameForm.Tag
-
-        # Validate the name
-        if ([string]::IsNullOrWhiteSpace($newComputerName)) {
-            # Set default based on selected device type
-            if ($script:selectedDeviceType -eq "Desktop") {
-                $newComputerName = "HOD"
-            }
-            else {
-                $newComputerName = "HOL"
-            }
-        }
-        elseif ($newComputerName.Length -gt 15) {
-            $newComputerName = $newComputerName.Substring(0, 15)
-        }
-
-        # Remove invalid characters
-        $newComputerName = $newComputerName -replace '[^\w\-]', ''
-
-        # Set device type based on the name prefix if not already set
-        if ($newComputerName.StartsWith("HOD")) {
-            $script:selectedDeviceType = "Desktop"
-        }
-        elseif ($newComputerName.StartsWith("HOL")) {
-            $script:selectedDeviceType = "Laptop"
-        }
-    }
-    else {
-        # User cancelled, use current name
-        $newComputerName = $currentName
-
-        # Try to determine device type from current name
-        if ($currentName.StartsWith("HOD")) {
-            $script:selectedDeviceType = "Desktop"
-        }
-        elseif ($currentName.StartsWith("HOL")) {
-            $script:selectedDeviceType = "Laptop"
-        }
-        else {
-            # Default to Desktop if can't determine
-            $script:selectedDeviceType = "Desktop"
-        }
-    }
-
-    # Use the device type determined from the name
-    $deviceType = $script:selectedDeviceType
-
-    if ($deviceType -eq "Desktop") {
-        $confirmResult = [System.Windows.Forms.MessageBox]::Show(
-            "You selected Desktop. This will run all options for Desktop devices.`n`nDo you want to continue?",
-            "Confirm Run All",
-            [System.Windows.Forms.MessageBoxButtons]::YesNo,
-            [System.Windows.Forms.MessageBoxIcon]::Question)
-
-        if ($confirmResult -eq [System.Windows.Forms.DialogResult]::Yes) {
-            # Create a progress form
-            $progressForm = New-Object System.Windows.Forms.Form
-            $progressForm.Text = "Running All Options for Desktop"
-            $progressForm.Size = New-Object System.Drawing.Size(600, 400)
-            $progressForm.StartPosition = "CenterScreen"
-            $progressForm.BackColor = [System.Drawing.Color]::Black
-            $progressForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
-            $progressForm.MaximizeBox = $false
-            $progressForm.MinimizeBox = $false
-
-            # Add a gradient background
-            $progressForm.Paint = {
-                $graphics = $_.Graphics
-                $rect = New-Object System.Drawing.Rectangle(0, 0, $progressForm.Width, $progressForm.Height)
-                $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
-                    $rect,
-                    [System.Drawing.Color]::FromArgb(0, 0, 0), # Black at top
-                    [System.Drawing.Color]::FromArgb(0, 40, 0), # Dark green at bottom
-                    [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
-                )
-                $graphics.FillRectangle($brush, $rect)
-                $brush.Dispose()
-            }
-
-            # Title label
-            $titleLabel = New-Object System.Windows.Forms.Label
-            $titleLabel.Text = "RUNNING ALL OPTIONS FOR DESKTOP"
-            $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
-            $titleLabel.Size = New-Object System.Drawing.Size(600, 40)
-            $titleLabel.ForeColor = [System.Drawing.Color]::Lime
-            $titleLabel.Font = New-Object System.Drawing.Font("Arial", 16, [System.Drawing.FontStyle]::Bold)
-            $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
-            $titleLabel.BackColor = [System.Drawing.Color]::Transparent
-            $progressForm.Controls.Add($titleLabel)
-
-            # Status text box
-            $statusTextBox = New-Object System.Windows.Forms.TextBox
-            $statusTextBox.Multiline = $true
-            $statusTextBox.ScrollBars = "Vertical"
-            $statusTextBox.Location = New-Object System.Drawing.Point(50, 70)
-            $statusTextBox.Size = New-Object System.Drawing.Size(500, 250)
-            $statusTextBox.BackColor = [System.Drawing.Color]::Black
-            $statusTextBox.ForeColor = [System.Drawing.Color]::Lime
-            $statusTextBox.Font = New-Object System.Drawing.Font("Consolas", 10)
-            $statusTextBox.ReadOnly = $true
-            $statusTextBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-            $statusTextBox.Text = "Starting all tasks for Desktop...`r`n"
-            $progressForm.Controls.Add($statusTextBox)
-
-            # Close button
-            $closeButton = New-DynamicButton -text "Close" -x 200 -y 330 -width 200 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
-                $progressForm.Close()
-            }
-            $progressForm.Controls.Add($closeButton)
-            $closeButton.Enabled = $false
-
-            # Function to add status message
-            function Add-RunAllStatus {
-                param([string]$message)
-                $statusTextBox.AppendText("$(Get-Date -Format 'HH:mm:ss') - $message`r`n")
-                $statusTextBox.ScrollToCaret()
-                [System.Windows.Forms.Application]::DoEvents()
-            }
-
-            # Show the form
-            $progressForm.Show()
-            [System.Windows.Forms.Application]::DoEvents()
-
-            # Run all tasks for Desktop
-            try {
-                # 1. Activate Windows
-                Add-RunAllStatus "Step 1/7: Activating Windows 10 Pro..."
-                try {
-                    $windowsStatus = & cscript //nologo "$env:windir\system32\slmgr.vbs" /dli
-                    $isWindowsActivated = $windowsStatus -match "License Status: Licensed"
-
-                    if ($isWindowsActivated) {
-                        Add-RunAllStatus "Windows is already activated."
-                    }
-                    else {
-                        Add-RunAllStatus "Windows not activated. Activating Windows 10 Pro..."
-                        $command = "slmgr /ipk R84N4-RPC7Q-W8TKM-VM7Y4-7H66Y && slmgr /ato"
-
-                        # Create a process to run the command with elevated privileges
-                        $psi = New-Object System.Diagnostics.ProcessStartInfo
-                        $psi.FileName = "powershell.exe"
-                        $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
-                        $psi.UseShellExecute = $true
-                        $psi.Verb = "runas"
-                        $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-
-                        # Start the process
-                        [System.Diagnostics.Process]::Start($psi)
-                        Add-RunAllStatus "Windows activation initiated."
-                    }
-                }
-                catch {
-                    Add-RunAllStatus "Error activating Windows: $_"
-                }
-
-                # 2. Set Time Zone
-                Add-RunAllStatus "Step 2/7: Setting time zone and power options..."
-                try {
-                    # Set timezone to SE Asia Standard Time
-                    Start-Process -FilePath "tzutil.exe" -ArgumentList "/s `"SE Asia Standard Time`"" -Wait -NoNewWindow
-
-                    # Configure Windows Time service
-                    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\w32time\Parameters" -Name "Type" -Value "NTP" -Type String -ErrorAction SilentlyContinue
-
-                    # Resync time
-                    try {
-                        Start-Process -FilePath "w32tm.exe" -ArgumentList "/resync" -Wait -NoNewWindow
-                    }
-                    catch {
-                        Add-RunAllStatus "Warning: Could not sync time. $_"
-                    }
-
-                    # Configure power options
-                    $powerCommands = @(
-                        "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS LIDACTION 0",
-                        "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS LIDACTION 0",
-                        "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS SBUTTONACTION 0",
-                        "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS SBUTTONACTION 0",
-                        "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS PBUTTONACTION 0",
-                        "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS PBUTTONACTION 0",
-                        "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_VIDEO VIDEOIDLE 0",
-                        "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_VIDEO VIDEOIDLE 0",
-                        "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 0",
-                        "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 0",
-                        "powercfg /SETACTIVE SCHEME_CURRENT"
-                    )
-
-                    $powerScript = $powerCommands -join "; "
-
-                    # Create a process to run the command with elevated privileges
-                    $psi = New-Object System.Diagnostics.ProcessStartInfo
-                    $psi.FileName = "powershell.exe"
-                    $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $powerScript' -Verb RunAs -WindowStyle Hidden"
-                    $psi.UseShellExecute = $true
-                    $psi.Verb = "runas"
-                    $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-
-                    # Start the process
-                    [System.Diagnostics.Process]::Start($psi)
-
-                    # Turn off the firewall
-                    $command = "netsh advfirewall set allprofiles state off"
-
-                    # Create a process to run the command with elevated privileges
-                    $psi = New-Object System.Diagnostics.ProcessStartInfo
-                    $psi.FileName = "powershell.exe"
-                    $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
-                    $psi.UseShellExecute = $true
-                    $psi.Verb = "runas"
-                    $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-
-                    # Start the process
-                    [System.Diagnostics.Process]::Start($psi)
-
-                    Add-RunAllStatus "Time zone, power options, and firewall have been configured."
-                }
-                catch {
-                    Add-RunAllStatus "Error setting time zone and power options: $_"
-                }
-
-                # 3. Install Software for Desktop
-                Add-RunAllStatus "Step 3/7: Installing software for Desktop..."
-                try {
-                    # Copy software files
-                    $tempDir = "$env:USERPROFILE\Downloads\SETUP"
-                    if (-not (Test-Path $tempDir)) {
-                        Add-RunAllStatus "Creating temporary folder..."
-                        New-Item -Path $tempDir -ItemType Directory -Force | Out-Null
-                    }
-
-                    # Copy setup files if source exists
-                    $setupSource = "D:\SOFTWARE\PAYOO\SETUP"
-                    if (Test-Path $setupSource) {
-                        if (-not (Test-Path "$tempDir\Software")) {
-                            Add-RunAllStatus "Copying setup files..."
-                            Copy-Item -Path $setupSource -Destination "$tempDir\Software" -Recurse -Force
-                        }
-                    }
-                    else {
-                        Add-RunAllStatus "Warning: Setup source folder not found at $setupSource"
-                    }
-
-                    # Copy Office 2019 if source exists
-                    $officeSource = "D:\SOFTWARE\OFFICE\Office 2019"
-                    if (Test-Path $officeSource) {
-                        if (-not (Test-Path "$tempDir\Office2019")) {
-                            Add-RunAllStatus "Copying Office 2019 files..."
-                            Copy-Item -Path "$officeSource\*" -Destination "$tempDir\Office2019" -Recurse -Force
-                        }
-                    }
-                    else {
-                        Add-RunAllStatus "Warning: Office source folder not found at $officeSource"
-                    }
-
-                    # Install software if files exist
-                    if (Test-Path "$tempDir\Software") {
-                        # Install 7-Zip
-                        if (-not (Test-Path "$env:ProgramFiles\7-Zip\7zFM.exe")) {
-                            $zipSetup = "$tempDir\Software\7z2408-x64.exe"
-                            if (Test-Path $zipSetup) {
-                                Add-RunAllStatus "Installing 7-Zip..."
-                                Start-Process -FilePath $zipSetup -ArgumentList "/S" -Wait
-                            }
-                        }
-
-                        # Install Google Chrome
-                        if (-not (Test-Path "$env:ProgramFiles\Google\Chrome\Application\chrome.exe")) {
-                            $chromeSetup = "$tempDir\Software\ChromeSetup.exe"
-                            if (Test-Path $chromeSetup) {
-                                Add-RunAllStatus "Installing Google Chrome..."
-                                Start-Process -FilePath $chromeSetup -ArgumentList "/silent /install" -Wait
-                            }
-                        }
-                    }
-
-                    Add-RunAllStatus "Software installation for Desktop completed."
-                }
-                catch {
-                    Add-RunAllStatus "Error installing software: $_"
-                }
-
-                # 4. Activate Office
-                Add-RunAllStatus "Step 4/7: Activating Office 2019..."
-                try {
-                    # Check if Office16 path exists
-                    $office16Path = "C:\Program Files\Microsoft Office\Office16\ospp.vbs"
-                    $office15Path = "C:\Program Files\Microsoft Office\Office15\ospp.vbs"
-
-                    if (Test-Path $office16Path) {
-                        $officePath = $office16Path
-                        Add-RunAllStatus "Found Office16."
-                    }
-                    elseif (Test-Path $office15Path) {
-                        $officePath = $office15Path
-                        Add-RunAllStatus "Found Office15."
-                    }
-                    else {
-                        Add-RunAllStatus "Office installation not found. Skipping activation."
-                        $officePath = $null
-                    }
-
-                    if ($officePath) {
-                        # Check activation status
-                        $officeStatus = & cscript //nologo "$officePath" /dstatus
-                        $isOfficeActivated = $officeStatus -match "LICENSE STATUS:  ---LICENSED---"
-
-                        if ($isOfficeActivated) {
-                            Add-RunAllStatus "Office is already activated."
-                        }
-                        else {
-                            Add-RunAllStatus "Office not activated. Activating Office 2019 Pro Plus..."
-                            $command = "cscript `"$officePath`" /inpkey:Q2NKY-J42YJ-X2KVK-9Q9PT-MKP63 && cscript `"$officePath`" /act"
-
-                            # Create a process to run the command with elevated privileges
-                            $psi = New-Object System.Diagnostics.ProcessStartInfo
-                            $psi.FileName = "powershell.exe"
-                            $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
-                            $psi.UseShellExecute = $true
-                            $psi.Verb = "runas"
-                            $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-
-                            # Start the process
-                            [System.Diagnostics.Process]::Start($psi)
-                            Add-RunAllStatus "Office activation initiated."
-                        }
-                    }
-                }
-                catch {
-                    Add-RunAllStatus "Error activating Office: $_"
-                }
-
-                # 5. Turn on Windows Features
-                Add-RunAllStatus "Step 5/7: Enabling Windows features..."
-                try {
-                    # 5.1. Enable .NET Framework 3.5
-                    Add-RunAllStatus "Step 5.1/5.4: Checking .NET Framework 3.5 status..."
-                    try {
-                        $command = "dism /online /get-featureinfo /featurename:NetFx3"
-                        $output = Invoke-Expression $command | Out-String
-
-                        if ($output -match "State : Disabled") {
-                            Add-RunAllStatus "Enabling .NET Framework 3.5..."
-                            $enableCmd = "dism /online /enable-feature /featurename:NetFx3 /all /norestart"
-                            Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
-                            Add-RunAllStatus ".NET Framework 3.5 has been enabled."
-                        }
-                        else {
-                            Add-RunAllStatus ".NET Framework 3.5 is already enabled."
-                        }
-                    }
-                    catch {
-                        Add-RunAllStatus "Error enabling .NET Framework 3.5: $_"
-                    }
-
-                    # 5.2. Enable WCF-HTTP-Activation
-                    Add-RunAllStatus "Step 5.2/5.4: Checking WCF-HTTP-Activation status..."
-                    try {
-                        $command = "dism /online /get-featureinfo /featurename:WCF-HTTP-Activation"
-                        $output = Invoke-Expression $command | Out-String
-
-                        if ($output -match "State : Disabled") {
-                            Add-RunAllStatus "Enabling WCF-HTTP-Activation..."
-                            $enableCmd = "DISM /Online /Enable-Feature /FeatureName:WCF-HTTP-Activation /All /Quiet /NoRestart"
-                            Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
-                            Add-RunAllStatus "WCF-HTTP-Activation has been enabled."
-                        }
-                        else {
-                            Add-RunAllStatus "WCF-HTTP-Activation is already enabled."
-                        }
-                    }
-                    catch {
-                        Add-RunAllStatus "Error enabling WCF-HTTP-Activation: $_"
-                    }
-
-                    # 5.3. Enable WCF-NonHTTP-Activation
-                    Add-RunAllStatus "Step 5.3/5.4: Checking WCF-NonHTTP-Activation status..."
-                    try {
-                        $command = "dism /online /get-featureinfo /featurename:WCF-NonHTTP-Activation"
-                        $output = Invoke-Expression $command | Out-String
-
-                        if ($output -match "State : Disabled") {
-                            Add-RunAllStatus "Enabling WCF-NonHTTP-Activation..."
-                            $enableCmd = "DISM /Online /Enable-Feature /FeatureName:WCF-NonHTTP-Activation /All /Quiet /NoRestart"
-                            Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
-                            Add-RunAllStatus "WCF-NonHTTP-Activation has been enabled."
-                        }
-                        else {
-                            Add-RunAllStatus "WCF-NonHTTP-Activation is already enabled."
-                        }
-                    }
-                    catch {
-                        Add-RunAllStatus "Error enabling WCF-NonHTTP-Activation: $_"
-                    }
-
-                    # 5.4. Disable Internet Explorer 11
-                    Add-RunAllStatus "Step 5.4/5.4: Checking Internet Explorer 11 status..."
-                    try {
-                        $command = "dism /online /get-featureinfo /featurename:Internet-Explorer-Optional-amd64"
-                        $output = Invoke-Expression $command | Out-String
-
-                        if ($output -match "State : Enabled") {
-                            Add-RunAllStatus "Disabling Internet Explorer 11..."
-                            $disableCmd = "dism /online /disable-feature /featurename:Internet-Explorer-Optional-amd64 /norestart"
-                            Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $disableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
-                            Add-RunAllStatus "Internet Explorer 11 has been disabled."
-                        }
-                        else {
-                            Add-RunAllStatus "Internet Explorer 11 is already disabled."
-                        }
-                    }
-                    catch {
-                        Add-RunAllStatus "Error disabling Internet Explorer 11: $_"
-                    }
-
-                    Add-RunAllStatus "All Windows features operations completed!"
-                }
-                catch {
-                    Add-RunAllStatus "Error enabling Windows features: $_"
-                }
-
-                # 6. Rename Device
-                Add-RunAllStatus "Step 6/7: Setting computer name..."
-                try {
-                    # Use the name collected at the beginning
-                    $currentName = $env:COMPUTERNAME
-
-                    # Create a status callback for the rename function
-                    $statusCallback = {
-                        param([string]$message)
-                        Add-RunAllStatus $message
-                    }
-
-                    # Check if the new name is different from the current name
-                    if ($newComputerName -ne $currentName) {
-                        # Call the rename function with the new name
-                        $result = Rename-DeviceWithBatch -newName $newComputerName -statusCallback $statusCallback -showUI $false
-
-                        if ($result) {
-                            Add-RunAllStatus "Computer name change initiated to $newComputerName."
-                        }
-                        else {
-                            Add-RunAllStatus "Failed to rename computer to $newComputerName."
-                        }
-                    }
-                    else {
-                        # Even if the name is the same, still call the rename function
-                        # This allows the user to rename to the same name if desired
-                        $result = Rename-DeviceWithBatch -newName $newComputerName -statusCallback $statusCallback -showUI $false
-                        Add-RunAllStatus "Computer name remains as $currentName."
-                    }
-                }
-                catch {
-                    Add-RunAllStatus "Error renaming computer: $_"
-                }
-
-                # 7. Set Password
-                Add-RunAllStatus "Step 7/7: Setting password for current user..."
-                try {
-                    $currentUser = $env:USERNAME
-                    $newPassword = "Pr0t3ct10c@1@VU"
-
-                    # Create a command to set the password
-                    $command = "net user $currentUser $newPassword"
-
-                    # Create a process to run the command with elevated privileges
-                    $psi = New-Object System.Diagnostics.ProcessStartInfo
-                    $psi.FileName = "powershell.exe"
-                    $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
-                    $psi.UseShellExecute = $true
-                    $psi.Verb = "runas"
-                    $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-
-                    # Start the process
-                    [System.Diagnostics.Process]::Start($psi)
-                    Add-RunAllStatus "Password for user $currentUser."
-                }
-                catch {
-                    Add-RunAllStatus "Error setting password: $_"
-                }
-
-                # All tasks completed
-                Add-RunAllStatus "`r`nAll tasks for Desktop completed successfully!"
-                Add-RunAllStatus "You may need to restart your computer to apply all changes."
-
-            }
-            catch {
-                Add-RunAllStatus "Error running all tasks: $_"
-            }
-            finally {
-                # Enable close button
-                $closeButton.Enabled = $true
-            }
-        }
-    }
-    elseif ($deviceType -eq "Laptop") {
-        $confirmResult = [System.Windows.Forms.MessageBox]::Show(
-            "You selected Laptop. This will run all options for Laptop devices.`n`nDo you want to continue?",
-            "Confirm Run All",
-            [System.Windows.Forms.MessageBoxButtons]::YesNo,
-            [System.Windows.Forms.MessageBoxIcon]::Question)
-
-        if ($confirmResult -eq [System.Windows.Forms.DialogResult]::Yes) {
-            # Create a progress form
-            $progressForm = New-Object System.Windows.Forms.Form
-            $progressForm.Text = "Running All Options for Laptop"
-            $progressForm.Size = New-Object System.Drawing.Size(600, 400)
-            $progressForm.StartPosition = "CenterScreen"
-            $progressForm.BackColor = [System.Drawing.Color]::Black
-            $progressForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
-            $progressForm.MaximizeBox = $false
-            $progressForm.MinimizeBox = $false
-
-            # Add a gradient background
-            $progressForm.Paint = {
-                $graphics = $_.Graphics
-                $rect = New-Object System.Drawing.Rectangle(0, 0, $progressForm.Width, $progressForm.Height)
-                $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
-                    $rect,
-                    [System.Drawing.Color]::FromArgb(0, 0, 0), # Black at top
-                    [System.Drawing.Color]::FromArgb(0, 40, 0), # Dark green at bottom
-                    [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
-                )
-                $graphics.FillRectangle($brush, $rect)
-                $brush.Dispose()
-            }
-
-            # Title label
-            $titleLabel = New-Object System.Windows.Forms.Label
-            $titleLabel.Text = "RUNNING ALL OPTIONS FOR LAPTOP"
-            $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
-            $titleLabel.Size = New-Object System.Drawing.Size(600, 40)
-            $titleLabel.ForeColor = [System.Drawing.Color]::Lime
-            $titleLabel.Font = New-Object System.Drawing.Font("Arial", 16, [System.Drawing.FontStyle]::Bold)
-            $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
-            $titleLabel.BackColor = [System.Drawing.Color]::Transparent
-            $progressForm.Controls.Add($titleLabel)
-
-            # Status text box
-            $statusTextBox = New-Object System.Windows.Forms.TextBox
-            $statusTextBox.Multiline = $true
-            $statusTextBox.ScrollBars = "Vertical"
-            $statusTextBox.Location = New-Object System.Drawing.Point(50, 70)
-            $statusTextBox.Size = New-Object System.Drawing.Size(500, 250)
-            $statusTextBox.BackColor = [System.Drawing.Color]::Black
-            $statusTextBox.ForeColor = [System.Drawing.Color]::Lime
-            $statusTextBox.Font = New-Object System.Drawing.Font("Consolas", 10)
-            $statusTextBox.ReadOnly = $true
-            $statusTextBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-            $statusTextBox.Text = "Starting all tasks for Laptop...`r`n"
-            $progressForm.Controls.Add($statusTextBox)
-
-            # Close button
-            $closeButton = New-DynamicButton -text "Close" -x 200 -y 330 -width 200 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
-                $progressForm.Close()
-            }
-            $progressForm.Controls.Add($closeButton)
-            $closeButton.Enabled = $false
-
-            # Function to add status message
-            function Add-RunAllStatus {
-                param([string]$message)
-                $statusTextBox.AppendText("$(Get-Date -Format 'HH:mm:ss') - $message`r`n")
-                $statusTextBox.ScrollToCaret()
-                [System.Windows.Forms.Application]::DoEvents()
-            }
-
-            # Show the form
-            $progressForm.Show()
-            [System.Windows.Forms.Application]::DoEvents()
-
-            # Run all tasks for Laptop
-            try {
-                # 1. Activate Windows
-                Add-RunAllStatus "Step 1/7: Activating Windows 10 Pro..."
-                try {
-                    $windowsStatus = & cscript //nologo "$env:windir\system32\slmgr.vbs" /dli
-                    $isWindowsActivated = $windowsStatus -match "License Status: Licensed"
-
-                    if ($isWindowsActivated) {
-                        Add-RunAllStatus "Windows is already activated."
-                    }
-                    else {
-                        Add-RunAllStatus "Windows not activated. Activating Windows 10 Pro..."
-                        $command = "slmgr /ipk R84N4-RPC7Q-W8TKM-VM7Y4-7H66Y && slmgr /ato"
-
-                        # Create a process to run the command with elevated privileges
-                        $psi = New-Object System.Diagnostics.ProcessStartInfo
-                        $psi.FileName = "powershell.exe"
-                        $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
-                        $psi.UseShellExecute = $true
-                        $psi.Verb = "runas"
-                        $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-
-                        # Start the process
-                        [System.Diagnostics.Process]::Start($psi)
-                        Add-RunAllStatus "Windows activation initiated."
-                    }
-                }
-                catch {
-                    Add-RunAllStatus "Error activating Windows: $_"
-                }
-
-                # 2. Set Time Zone
-                Add-RunAllStatus "Step 2/7: Setting time zone and power options..."
-                try {
-                    # Set timezone to SE Asia Standard Time
-                    Start-Process -FilePath "tzutil.exe" -ArgumentList "/s `"SE Asia Standard Time`"" -Wait -NoNewWindow
-
-                    # Configure Windows Time service
-                    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\w32time\Parameters" -Name "Type" -Value "NTP" -Type String -ErrorAction SilentlyContinue
-
-                    # Resync time
-                    try {
-                        Start-Process -FilePath "w32tm.exe" -ArgumentList "/resync" -Wait -NoNewWindow
-                    }
-                    catch {
-                        Add-RunAllStatus "Warning: Could not sync time. $_"
-                    }
-
-                    # Configure power options
-                    $powerCommands = @(
-                        "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS LIDACTION 0",
-                        "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS LIDACTION 0",
-                        "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS SBUTTONACTION 0",
-                        "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS SBUTTONACTION 0",
-                        "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS PBUTTONACTION 0",
-                        "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS PBUTTONACTION 0",
-                        "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_VIDEO VIDEOIDLE 0",
-                        "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_VIDEO VIDEOIDLE 0",
-                        "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 0",
-                        "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 0",
-                        "powercfg /SETACTIVE SCHEME_CURRENT"
-                    )
-
-                    $powerScript = $powerCommands -join "; "
-
-                    # Create a process to run the command with elevated privileges
-                    $psi = New-Object System.Diagnostics.ProcessStartInfo
-                    $psi.FileName = "powershell.exe"
-                    $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $powerScript' -Verb RunAs -WindowStyle Hidden"
-                    $psi.UseShellExecute = $true
-                    $psi.Verb = "runas"
-                    $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-
-                    # Start the process
-                    [System.Diagnostics.Process]::Start($psi)
-
-                    # Turn off the firewall
-                    $command = "netsh advfirewall set allprofiles state off"
-
-                    # Create a process to run the command with elevated privileges
-                    $psi = New-Object System.Diagnostics.ProcessStartInfo
-                    $psi.FileName = "powershell.exe"
-                    $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
-                    $psi.UseShellExecute = $true
-                    $psi.Verb = "runas"
-                    $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-
-                    # Start the process
-                    [System.Diagnostics.Process]::Start($psi)
-
-                    Add-RunAllStatus "Time zone, power options, and firewall have been configured."
-                }
-                catch {
-                    Add-RunAllStatus "Error setting time zone and power options: $_"
-                }
-
-                # 3. Install Software for Laptop
-                Add-RunAllStatus "Step 3/7: Installing software for Laptop..."
-                try {
-                    # Copy software files
-                    $tempDir = "$env:USERPROFILE\Downloads\SETUP"
-                    if (-not (Test-Path $tempDir)) {
-                        Add-RunAllStatus "Creating temporary folder..."
-                        New-Item -Path $tempDir -ItemType Directory -Force | Out-Null
-                    }
-
-                    # Copy setup files if source exists
-                    $setupSource = "D:\SOFTWARE\PAYOO\SETUP"
-                    if (Test-Path $setupSource) {
-                        if (-not (Test-Path "$tempDir\Software")) {
-                            Add-RunAllStatus "Copying setup files..."
-                            Copy-Item -Path $setupSource -Destination "$tempDir\Software" -Recurse -Force
-                        }
-                    }
-                    else {
-                        Add-RunAllStatus "Warning: Setup source folder not found at $setupSource"
-                    }
-
-                    # Copy Office 2019 if source exists
-                    $officeSource = "D:\SOFTWARE\OFFICE\Office 2019"
-                    if (Test-Path $officeSource) {
-                        if (-not (Test-Path "$tempDir\Office2019")) {
-                            Add-RunAllStatus "Copying Office 2019 files..."
-                            Copy-Item -Path "$officeSource\*" -Destination "$tempDir\Office2019" -Recurse -Force
-                        }
-                    }
-                    else {
-                        Add-RunAllStatus "Warning: Office source folder not found at $officeSource"
-                    }
-
-                    # Install software if files exist
-                    if (Test-Path "$tempDir\Software") {
-                        # Install 7-Zip
-                        if (-not (Test-Path "$env:ProgramFiles\7-Zip\7zFM.exe")) {
-                            $zipSetup = "$tempDir\Software\7z2408-x64.exe"
-                            if (Test-Path $zipSetup) {
-                                Add-RunAllStatus "Installing 7-Zip..."
-                                Start-Process -FilePath $zipSetup -ArgumentList "/S" -Wait
-                            }
-                        }
-
-                        # Install Google Chrome
-                        if (-not (Test-Path "$env:ProgramFiles\Google\Chrome\Application\chrome.exe")) {
-                            $chromeSetup = "$tempDir\Software\ChromeSetup.exe"
-                            if (Test-Path $chromeSetup) {
-                                Add-RunAllStatus "Installing Google Chrome..."
-                                Start-Process -FilePath $chromeSetup -ArgumentList "/silent /install" -Wait
-                            }
-                        }
-
-                        # Install Zoom (Laptop specific)
-                        if (-not (Test-Path "$env:USERPROFILE\AppData\Roaming\Zoom\bin\Zoom.exe")) {
-                            $zoomSetup = "$tempDir\Software\ZoomInstallerFull.exe"
-                            if (Test-Path $zoomSetup) {
-                                Add-RunAllStatus "Installing Zoom..."
-                                Start-Process -FilePath $zoomSetup -ArgumentList "/silent /install" -Wait
-                            }
-                            else {
-                                Add-RunAllStatus "Warning: Zoom setup file not found at $zoomSetup"
-                            }
-                        }
-
-                        # Install CheckPointVPN (Laptop specific)
-                        if (-not (Test-Path "${env:ProgramFiles(x86)}\CheckPoint\Endpoint Connect\TrGUI.exe")) {
-                            $vpnSetup = "$tempDir\Software\CheckPointVPN.msi"
-                            if (Test-Path $vpnSetup) {
-                                Add-RunAllStatus "Installing CheckPointVPN..."
-                                Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$vpnSetup`" /quiet" -Wait
-                            }
-                            else {
-                                Add-RunAllStatus "Warning: CheckPointVPN setup file not found at $vpnSetup"
-                            }
-                        }
-                    }
-
-                    Add-RunAllStatus "Software installation for Laptop completed."
-                }
-                catch {
-                    Add-RunAllStatus "Error installing software: $_"
-                }
-
-                # 4. Activate Office
-                Add-RunAllStatus "Step 4/7: Activating Office 2019..."
-                try {
-                    # Check if Office16 path exists
-                    $office16Path = "C:\Program Files\Microsoft Office\Office16\ospp.vbs"
-                    $office15Path = "C:\Program Files\Microsoft Office\Office15\ospp.vbs"
-
-                    if (Test-Path $office16Path) {
-                        $officePath = $office16Path
-                        Add-RunAllStatus "Found Office16."
-                    }
-                    elseif (Test-Path $office15Path) {
-                        $officePath = $office15Path
-                        Add-RunAllStatus "Found Office15."
-                    }
-                    else {
-                        Add-RunAllStatus "Office installation not found. Skipping activation."
-                        $officePath = $null
-                    }
-
-                    if ($officePath) {
-                        # Check activation status
-                        $officeStatus = & cscript //nologo "$officePath" /dstatus
-                        $isOfficeActivated = $officeStatus -match "LICENSE STATUS:  ---LICENSED---"
-
-                        if ($isOfficeActivated) {
-                            Add-RunAllStatus "Office is already activated."
-                        }
-                        else {
-                            Add-RunAllStatus "Office not activated. Activating Office 2019 Pro Plus..."
-                            $command = "cscript `"$officePath`" /inpkey:Q2NKY-J42YJ-X2KVK-9Q9PT-MKP63 && cscript `"$officePath`" /act"
-
-                            # Create a process to run the command with elevated privileges
-                            $psi = New-Object System.Diagnostics.ProcessStartInfo
-                            $psi.FileName = "powershell.exe"
-                            $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
-                            $psi.UseShellExecute = $true
-                            $psi.Verb = "runas"
-                            $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-
-                            # Start the process
-                            [System.Diagnostics.Process]::Start($psi)
-                            Add-RunAllStatus "Office activation initiated."
-                        }
-                    }
-                }
-                catch {
-                    Add-RunAllStatus "Error activating Office: $_"
-                }
-
-                # 5. Turn on Windows Features
-                Add-RunAllStatus "Step 5/7: Enabling Windows features..."
-                try {
-                    # 5.1. Enable .NET Framework 3.5
-                    Add-RunAllStatus "Step 5.1/5.4: Checking .NET Framework 3.5 status..."
-                    try {
-                        $command = "dism /online /get-featureinfo /featurename:NetFx3"
-                        $output = Invoke-Expression $command | Out-String
-
-                        if ($output -match "State : Disabled") {
-                            Add-RunAllStatus "Enabling .NET Framework 3.5..."
-                            $enableCmd = "dism /online /enable-feature /featurename:NetFx3 /all /norestart"
-                            Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
-                            Add-RunAllStatus ".NET Framework 3.5 has been enabled."
-                        }
-                        else {
-                            Add-RunAllStatus ".NET Framework 3.5 is already enabled."
-                        }
-                    }
-                    catch {
-                        Add-RunAllStatus "Error enabling .NET Framework 3.5: $_"
-                    }
-
-                    # 5.2. Enable WCF-HTTP-Activation
-                    Add-RunAllStatus "Step 5.2/5.4: Checking WCF-HTTP-Activation status..."
-                    try {
-                        $command = "dism /online /get-featureinfo /featurename:WCF-HTTP-Activation"
-                        $output = Invoke-Expression $command | Out-String
-
-                        if ($output -match "State : Disabled") {
-                            Add-RunAllStatus "Enabling WCF-HTTP-Activation..."
-                            $enableCmd = "DISM /Online /Enable-Feature /FeatureName:WCF-HTTP-Activation /All /Quiet /NoRestart"
-                            Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
-                            Add-RunAllStatus "WCF-HTTP-Activation has been enabled."
-                        }
-                        else {
-                            Add-RunAllStatus "WCF-HTTP-Activation is already enabled."
-                        }
-                    }
-                    catch {
-                        Add-RunAllStatus "Error enabling WCF-HTTP-Activation: $_"
-                    }
-
-                    # 5.3. Enable WCF-NonHTTP-Activation
-                    Add-RunAllStatus "Step 5.3/5.4: Checking WCF-NonHTTP-Activation status..."
-                    try {
-                        $command = "dism /online /get-featureinfo /featurename:WCF-NonHTTP-Activation"
-                        $output = Invoke-Expression $command | Out-String
-
-                        if ($output -match "State : Disabled") {
-                            Add-RunAllStatus "Enabling WCF-NonHTTP-Activation..."
-                            $enableCmd = "DISM /Online /Enable-Feature /FeatureName:WCF-NonHTTP-Activation /All /Quiet /NoRestart"
-                            Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $enableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
-                            Add-RunAllStatus "WCF-NonHTTP-Activation has been enabled."
-                        }
-                        else {
-                            Add-RunAllStatus "WCF-NonHTTP-Activation is already enabled."
-                        }
-                    }
-                    catch {
-                        Add-RunAllStatus "Error enabling WCF-NonHTTP-Activation: $_"
-                    }
-
-                    # 5.4. Disable Internet Explorer 11
-                    Add-RunAllStatus "Step 5.4/5.4: Checking Internet Explorer 11 status..."
-                    try {
-                        $command = "dism /online /get-featureinfo /featurename:Internet-Explorer-Optional-amd64"
-                        $output = Invoke-Expression $command | Out-String
-
-                        if ($output -match "State : Enabled") {
-                            Add-RunAllStatus "Disabling Internet Explorer 11..."
-                            $disableCmd = "dism /online /disable-feature /featurename:Internet-Explorer-Optional-amd64 /norestart"
-                            Start-Process -FilePath "powershell.exe" -ArgumentList "-Command Start-Process cmd.exe -ArgumentList '/c $disableCmd' -Verb RunAs -WindowStyle Hidden -Wait" -WindowStyle Hidden -Wait
-                            Add-RunAllStatus "Internet Explorer 11 has been disabled."
-                        }
-                        else {
-                            Add-RunAllStatus "Internet Explorer 11 is already disabled."
-                        }
-                    }
-                    catch {
-                        Add-RunAllStatus "Error disabling Internet Explorer 11: $_"
-                    }
-
-                    Add-RunAllStatus "All Windows features operations completed!"
-                }
-                catch {
-                    Add-RunAllStatus "Error enabling Windows features: $_"
-                }
-
-                # 6. Rename Device
-                Add-RunAllStatus "Step 6/7: Setting computer name..."
-                try {
-                    # Use the name collected at the beginning
-                    $currentName = $env:COMPUTERNAME
-
-                    # Create a status callback for the rename function
-                    $statusCallback = {
-                        param([string]$message)
-                        Add-RunAllStatus $message
-                    }
-
-                    # Check if the new name is different from the current name
-                    if ($newComputerName -ne $currentName) {
-                        # Call the rename function with the new name
-                        $result = Rename-DeviceWithBatch -newName $newComputerName -statusCallback $statusCallback -showUI $false
-
-                        if ($result) {
-                            Add-RunAllStatus "Computer name change initiated to $newComputerName."
-                        }
-                        else {
-                            Add-RunAllStatus "Failed to rename computer to $newComputerName."
-                        }
-                    }
-                    else {
-                        # Even if the name is the same, still call the rename function
-                        # This allows the user to rename to the same name if desired
-                        $result = Rename-DeviceWithBatch -newName $newComputerName -statusCallback $statusCallback -showUI $false
-                        Add-RunAllStatus "Computer name remains as $currentName."
-                    }
-                }
-                catch {
-                    Add-RunAllStatus "Error renaming computer: $_"
-                }
-
-                # 7. Set Password
-                Add-RunAllStatus "Step 7/7: Setting password for current user..."
-                try {
-                    $currentUser = $env:USERNAME
-                    $newPassword = "Pr0t3ct10c@1@VU"
-
-                    # Create a command to set the password
-                    $command = "net user $currentUser $newPassword"
-
-                    # Create a process to run the command with elevated privileges
-                    $psi = New-Object System.Diagnostics.ProcessStartInfo
-                    $psi.FileName = "powershell.exe"
-                    $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
-                    $psi.UseShellExecute = $true
-                    $psi.Verb = "runas"
-                    $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-
-                    # Start the process
-                    [System.Diagnostics.Process]::Start($psi)
-                    Add-RunAllStatus "Password for ''$currentUser'' set to ''$newPassword''."
-                }
-                catch {
-                    Add-RunAllStatus "Error setting password: $_"
-                }
-
-                # All tasks completed
-                Add-RunAllStatus "`r`nAll tasks for Laptop completed successfully!"
-                Add-RunAllStatus "You may need to restart your computer to apply all changes."
-
-            }
-            catch {
-                Add-RunAllStatus "Error running all tasks: $_"
-            }
-            finally {
-                # Enable close button
-                $closeButton.Enabled = $true
-            }
-        }
-    }
+$buttonRunAll = New-DynamicButton -text "[1] Run All Options" -x 30 -y 100 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+    # Hide the main menu
+    Hide-MainMenu
 }
 
 # Install All Software
-$buttonInstallSoftware = New-DynamicButton -text "Install All Software" -x 30 -y 180 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+$buttonInstallSoftware = New-DynamicButton -text "[2] Install All Software" -x 30 -y 180 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+    # Hide the main menu
+    Hide-MainMenu
     # Create device type selection form
     $deviceTypeForm = New-Object System.Windows.Forms.Form
     $deviceTypeForm.Text = "Select Device Type"
@@ -1455,6 +332,11 @@ $buttonInstallSoftware = New-DynamicButton -text "Install All Software" -x 30 -y
         }
     }
     $deviceTypeForm.Controls.Add($btnLaptop)
+
+    # When the form is closed, show the main menu again
+    $deviceTypeForm.Add_FormClosed({
+        Show-MainMenu
+    })
 
     # Show the form
     $deviceTypeForm.ShowDialog()
@@ -1775,11 +657,125 @@ $buttonInstallSoftware = New-DynamicButton -text "Install All Software" -x 30 -y
         }
     }
 
+    function Install-Software-Laptop {
+        try {
+            Add-Status "DEBUG: Đã vào hàm Install-Software-Laptop"
+            $tempDir = "$env:USERPROFILE\Downloads\SETUP"
+            # 1. Copy files (như Desktop, chỉ khác Agent)
+            Add-Status "DEBUG: Bắt đầu kiểm tra/copy SetupFiles"
+            if (-not (Test-Path "$tempDir\Software")) {
+                Add-Status "Bắt đầu copy SetupFiles từ D:\SOFTWARE\PAYOO\SETUP đến $tempDir\Software..."
+                Copy-Item -Path "D:\SOFTWARE\PAYOO\SETUP" -Destination "$tempDir\Software" -Recurse -Force
+                Add-Status "Copy SetupFiles thành công!"
+            } else { Add-Status "SetupFiles đã được copy. Bỏ qua..." }
+            Add-Status "DEBUG: Bắt đầu kiểm tra/copy Office 2019"
+            if (-not (Test-Path "$tempDir\Office2019")) {
+                Add-Status "Bắt đầu copy Office 2019 từ D:\SOFTWARE\OFFICE\Office 2019\* đến $tempDir\Office2019..."
+                Copy-Item -Path "D:\SOFTWARE\OFFICE\Office 2019\*" -Destination "$tempDir\Office2019" -Recurse -Force
+                Add-Status "Copy Office 2019 thành công!"
+            } else { Add-Status "Office 2019 đã được copy. Bỏ qua..." }
+            Add-Status "DEBUG: Bắt đầu kiểm tra/copy Unikey"
+            if (-not (Test-Path "C:\unikey46RC2-230919-win64")) {
+                Add-Status "Bắt đầu copy Unikey từ D:\SOFTWARE\PAYOO\unikey46RC2-230919-win64 đến C:\unikey46RC2-230919-win64..."
+                Copy-Item -Path "D:\SOFTWARE\PAYOO\unikey46RC2-230919-win64" -Destination "C:\unikey46RC2-230919-win64" -Recurse -Force
+                Add-Status "Copy Unikey thành công!"
+            } else { Add-Status "Unikey đã được copy. Bỏ qua..." }
+            Add-Status "DEBUG: Bắt đầu kiểm tra/copy MSTeamsSetup"
+            if (-not (Test-Path "C:\MSTeamsSetup")) {
+                Add-Status "Bắt đầu copy MSTeamsSetup từ D:\SOFTWARE\PAYOO\MSTeamsSetup đến C:\MSTeamsSetup..."
+                Copy-Item -Path "D:\SOFTWARE\PAYOO\MSTeamsSetup" -Destination "C:\MSTeamsSetup" -Recurse -Force
+                Add-Status "Copy MSTeamsSetup thành công!"
+            } else { Add-Status "MSTeamsSetup đã được copy. Bỏ qua..." }
+            Add-Status "DEBUG: Bắt đầu kiểm tra/copy ForceScout"
+            $forceScoutDest = "$env:USERPROFILE\Downloads\SC-wKgXWicTb0XhUSNethaFN0vkhji53AY5mektJ7O_RSOdc8bEUVIEAAH_OewU.exe"
+            if (-not (Test-Path $forceScoutDest)) {
+                Add-Status "Bắt đầu copy ForceScout từ D:\SOFTWARE\PAYOO\SC-wKgXWicTb0XhUSNethaFN0vkhji53AY5mektJ7O_RSOdc8bEUVIEAAH_OewU.exe đến $forceScoutDest..."
+                Copy-Item -Path "D:\SOFTWARE\PAYOO\SC-wKgXWicTb0XhUSNethaFN0vkhji53AY5mektJ7O_RSOdc8bEUVIEAAH_OewU.exe" -Destination $forceScoutDest -Force
+                Add-Status "Copy ForceScout thành công!"
+            } else { Add-Status "ForceScout đã được copy. Bỏ qua..." }
+            Add-Status "DEBUG: Bắt đầu kiểm tra/copy Trellix"
+            $trellixDest = "$env:USERPROFILE\Downloads\TrellixSmartInstall.exe"
+            if (-not (Test-Path $trellixDest)) {
+                Add-Status "Bắt đầu copy Trellix từ D:\SOFTWARE\PAYOO\TrellixSmartInstall.exe đến $trellixDest..."
+                Copy-Item -Path "D:\SOFTWARE\PAYOO\TrellixSmartInstall.exe" -Destination $trellixDest -Force
+                Add-Status "Copy Trellix thành công!"
+            } else { Add-Status "Trellix đã được copy. Bỏ qua..." }
+            Add-Status "DEBUG: Bắt đầu kiểm tra/copy MDM"
+            $mdmDest = "$env:USERPROFILE\Downloads\ManageEngine_MDMLaptopEnrollment"
+            if (-not (Test-Path $mdmDest)) {
+                Add-Status "Bắt đầu copy MDM từ D:\SOFTWARE\PAYOO\ManageEngine_MDMLaptopEnrollment đến $mdmDest..."
+                Copy-Item -Path "D:\SOFTWARE\PAYOO\ManageEngine_MDMLaptopEnrollment" -Destination $mdmDest -Recurse -Force
+                Add-Status "Copy MDM thành công!"
+            } else { Add-Status "MDM đã được copy. Bỏ qua..." }
+            Add-Status "DEBUG: Bắt đầu kiểm tra/copy Laptop Agent"
+            $agentDest = "$env:USERPROFILE\Downloads\Laptop Agent.exe"
+            if (-not (Test-Path $agentDest)) {
+                Add-Status "Bắt đầu copy Laptop Agent từ D:\SOFTWARE\PAYOO\Laptop Agent.exe đến $agentDest..."
+                Copy-Item -Path "D:\SOFTWARE\PAYOO\Laptop Agent.exe" -Destination $agentDest -Force
+                Add-Status "Copy Laptop Agent thành công!"
+            } else { Add-Status "Laptop Agent đã được copy. Bỏ qua..." }
+
+            # 2. Uninstall OneDrive if present
+            Add-Status "DEBUG: Bắt đầu kiểm tra/gỡ OneDrive"
+            if (Test-Path "$env:UserProfile\OneDrive") {
+                Add-Status "Bắt đầu gỡ cài đặt Microsoft OneDrive..."
+                Start-Process -FilePath "$env:SystemRoot\System32\OneDriveSetup.exe" -ArgumentList "/uninstall" -Wait
+                Add-Status "Gỡ cài đặt OneDrive thành công!"
+            } else { Add-Status "OneDrive không được cài đặt hoặc đã được gỡ. Bỏ qua..." }
+
+            # 3. Install software
+            Add-Status "DEBUG: Bắt đầu kiểm tra/cài đặt phần mềm"
+            $swDir = "$tempDir\Software"
+            # 7-Zip
+            if (-not (Test-Path "$env:ProgramFiles\7-Zip\7zFM.exe")) {
+                Add-Status "Bắt đầu cài đặt 7-Zip từ $swDir\7z2408-x64.exe..."
+                $zipSetup = "$swDir\7z2408-x64.exe"
+                if (Test-Path $zipSetup) { Start-Process -FilePath $zipSetup -ArgumentList "/S" -Wait; Add-Status "Cài đặt 7-Zip thành công!" } else { Add-Status "Không tìm thấy file cài đặt 7-Zip!" }
+            } else { Add-Status "7-Zip đã được cài đặt. Bỏ qua..." }
+            # Chrome
+            if (-not (Test-Path "$env:ProgramFiles\Google\Chrome\Application\chrome.exe")) {
+                Add-Status "Bắt đầu cài đặt Google Chrome từ $swDir\ChromeSetup.exe..."
+                $chromeSetup = "$swDir\ChromeSetup.exe"
+                if (Test-Path $chromeSetup) { Start-Process -FilePath $chromeSetup -ArgumentList "/silent /install" -Wait; Add-Status "Cài đặt Google Chrome thành công!" } else { Add-Status "Không tìm thấy file cài đặt Chrome!" }
+            } else { Add-Status "Google Chrome đã được cài đặt. Bỏ qua..." }
+            # LAPS_x64
+            if (-not (Test-Path "$env:ProgramFiles\LAPS\CSE\AdmPwd.dll")) {
+                Add-Status "Bắt đầu cài đặt LAPS_x64 từ $swDir\LAPS_x64.msi..."
+                $lapsSetup = "$swDir\LAPS_x64.msi"
+                if (Test-Path $lapsSetup) { Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$lapsSetup`" /quiet" -Wait; Add-Status "Cài đặt LAPS_x64 thành công!" } else { Add-Status "Không tìm thấy file cài đặt LAPS_x64!" }
+            } else { Add-Status "LAPS_x64 đã được cài đặt. Bỏ qua..." }
+            # Foxit Reader
+            if (-not (Test-Path "${env:ProgramFiles(x86)}\Foxit Software\Foxit PDF Reader\FoxitPDFReader.exe")) {
+                Add-Status "Bắt đầu cài đặt Foxit Reader từ $swDir\FoxitPDFReader20243_enu_Setup_Prom.exe..."
+                $foxitSetup = "$swDir\FoxitPDFReader20243_enu_Setup_Prom.exe"
+                if (Test-Path $foxitSetup) { Start-Process -FilePath $foxitSetup -ArgumentList "/silent /install" -Wait; Add-Status "Cài đặt Foxit Reader thành công!" } else { Add-Status "Không tìm thấy file cài đặt Foxit Reader!" }
+            } else { Add-Status "Foxit Reader đã được cài đặt. Bỏ qua..." }
+            # Office 2019
+            if (-not (Test-Path "$env:ProgramFiles\Microsoft Office\root\Office16\WINWORD.EXE")) {
+                Add-Status "Bắt đầu cài đặt Microsoft Office 2019 từ $tempDir\Office2019\setup.exe..."
+                $officeSetup = "$tempDir\Office2019\setup.exe"
+                $officeConfig = "$tempDir\Office2019\configuration.xml"
+                if ((Test-Path $officeSetup) -and (Test-Path $officeConfig)) {
+                    $currentLocation = Get-Location
+                    Set-Location -Path "$tempDir\Office2019"
+                    Start-Process -FilePath $officeSetup -ArgumentList "/configure configuration.xml" -Wait
+                    Set-Location -Path $currentLocation
+                    Add-Status "Cài đặt Microsoft Office 2019 thành công!"
+                } else { Add-Status "Không tìm thấy file cài đặt Office!" }
+            } else { Add-Status "Microsoft Office 2019 đã được cài đặt. Bỏ qua..." }
+            return $true
+        } catch {
+            Add-Status "Lỗi khi cài đặt: $_"
+            return $false
+        }
+    }
 
 }
 
 # Power Options and Firewall
-$buttonPowerOptions = New-DynamicButton -text "Power Options and Firewall" -x 30 -y 260 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+$buttonPowerOptions = New-DynamicButton -text "[3] Power Options and Firewall" -x 30 -y 260 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+    # Hide the main menu
+    Hide-MainMenu
     # Create Power Options and Firewall form
     $powerForm = New-Object System.Windows.Forms.Form
     $powerForm.Text = "Power Options and Firewall"
@@ -2002,12 +998,19 @@ $buttonPowerOptions = New-DynamicButton -text "Power Options and Firewall" -x 30
     }
     $powerForm.Controls.Add($btnReturn)
 
+    # When the form is closed, show the main menu again
+    $powerForm.Add_FormClosed({
+        Show-MainMenu
+    })
+
     # Show the form
     $powerForm.ShowDialog()
 }
 
 # Change / Edit Volume
-$buttonChangeVolume = New-DynamicButton -text "Change / Edit Volume" -x 30 -y 340 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+$buttonChangeVolume = New-DynamicButton -text "[4] Change / Edit Volume" -x 30 -y 340 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+    # Hide the main menu
+    Hide-MainMenu
     # Create volume management form
     $volumeForm = New-Object System.Windows.Forms.Form
     $volumeForm.Text = "Volume Management"
@@ -3117,48 +2120,148 @@ pause
                 }
             })
 
-        # Rename button
-        $renameButton = New-DynamicButton -text "Rename Volume" -x 20 -y 320 -width 200 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
-            $driveLetter = $driveLetterTextBox.Text.Trim().ToUpper()
-            $newLabel = $newLabelTextBox.Text.Trim()
+        # Hàm để lấy thông tin ổ đĩa
+        function Get-DriveInfo {
+            return Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } },
+            @{Name = 'VolumeName'; Expression = { $_.VolumeName } },
+            @{Name = 'Size (GB)'; Expression = { [math]::round($_.Size / 1GB, 0) } },
+            @{Name = 'FreeSpace (GB)'; Expression = { [math]::round($_.FreeSpace / 1GB, 0) } }
+        }
 
-            # Validate input
-            if ($driveLetter -eq "") {
-                Add-RenameStatus "Error: Please select a drive."
-                return
+        # Hàm để cập nhật danh sách ổ đĩa trong giao diện
+        function Update-DriveList {
+            param (
+                [Parameter(Mandatory = $true)]
+                [array]$Drives,
+
+                [Parameter(Mandatory = $false)]
+                [string]$SelectDriveLetter = ""
+            )
+
+            # Xóa danh sách hiện tại
+            $driveListBox.Items.Clear()
+
+            # Thêm các ổ đĩa vào danh sách
+            foreach ($drive in $Drives) {
+                $driveInfo = "$($drive.Name) - $($drive.VolumeName) - Size: $($drive.'Size (GB)') GB - Free: $($drive.'FreeSpace (GB)') GB"
+                $driveListBox.Items.Add($driveInfo)
             }
 
-            if ($newLabel -eq "") {
-                Add-RenameStatus "Error: Please enter a new label."
-                return
+            # Chọn ổ đĩa trong danh sách
+            if ($SelectDriveLetter -ne "") {
+                # Tìm ổ đĩa cần chọn
+                $selectedIndex = -1
+                for ($i = 0; $i -lt $driveListBox.Items.Count; $i++) {
+                    $item = $driveListBox.Items[$i].ToString()
+                    if ($item.StartsWith("$($SelectDriveLetter):")) {
+                        $selectedIndex = $i
+                        break
+                    }
+                }
+
+                # Chọn ổ đĩa
+                if ($selectedIndex -ge 0) {
+                    $driveListBox.SelectedIndex = $selectedIndex
+                } elseif ($driveListBox.Items.Count -gt 0) {
+                    $driveListBox.SelectedIndex = 0
+                }
+            } elseif ($driveListBox.Items.Count -gt 0) {
+                $driveListBox.SelectedIndex = 0
             }
 
-            # Create a batch file to rename the volume
-            $batchFilePath = "rename_volume.bat"
+            # Cập nhật biến toàn cục
+            $script:drives = $Drives
+        }
+
+        # Hàm đổi tên ổ đĩa bằng WMI
+        function Rename-DriveWithWMI {
+            param (
+                [Parameter(Mandatory = $true)]
+                [string]$DriveLetter,
+
+                [Parameter(Mandatory = $true)]
+                [string]$NewLabel
+            )
+
+            # Phương pháp 1: Sử dụng Win32_Volume
+            $volume = Get-WmiObject -Query "SELECT * FROM Win32_Volume WHERE DriveLetter='$DriveLetter`:'"
+            if ($volume) {
+                # Đặt tên nhãn trực tiếp, không qua biến trung gian
+                $volume.Label = "$NewLabel"
+                $result = $volume.Put()
+                if ($result.ReturnValue -eq 0) {
+                    return $true
+                }
+            }
+
+            # Phương pháp 2: Sử dụng Win32_LogicalDisk
+            $logicalDisk = Get-WmiObject -Query "SELECT * FROM Win32_LogicalDisk WHERE DeviceID='$DriveLetter`:'"
+            if ($logicalDisk) {
+                # Đặt tên nhãn trực tiếp, không qua biến trung gian
+                $logicalDisk.VolumeName = "$NewLabel"
+                $result = $logicalDisk.Put()
+                if ($result.ReturnValue -eq 0) {
+                    return $true
+                }
+            }
+
+            return $false
+        }
+
+        # Hàm đổi tên ổ đĩa bằng lệnh label
+        function Rename-DriveWithLabel {
+            param (
+                [Parameter(Mandatory = $true)]
+                [string]$DriveLetter,
+
+                [Parameter(Mandatory = $true)]
+                [string]$NewLabel
+            )
+
+            # Sử dụng chuỗi nối để đảm bảo không có khoảng trắng
+            $command = "label " + $DriveLetter + ":" + $NewLabel
+            $labelProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c $command" -WindowStyle Hidden -PassThru -Wait
+            return ($labelProcess.ExitCode -eq 0)
+        }
+
+        # Hàm tạo batch file để đổi tên ổ đĩa
+        function New-RenameBatchFile {
+            param (
+                [Parameter(Mandatory = $true)]
+                [string]$DriveLetter,
+
+                [Parameter(Mandatory = $true)]
+                [string]$NewLabel
+            )
+
+            $batchFilePath = [System.IO.Path]::GetTempFileName() + ".bat"
 
             $batchContent = @"
 @echo off
 echo ============================================================
-echo                  Renaming Volume %driveLetter%
+echo                  Renaming Volume $DriveLetter
 echo ============================================================
 echo.
 
 echo Checking if drive exists...
-powershell -command "(Get-WmiObject Win32_LogicalDisk).DeviceID -contains '%driveLetter%:'" >nul 2>&1
+powershell -command "(Get-WmiObject Win32_LogicalDisk).DeviceID -contains '$DriveLetter`:'" >nul 2>&1
 if errorlevel 1 (
-    echo ERROR: Drive %driveLetter%: does not exist. Exiting...
+    echo ERROR: Drive $DriveLetter`: does not exist. Exiting...
     pause
     exit /b 1
 )
 
-echo Setting label for drive %driveLetter%: to "%newLabel%"...
-label %driveLetter%: "%newLabel%"
+echo Setting label for drive $DriveLetter`: to $NewLabel...
+@REM Sử dụng cú pháp đặc biệt để đảm bảo không có khoảng trắng
+set drive_letter=$DriveLetter
+set new_label=$NewLabel
+cmd /c "label %drive_letter%:%new_label%"
 if errorlevel 1 (
     echo ERROR: Failed to rename the drive. Check the drive letter and try again.
     pause
     exit /b 1
 ) else (
-    echo Drive %driveLetter%: successfully renamed to "%newLabel%".
+    echo Drive $DriveLetter`: successfully renamed to $NewLabel.
 )
 
 echo.
@@ -3172,54 +2275,116 @@ pause
 "@
             Set-Content -Path $batchFilePath -Value $batchContent -Force -Encoding ASCII
 
-            Add-RenameStatus "Renaming drive $driveLetter to '$newLabel'..."
-            Add-RenameStatus "A command prompt window will open to complete the operation."
-            Add-RenameStatus "Please follow the instructions in the command prompt window."
+            return $batchFilePath
+        }
+
+        # Rename button
+        $renameButton = New-DynamicButton -text "Rename Volume" -x 20 -y 320 -width 200 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+            # Lấy thông tin từ form
+            $driveLetter = $driveLetterTextBox.Text.Trim().ToUpper()
+            $newLabel = $newLabelTextBox.Text
+
+            # Kiểm tra đầu vào
+            if ($driveLetter -eq "") {
+                Add-RenameStatus "Error: Please select a drive."
+                return
+            }
+
+            if ($newLabel -eq "") {
+                Add-RenameStatus "Error: Please enter a new label."
+                return
+            }
+
+            # Thông báo bắt đầu đổi tên
+            Add-RenameStatus "Renaming drive $driveLetter to $newLabel..."
+
+            # Biến để lưu trạng thái thành công
+            $success = $false
+            $batchFilePath = $null
 
             try {
-                # Run the batch file with elevated privileges
-                $batchProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$batchFilePath`"" -Verb RunAs -PassThru -Wait
+                # Thử đổi tên trực tiếp trước
+                Add-RenameStatus "Attempting to rename directly..."
 
-                # Check if successful
-                if ($batchProcess.ExitCode -eq 0) {
-                    Add-RenameStatus "Operation completed successfully."
-                    Add-Status "Renamed drive $driveLetter to '$newLabel'."
-
-                    # Refresh drive list
-                    Add-RenameStatus "Refreshing drive list..."
-                    Start-Sleep -Seconds 2
-
-                    # Get updated list of drives
-                    $updatedDrives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } },
-                    @{Name = 'VolumeName'; Expression = { $_.VolumeName } },
-                    @{Name = 'Size (GB)'; Expression = { [math]::round($_.Size / 1GB, 0) } },
-                    @{Name = 'FreeSpace (GB)'; Expression = { [math]::round($_.FreeSpace / 1GB, 0) } }
-
-                    # Display updated drive list
-                    $driveListBox.Items.Clear()
-                    foreach ($drive in $updatedDrives) {
-                        $driveInfo = "$($drive.Name) - $($drive.VolumeName) - Size: $($drive.'Size (GB)') GB - Free: $($drive.'FreeSpace (GB)') GB"
-                        $driveListBox.Items.Add($driveInfo)
-                    }
-
-                    if ($driveListBox.Items.Count -gt 0) {
-                        $driveListBox.SelectedIndex = 0
-                    }
-
-                    # Update global drives variable for future use
-                    $script:drives = $updatedDrives
+                # Thử đổi tên bằng WMI
+                if (Rename-DriveWithWMI -DriveLetter $driveLetter -NewLabel $newLabel) {
+                    Add-RenameStatus "Successfully renamed drive $driveLetter to $newLabel using WMI."
+                    $success = $true
                 }
+                # Thử đổi tên bằng lệnh label
+                elseif (Rename-DriveWithLabel -DriveLetter $driveLetter -NewLabel $newLabel) {
+                    Add-RenameStatus "Successfully renamed drive $driveLetter to $newLabel using label command."
+                    $success = $true
+                }
+                # Nếu không thành công, tạo và chạy batch file
                 else {
-                    Add-RenameStatus "Error: The operation failed with exit code $($batchProcess.ExitCode)"
-                    Add-RenameStatus "Please check the command prompt window for more details."
+                    Add-RenameStatus "Direct rename failed. Trying with batch file..."
+
+                    # Tạo batch file
+                    $batchFilePath = New-RenameBatchFile -DriveLetter $driveLetter -NewLabel $newLabel
+
+                    # Thông báo
+                    Add-RenameStatus "A command prompt window will open to complete the operation."
+                    Add-RenameStatus "Please follow the instructions in the command prompt window."
+
+                    # Chạy batch file với quyền admin
+                    $batchProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$batchFilePath`"" -Verb RunAs -PassThru -Wait
+
+                    # Kiểm tra kết quả
+                    if ($batchProcess.ExitCode -eq 0) {
+                        Add-RenameStatus "Operation completed successfully."
+                        Add-Status "Renamed drive $driveLetter to $newLabel."
+                        $success = $true
+                    }
+                    else {
+                        Add-RenameStatus "Error: The operation failed with exit code $($batchProcess.ExitCode)"
+                        Add-RenameStatus "Please check the command prompt window for more details."
+                    }
+                }
+
+                # Nếu thành công, cập nhật danh sách ổ đĩa
+                if ($success) {
+                    # Cập nhật danh sách ổ đĩa
+                    Add-RenameStatus "Refreshing drive list..."
+                    Start-Sleep -Seconds 1
+
+                    # Thử lấy thông tin ổ đĩa nhiều lần để đảm bảo cập nhật
+                    $maxRetries = 3
+                    $retryCount = 0
+                    $updatedDrives = $null
+                    $driveUpdated = $false
+
+                    while ($retryCount -lt $maxRetries -and -not $driveUpdated) {
+                        # Lấy danh sách ổ đĩa mới
+                        $updatedDrives = Get-DriveInfo
+
+                        # Kiểm tra xem tên ổ đĩa đã được cập nhật chưa
+                        foreach ($drive in $updatedDrives) {
+                            # Kiểm tra chính xác tên ổ đĩa và tên nhãn
+                            if ($drive.Name -eq "$($driveLetter):" -and $drive.VolumeName -eq $newLabel) {
+                                $driveUpdated = $true
+                                break
+                            }
+                        }
+
+                        if (-not $driveUpdated) {
+                            Add-RenameStatus "Waiting for drive information to update..."
+                            Start-Sleep -Seconds 1
+                            $retryCount++
+                        }
+                    }
+
+                    # Cập nhật giao diện
+                    Update-DriveList -Drives $updatedDrives -SelectDriveLetter $driveLetter
+                    Add-RenameStatus "Drive list updated successfully."
                 }
             }
             catch {
                 Add-RenameStatus "Error: $_"
             }
             finally {
-                # Clean up temp file
-                if (Test-Path $batchFilePath) {
+                # Xóa file tạm nếu có
+                if ($batchFilePath -and (Test-Path $batchFilePath)) {
                     Remove-Item $batchFilePath -Force -ErrorAction SilentlyContinue
                 }
             }
@@ -3244,12 +2409,19 @@ pause
     }
     $volumeForm.Controls.Add($btnReturn)
 
+    # When the form is closed, show the main menu again
+    $volumeForm.Add_FormClosed({
+        Show-MainMenu
+    })
+
     # Show the form
     $volumeForm.ShowDialog()
 }
 
 # [5] Activate Windows 10 Pro and Office 2019 Pro Plus
-$buttonActivate = New-DynamicButton -text "Activate" -x 30 -y 420 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+$buttonActivate = New-DynamicButton -text "[5] Activate" -x 30 -y 420 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+    # Hide the main menu
+    Hide-MainMenu
     # Create activation form
     $activateForm = New-Object System.Windows.Forms.Form
     $activateForm.Text = "Activation Options"
@@ -3461,12 +2633,19 @@ $buttonActivate = New-DynamicButton -text "Activate" -x 30 -y 420 -width 380 -he
     }
     $activateForm.Controls.Add($btnReturn)
 
+    # When the form is closed, show the main menu again
+    $activateForm.Add_FormClosed({
+        Show-MainMenu
+    })
+
     # Show the form
     $activateForm.ShowDialog()
 }
 
 # [6] Edit Features
-$buttonTurnOnFeatures = New-DynamicButton -text "Turn On Features" -x 430 -y 100 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+$buttonTurnOnFeatures = New-DynamicButton -text "[6] Windows Features" -x 430 -y 100 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+    # Hide the main menu
+    Hide-MainMenu
     # Create Windows Features form
     $featuresForm = New-Object System.Windows.Forms.Form
     $featuresForm.Text = "Windows Features"
@@ -3715,7 +2894,7 @@ $buttonTurnOnFeatures = New-DynamicButton -text "Turn On Features" -x 430 -y 100
     $featuresForm.Controls.Add($btnEnableWcfNonHttp)
 
     # Disable Internet Explorer 11 button
-    $btnDisableIE = New-DynamicButton -text "Disable Internet Explorer 11" -x 50 -y 280 -width 400 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
+    $btnDisableIE = New-DynamicButton -text "Disable Internet Explorer 11" -x 50 -y 280 -width 400 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
         Add-Status "Checking Internet Explorer 11 status..."
         try {
             $command = "dism /online /get-featureinfo /featurename:Internet-Explorer-Optional-amd64"
@@ -3743,144 +2922,19 @@ $buttonTurnOnFeatures = New-DynamicButton -text "Turn On Features" -x 430 -y 100
     }
     $featuresForm.Controls.Add($btnReturn)
 
+    # When the form is closed, show the main menu again
+    $featuresForm.Add_FormClosed({
+        Show-MainMenu
+    })
+
     # Show the form
     $featuresForm.ShowDialog()
 }
 
-# Function to rename device - can be called from multiple places
-function Rename-DeviceWithBatch {
-    param(
-        [string]$newName,
-        [scriptblock]$statusCallback = $null,
-        [bool]$showUI = $true
-    )
-
-    # Validate new name
-    if ($newName -eq "") {
-        if ($showUI) {
-            [System.Windows.Forms.MessageBox]::Show("Device name cannot be empty.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        }
-        if ($statusCallback) { & $statusCallback "Error: Device name cannot be empty." }
-        return $false
-    }
-
-    # Check if name is valid (15 characters max, no special characters)
-    if ($newName.Length -gt 15) {
-        if ($showUI) {
-            [System.Windows.Forms.MessageBox]::Show("Device name must be 15 characters or less.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        }
-        if ($statusCallback) { & $statusCallback "Error: Device name must be 15 characters or less." }
-        return $false
-    }
-
-    if ($newName -match '[^\w.-]') {
-        if ($showUI) {
-            [System.Windows.Forms.MessageBox]::Show("Device name contains invalid characters. Use only letters, numbers, hyphens, and periods.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        }
-        if ($statusCallback) { & $statusCallback "Error: Device name contains invalid characters." }
-        return $false
-    }
-
-    try {
-        if ($statusCallback) { & $statusCallback "Starting device rename process..." }
-        if ($statusCallback) { & $statusCallback "Attempting to rename computer to '$newName'..." }
-
-        # Create a simple batch file to rename the computer
-        $batchPath = "$env:TEMP\rename_computer.bat"
-        $batchContent = @"
-@echo off
-echo Renaming computer to $newName...
-wmic computersystem where name="%COMPUTERNAME%" call rename name="$newName"
-if %errorlevel% equ 0 (
-    echo SUCCESS: Computer renamed to $newName
-    echo The device name will be changed after reboot!
-    echo SUCCESS|Computer renamed successfully to $newName. The device name will be changed after reboot! > "%TEMP%\rename_result.txt"
-) else (
-    echo ERROR: Failed to rename computer
-    echo ERROR|Failed to rename computer. WMIC command returned error code: %errorlevel% > "%TEMP%\rename_result.txt"
-)
-"@
-        Set-Content -Path $batchPath -Value $batchContent -Force -Encoding ASCII
-
-        # Run the batch file with elevated privileges
-        if ($statusCallback) { & $statusCallback "Requesting administrative privileges..." }
-        $psi = New-Object System.Diagnostics.ProcessStartInfo
-        $psi.FileName = "cmd.exe"
-        $psi.Arguments = "/c `"$batchPath`""
-        $psi.UseShellExecute = $true
-        $psi.Verb = "runas"
-        $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Minimized
-
-        # Start the process
-        [System.Diagnostics.Process]::Start($psi)
-
-        if ($statusCallback) { & $statusCallback "Rename command sent. A minimized command prompt window will appear briefly." }
-
-        # If we're not showing UI, we'll just return success at this point
-        if (-not $showUI) {
-            return $true
-        }
-
-        # Create a timer to check for the result file
-        $resultFile = "$env:TEMP\rename_result.txt"
-        $checkTimer = New-Object System.Windows.Forms.Timer
-        $checkTimer.Interval = 1000 # Check every second
-        $script:checkCount = 0
-        $maxChecks = 30 # Wait up to 30 seconds
-
-        $checkTimer.Add_Tick({
-                $script:checkCount++
-                if (Test-Path $resultFile) {
-                    $checkTimer.Stop()
-                    try {
-                        $resultContent = Get-Content -Path $resultFile -Raw
-                        $resultParts = $resultContent -split '\|', 2
-                        $status = $resultParts[0]
-                        $message = $resultParts[1]
-
-                        if ($status -eq "SUCCESS") {
-                            if ($statusCallback) { & $statusCallback "SUCCESS: $message" }
-                            [System.Windows.Forms.MessageBox]::Show($message, "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-                        }
-                        else {
-                            if ($statusCallback) { & $statusCallback "ERROR: $message" }
-                            [System.Windows.Forms.MessageBox]::Show($message, "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-                        }
-                    }
-                    catch {
-                        if ($statusCallback) { & $statusCallback "ERROR: Failed to read result file: $_" }
-                    }
-                    finally {
-                        # Clean up
-                        if (Test-Path $resultFile) { Remove-Item $resultFile -Force -ErrorAction SilentlyContinue }
-                        if (Test-Path $batchPath) { Remove-Item $batchPath -Force -ErrorAction SilentlyContinue }
-                    }
-                }
-                elseif ($script:checkCount -ge $maxChecks) {
-                    $checkTimer.Stop()
-                    if ($statusCallback) { & $statusCallback "ERROR: Timed out waiting for rename operation to complete." }
-                    [System.Windows.Forms.MessageBox]::Show("Timed out waiting for rename operation to complete. The operation may still be in progress.", "Timeout", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-                }
-                else {
-                    if ($statusCallback) { & $statusCallback "Waiting for rename operation to complete... ($script:checkCount/$maxChecks)" }
-                }
-            })
-
-        # Start the timer
-        $checkTimer.Start()
-        return $true
-    }
-    catch {
-        if ($statusCallback) { & $statusCallback "ERROR: $_" }
-        if ($showUI) {
-            [System.Windows.Forms.MessageBox]::Show("Error renaming device: $_`n`nNote: This operation requires administrative privileges.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        }
-        return $false
-    }
-}
-
 # [7] Rename Device
-$buttonRenameDevice = New-DynamicButton -text "Rename Device" -x 430 -y 180 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+$buttonRenameDevice = New-DynamicButton -text "[7] Rename Device" -x 430 -y 180 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+    # Hide the main menu
+    Hide-MainMenu
     # Create device rename form
     $renameForm = New-Object System.Windows.Forms.Form
     $renameForm.Text = "Rename Device"
@@ -4035,16 +3089,23 @@ $buttonRenameDevice = New-DynamicButton -text "Rename Device" -x 430 -y 180 -wid
     # Set the cancel button (Escape key)
     $renameForm.CancelButton = $cancelButton
 
+    # When the form is closed, show the main menu again
+    $renameForm.Add_FormClosed({
+        Show-MainMenu
+    })
+
     # Show the form
     $renameForm.ShowDialog()
 }
 
-# [8] Set Password "DONE"
-$buttonSetPassword = New-DynamicButton -text "Set Password" -x 430 -y 260 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+# [8] Set Password
+$buttonSetPassword = New-DynamicButton -text "[6] Set Password" -x 430 -y 260 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+    # Hide the main menu
+    Hide-MainMenu
     # Create password setting form
     $passwordForm = New-Object System.Windows.Forms.Form
     $passwordForm.Text = "Set Password"
-    $passwordForm.Size = New-Object System.Drawing.Size(500, 280) # Reduced height since we removed confirm password
+    $passwordForm.Size = New-Object System.Drawing.Size(500, 340) # Increased height to accommodate the new button
     $passwordForm.StartPosition = "CenterScreen"
     $passwordForm.BackColor = [System.Drawing.Color]::Black
     $passwordForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -4090,6 +3151,15 @@ $buttonSetPassword = New-DynamicButton -text "Set Password" -x 430 -y 260 -width
     $passwordTextBox.ForeColor = [System.Drawing.Color]::Black
     $passwordForm.Controls.Add($passwordTextBox)
 
+    # Info label for empty password
+    $infoLabel = New-Object System.Windows.Forms.Label
+    $infoLabel.Text = "Leave the password field empty to set a blank password."
+    $infoLabel.Font = New-Object System.Drawing.Font("Arial", 9)
+    $infoLabel.ForeColor = [System.Drawing.Color]::Silver
+    $infoLabel.Size = New-Object System.Drawing.Size(450, 20)
+    $infoLabel.Location = New-Object System.Drawing.Point(20, 155)
+    $passwordForm.Controls.Add($infoLabel)
+
     # Set Password button
     $setButton = New-Object System.Windows.Forms.Button
     $setButton.Text = "Set Password"
@@ -4097,13 +3167,18 @@ $buttonSetPassword = New-DynamicButton -text "Set Password" -x 430 -y 260 -width
     $setButton.ForeColor = [System.Drawing.Color]::White
     $setButton.BackColor = [System.Drawing.Color]::FromArgb(0, 180, 0)
     $setButton.Size = New-Object System.Drawing.Size(200, 40)
-    $setButton.Location = New-Object System.Drawing.Point(30, 180) # Moved up since we removed confirm password
+    $setButton.Location = New-Object System.Drawing.Point(30, 180)
     $setButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
     $setButton.Add_Click({
             $password = $passwordTextBox.Text
             try {
                 # Create a command to set the password
-                $command = "net user $currentUser $password"
+                if ([string]::IsNullOrEmpty($password)) {
+                    # For empty password, use wmic command to remove password requirement
+                    $command = "wmic useraccount where name='$currentUser' set passwordrequired=false"
+                } else {
+                    $command = "net user $currentUser $password"
+                }
 
                 # Create a process to run the command with elevated privileges
                 $psi = New-Object System.Diagnostics.ProcessStartInfo
@@ -4117,7 +3192,11 @@ $buttonSetPassword = New-DynamicButton -text "Set Password" -x 430 -y 260 -width
                 [System.Diagnostics.Process]::Start($psi)
 
                 # Show success message
-                [System.Windows.Forms.MessageBox]::Show("Password change command has been initiated. If prompted, please allow the elevation request.", "Password Change", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                if ([string]::IsNullOrEmpty($password)) {
+                    [System.Windows.Forms.MessageBox]::Show("Password requirement has been removed. User '$currentUser' can now log in without a password. If prompted, please allow the elevation request.", "Password Removed", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                } else {
+                    [System.Windows.Forms.MessageBox]::Show("Password has been changed. If prompted, please allow the elevation request.", "Password Change", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                }
                 $passwordForm.Close()
             }
             catch {
@@ -4132,17 +3211,60 @@ $buttonSetPassword = New-DynamicButton -text "Set Password" -x 430 -y 260 -width
     }
     $passwordForm.Controls.Add($cancelButton)
 
+    # Remove Password button
+    $removePasswordButton = New-DynamicButton -text "Remove Password" -x 30 -y 240 -width 420 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 100, 150)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 120, 180)) -pressColor ([System.Drawing.Color]::FromArgb(0, 80, 120)) -clickAction {
+        try {
+            # Confirm with the user
+            $confirmResult = [System.Windows.Forms.MessageBox]::Show(
+                "Are you sure you want to remove the password for user '$currentUser'?`n`nThis will allow login without a password.",
+                "Confirm Password Removal",
+                [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                [System.Windows.Forms.MessageBoxIcon]::Question)
+
+            if ($confirmResult -eq [System.Windows.Forms.DialogResult]::Yes) {
+                # Command to remove password using net user with an alternative approach
+                $command = "wmic useraccount where name='$currentUser' set passwordrequired=false"
+
+                # Create a process to run the command with elevated privileges
+                $psi = New-Object System.Diagnostics.ProcessStartInfo
+                $psi.FileName = "powershell.exe"
+                $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
+                $psi.UseShellExecute = $true
+                $psi.Verb = "runas"
+                $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+                # Start the process
+                [System.Diagnostics.Process]::Start($psi)
+
+                # Show success message
+                [System.Windows.Forms.MessageBox]::Show("Password has been removed. User '$currentUser' can now log in without a password.", "Password Removed", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                $passwordForm.Close()
+            }
+        }
+        catch {
+            [System.Windows.Forms.MessageBox]::Show("Error removing password: $_`n`nNote: This operation requires administrative privileges.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        }
+    }
+    $passwordForm.Controls.Add($removePasswordButton)
+
     # Set the accept button (Enter key)
     $passwordForm.AcceptButton = $setButton
     # Set the cancel button (Escape key)
     $passwordForm.CancelButton = $cancelButton
 
+    # When the form is closed, show the main menu again
+    $passwordForm.Add_FormClosed({
+        Show-MainMenu
+    })
+
     # Show the form
     $passwordForm.ShowDialog()
 }
 
-# [9] Join/Leave Domain "DONE"
-$buttonJoinDomain = New-DynamicButton -text "Domain Management" -x 430 -y 340 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+# [9] Join/Leave Domain
+$buttonJoinDomain = New-DynamicButton -text "[8] Domain Management" -x 430 -y 340 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+    # Hide the main menu
+    Hide-MainMenu
     # Create domain/workgroup join form
     $joinForm = New-Object System.Windows.Forms.Form
     $joinForm.Text = "Domain Management"
@@ -4449,13 +3571,29 @@ $buttonJoinDomain = New-DynamicButton -text "Domain Management" -x 430 -y 340 -w
     # Set the cancel button (Escape key)
     $joinForm.CancelButton = $cancelButton
 
+    # When the form is closed, show the main menu again
+    $joinForm.Add_FormClosed({
+        Show-MainMenu
+    })
+
     # Show the form
     $joinForm.ShowDialog()
 }
 
-# [0] Exit button "DONE"
-$buttonExit = New-DynamicButton -text "Exit" -x 430 -y 420 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
+# [0] Exit
+$buttonExit = New-DynamicButton -text "[0] Exit" -x 430 -y 420 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
     $form.Close()
+}
+
+# Functions to hide and show the main menu
+function Hide-MainMenu {
+    $script:form.Hide()
+}
+
+# Function to show the main menu
+function Show-MainMenu {
+    $script:form.Show()
+    $script:form.BringToFront()
 }
 
 # Add buttons to form
