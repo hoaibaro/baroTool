@@ -773,12 +773,12 @@ $buttonInstallSoftware = New-DynamicButton -text "[2] Install All Software" -x 3
 }
 
 # Power Options and Firewall
-$buttonPowerOptions = New-DynamicButton -text "[3] Power Options and Firewall" -x 30 -y 260 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+$buttonPowerOptions = New-DynamicButton -text "[3] Control Panel" -x 30 -y 260 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
     # Hide the main menu
     Hide-MainMenu
     # Create Power Options and Firewall form
     $powerForm = New-Object System.Windows.Forms.Form
-    $powerForm.Text = "Power Options and Firewall"
+    $powerForm.Text = "Control Panel Management"
     $powerForm.Size = New-Object System.Drawing.Size(500, 550)
     $powerForm.StartPosition = "CenterScreen"
     $powerForm.BackColor = [System.Drawing.Color]::Black
@@ -802,7 +802,7 @@ $buttonPowerOptions = New-DynamicButton -text "[3] Power Options and Firewall" -
 
     # Title label with animation
     $titleLabel = New-Object System.Windows.Forms.Label
-    $titleLabel.Text = "POWER OPTIONS AND FIREWALL MANAGEMENT"
+    $titleLabel.Text = "CONTROL PANEL MANAGEMENT"
     $titleLabel.Location = New-Object System.Drawing.Point(-10, 20)
     $titleLabel.Size = New-Object System.Drawing.Size(500, 40)
     $titleLabel.ForeColor = [System.Drawing.Color]::Lime
@@ -862,7 +862,7 @@ $buttonPowerOptions = New-DynamicButton -text "[3] Power Options and Firewall" -
     }
 
     # Set Time/Timezone and Power Options button
-    $btnTimeAndPower = New-DynamicButton -text "Set Time/Timezone and Power Options" -x 50 -y 80 -width 400 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+    $btnTimeAndPower = New-DynamicButton -text "Set Time/Timezone and Power" -x 50 -y 80 -width 400 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
         try {
             Add-Status "Setting time zone to SE Asia Standard Time..."
 
@@ -1337,6 +1337,14 @@ assign letter=$newLetter
         $shrinkForm.MaximizeBox = $false
         $shrinkForm.MinimizeBox = $false
 
+        # Thêm xử lý phím Esc để đóng form
+        $shrinkForm.KeyPreview = $true
+        $shrinkForm.Add_KeyDown({
+            if ($_.KeyCode -eq [System.Windows.Forms.Keys]::Escape) {
+                $shrinkForm.Close()
+            }
+        })
+
         # Title label
         $titleLabel = New-Object System.Windows.Forms.Label
         $titleLabel.Text = "Shrink Volume and Create New Partition"
@@ -1460,6 +1468,15 @@ assign letter=$newLetter
         $newLabelTextBox.ForeColor = [System.Drawing.Color]::Lime
         $newLabelTextBox.Font = New-Object System.Drawing.Font("Consolas", 10)
         $newLabelTextBox.Text = "New Volume"
+
+        # Thêm xử lý sự kiện khi nhấn Enter để thực hiện shrink volume
+        $newLabelTextBox.Add_KeyDown({
+            if ($_.KeyCode -eq [System.Windows.Forms.Keys]::Enter) {
+                $_.SuppressKeyPress = $true  # Ngăn chặn tiếng "beep"
+                $shrinkButton.PerformClick()  # Kích hoạt nút Shrink
+            }
+        })
+
         $shrinkForm.Controls.Add($newLabelTextBox)
 
         # Status textbox
@@ -1541,40 +1558,80 @@ echo Creating diskpart script...
     echo create partition primary
     echo format fs=ntfs quick
     echo assign
+    echo list volume
 ) > diskpart_script.txt
 
 echo Running diskpart...
-diskpart /s diskpart_script.txt
+diskpart /s diskpart_script.txt > diskpart_output.txt
 if %errorlevel% neq 0 (
     echo Error: Diskpart failed with exit code %errorlevel%
     echo This could be due to insufficient free space or the drive being in use.
     echo Try defragmenting the drive first or closing any applications using the drive.
+    type diskpart_output.txt
     pause
+    del diskpart_output.txt
+    del diskpart_script.txt
     exit /b %errorlevel%
 )
 
 echo Diskpart completed successfully.
 echo.
+
+REM Find the newly created volume
+echo Finding the newly created volume...
+powershell -command "Get-WmiObject Win32_LogicalDisk | Where-Object { `$_.VolumeName -eq '' -or `$_.VolumeName -eq 'New Volume' } | Select-Object -First 1 | ForEach-Object { `$_.DeviceID } | Out-File -FilePath 'new_drive.txt' -Encoding ASCII"
+
+set /p new_drive_letter=<new_drive.txt
+del new_drive.txt
+
+if "%new_drive_letter%"=="" (
+    echo Error: Could not find the newly created volume.
+    echo Please set the label manually.
+    echo Available drives:
+    powershell -command "Get-WmiObject Win32_LogicalDisk | Select-Object @{Name='Name';Expression={`$_.DeviceID}}, @{Name='VolumeName';Expression={`$_.VolumeName}}, @{Name='Size (GB)';Expression={[math]::round(`$_.Size/1GB, 0)}}, @{Name='FreeSpace (GB)';Expression={[math]::round(`$_.FreeSpace/1GB, 0)}} | Format-Table -AutoSize"
+    pause
+    del diskpart_output.txt
+    del diskpart_script.txt
+    exit /b 1
+)
+
+echo Setting label for drive %new_drive_letter% to "$newLabel"...
+powershell -Command "& {
+    `$volume = Get-WmiObject -Query \"SELECT * FROM Win32_Volume WHERE DriveLetter='%new_drive_letter%`:'\"
+    if (`$volume) {
+        `$volume.Label = '$newLabel'
+        `$result = `$volume.Put()
+        if (`$result.ReturnValue -eq 0) { exit 0 } else { exit 1 }
+    } else {
+        `$logicalDisk = Get-WmiObject -Query \"SELECT * FROM Win32_LogicalDisk WHERE DeviceID='%new_drive_letter%`:'\"
+        if (`$logicalDisk) {
+            `$logicalDisk.VolumeName = '$newLabel'
+            `$result = `$logicalDisk.Put()
+            if (`$result.ReturnValue -eq 0) { exit 0 } else { exit 1 }
+        } else {
+            exit 1
+        }
+    }
+}"
+if %errorlevel% neq 0 (
+    echo Error: Failed to set label.
+    pause
+    del diskpart_output.txt
+    del diskpart_script.txt
+    exit /b %errorlevel%
+)
+
+echo Successfully set label for drive %new_drive_letter% to "$newLabel".
+echo.
 echo ============================================================
-echo                  Available Drives
+echo                  Updated Drive List
 echo ============================================================
 powershell -command "Get-WmiObject Win32_LogicalDisk | Select-Object @{Name='Name';Expression={`$_.DeviceID}}, @{Name='VolumeName';Expression={`$_.VolumeName}}, @{Name='Size (GB)';Expression={[math]::round(`$_.Size/1GB, 0)}}, @{Name='FreeSpace (GB)';Expression={[math]::round(`$_.FreeSpace/1GB, 0)}} | Format-Table -AutoSize"
 echo ============================================================
 echo.
 
-set /p drive_letter=Enter the drive letter of the new partition (e.g., D):
-set /p new_label=Enter the label for the new partition:
-
-echo Setting label for drive %drive_letter%: to "%new_label%"...
-label %drive_letter%: "%new_label%"
-if %errorlevel% neq 0 (
-    echo Error: Failed to set label.
-    pause
-    exit /b %errorlevel%
-)
-
-echo Successfully set label for drive %drive_letter%: to "%new_label%".
 echo Cleaning up temporary files...
+del diskpart_output.txt
 del diskpart_script.txt
 
 echo Operation completed successfully.
@@ -1599,22 +1656,40 @@ pause
                     Add-ShrinkStatus "Refreshing drive list..."
                     Start-Sleep -Seconds 2
 
-                    # Get updated list of drives
-                    $updatedDrives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } },
-                    @{Name = 'VolumeName'; Expression = { $_.VolumeName } },
-                    @{Name = 'Size (GB)'; Expression = { [math]::round($_.Size / 1GB, 0) } },
-                    @{Name = 'FreeSpace (GB)'; Expression = { [math]::round($_.FreeSpace / 1GB, 0) } }
+                    # Thử lấy thông tin ổ đĩa nhiều lần để đảm bảo cập nhật
+                    $maxRetries = 3
+                    $retryCount = 0
+                    $updatedDrives = $null
+                    $newDriveFound = $false
+                    $newDriveLetter = ""
 
-                    # Display updated drive list
-                    $driveListBox.Items.Clear()
-                    foreach ($drive in $updatedDrives) {
-                        $driveInfo = "$($drive.Name) - $($drive.VolumeName) - Size: $($drive.'Size (GB)') GB - Free: $($drive.'FreeSpace (GB)') GB"
-                        $driveListBox.Items.Add($driveInfo)
+                    while ($retryCount -lt $maxRetries -and -not $newDriveFound) {
+                        # Get updated list of drives
+                        $updatedDrives = Get-DriveInfo
+
+                        # Tìm ổ đĩa mới được tạo (có thể có tên là "New Volume" hoặc tên đã đặt)
+                        foreach ($drive in $updatedDrives) {
+                            if ($drive.Name -ne "$($driveLetter):" -and
+                                ($drive.VolumeName -eq $newLabel -or
+                                 $drive.VolumeName -eq "New Volume" -or
+                                 $drive.VolumeName -eq "")) {
+                                $newDriveFound = $true
+                                $newDriveLetter = $drive.Name.TrimEnd(":")
+                                Add-ShrinkStatus "Found new drive: $newDriveLetter"
+                                break
+                            }
+                        }
+
+                        if (-not $newDriveFound) {
+                            Add-ShrinkStatus "Waiting for drive information to update..."
+                            Start-Sleep -Seconds 1
+                            $retryCount++
+                        }
                     }
 
-                    if ($driveListBox.Items.Count -gt 0) {
-                        $driveListBox.SelectedIndex = 0
-                    }
+                    # Cập nhật giao diện
+                    Update-DriveList -Drives $updatedDrives
+                    Add-ShrinkStatus "Drive list updated successfully."
                 }
                 else {
                     Add-ShrinkStatus "Error: The operation failed with exit code $($batchProcess.ExitCode)"
@@ -1980,12 +2055,20 @@ pause
         # Create Rename Volume form
         $renameVolumeForm = New-Object System.Windows.Forms.Form
         $renameVolumeForm.Text = "Rename Volume"
-        $renameVolumeForm.Size = New-Object System.Drawing.Size(500, 450)
+        $renameVolumeForm.Size = New-Object System.Drawing.Size(500, 500)
         $renameVolumeForm.StartPosition = "CenterScreen"
         $renameVolumeForm.BackColor = [System.Drawing.Color]::Black
         $renameVolumeForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
         $renameVolumeForm.MaximizeBox = $false
         $renameVolumeForm.MinimizeBox = $false
+
+        # Thêm xử lý phím Esc để đóng form
+        $renameVolumeForm.KeyPreview = $true
+        $renameVolumeForm.Add_KeyDown({
+            if ($_.KeyCode -eq [System.Windows.Forms.Keys]::Escape) {
+                $renameVolumeForm.Close()
+            }
+        })
 
         # Title label
         $titleLabel = New-Object System.Windows.Forms.Label
@@ -2075,6 +2158,15 @@ pause
         $newLabelTextBox.BackColor = [System.Drawing.Color]::Black
         $newLabelTextBox.ForeColor = [System.Drawing.Color]::Lime
         $newLabelTextBox.Font = New-Object System.Drawing.Font("Consolas", 10)
+
+        # Thêm xử lý sự kiện khi nhấn Enter để rename volume
+        $newLabelTextBox.Add_KeyDown({
+            if ($_.KeyCode -eq [System.Windows.Forms.Keys]::Enter) {
+                $_.SuppressKeyPress = $true  # Ngăn chặn tiếng "beep"
+                $renameButton.PerformClick()  # Kích hoạt nút Rename
+            }
+        })
+
         $renameVolumeForm.Controls.Add($newLabelTextBox)
 
         # Status textbox
@@ -2186,8 +2278,8 @@ pause
             # Phương pháp 1: Sử dụng Win32_Volume
             $volume = Get-WmiObject -Query "SELECT * FROM Win32_Volume WHERE DriveLetter='$DriveLetter`:'"
             if ($volume) {
-                # Đặt tên nhãn trực tiếp, không qua biến trung gian
-                $volume.Label = "$NewLabel"
+                # Đặt tên nhãn trực tiếp, đảm bảo không có khoảng trắng ở đầu và cuối
+                $volume.Label = $NewLabel.Trim()
                 $result = $volume.Put()
                 if ($result.ReturnValue -eq 0) {
                     return $true
@@ -2197,8 +2289,8 @@ pause
             # Phương pháp 2: Sử dụng Win32_LogicalDisk
             $logicalDisk = Get-WmiObject -Query "SELECT * FROM Win32_LogicalDisk WHERE DeviceID='$DriveLetter`:'"
             if ($logicalDisk) {
-                # Đặt tên nhãn trực tiếp, không qua biến trung gian
-                $logicalDisk.VolumeName = "$NewLabel"
+                # Đặt tên nhãn trực tiếp, đảm bảo không có khoảng trắng ở đầu và cuối
+                $logicalDisk.VolumeName = $NewLabel.Trim()
                 $result = $logicalDisk.Put()
                 if ($result.ReturnValue -eq 0) {
                     return $true
@@ -2218,9 +2310,41 @@ pause
                 [string]$NewLabel
             )
 
-            # Sử dụng chuỗi nối để đảm bảo không có khoảng trắng
-            $command = "label " + $DriveLetter + ":" + $NewLabel
-            $labelProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c $command" -WindowStyle Hidden -PassThru -Wait
+            # Sử dụng PowerShell trực tiếp để đổi tên ổ đĩa
+            # Đảm bảo không có khoảng trắng ở đầu và cuối tên nhãn
+            $trimmedLabel = $NewLabel.Trim()
+
+            # Tạo script PowerShell để đổi tên ổ đĩa
+            $psScript = @"
+            `$volume = Get-WmiObject -Query "SELECT * FROM Win32_Volume WHERE DriveLetter='$DriveLetter`:'"
+            if (`$volume) {
+                `$volume.Label = '$trimmedLabel'
+                `$result = `$volume.Put()
+                exit `$result.ReturnValue
+            } else {
+                `$logicalDisk = Get-WmiObject -Query "SELECT * FROM Win32_LogicalDisk WHERE DeviceID='$DriveLetter`:'"
+                if (`$logicalDisk) {
+                    `$logicalDisk.VolumeName = '$trimmedLabel'
+                    `$result = `$logicalDisk.Put()
+                    exit `$result.ReturnValue
+                } else {
+                    exit 1
+                }
+            }
+"@
+
+            # Lưu script vào file tạm
+            $tempScriptPath = [System.IO.Path]::GetTempFileName() + ".ps1"
+            Set-Content -Path $tempScriptPath -Value $psScript -Force
+
+            # Chạy script với quyền admin
+            $labelProcess = Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -File `"$tempScriptPath`"" -WindowStyle Hidden -PassThru -Wait
+
+            # Xóa file tạm
+            if (Test-Path $tempScriptPath) {
+                Remove-Item $tempScriptPath -Force -ErrorAction SilentlyContinue
+            }
+
             return ($labelProcess.ExitCode -eq 0)
         }
 
@@ -2233,6 +2357,9 @@ pause
                 [Parameter(Mandatory = $true)]
                 [string]$NewLabel
             )
+
+            # Đảm bảo không có khoảng trắng ở đầu và cuối tên nhãn
+            $NewLabel = $NewLabel.Trim()
 
             $batchFilePath = [System.IO.Path]::GetTempFileName() + ".bat"
 
@@ -2252,10 +2379,24 @@ if errorlevel 1 (
 )
 
 echo Setting label for drive $DriveLetter`: to $NewLabel...
-@REM Sử dụng cú pháp đặc biệt để đảm bảo không có khoảng trắng
-set drive_letter=$DriveLetter
-set new_label=$NewLabel
-cmd /c "label %drive_letter%:%new_label%"
+@REM Sử dụng PowerShell trực tiếp để đổi tên ổ đĩa
+powershell -Command "& {
+    `$volume = Get-WmiObject -Query \"SELECT * FROM Win32_Volume WHERE DriveLetter='$DriveLetter`:'\"
+    if (`$volume) {
+        `$volume.Label = '$NewLabel'
+        `$result = `$volume.Put()
+        if (`$result.ReturnValue -eq 0) { exit 0 } else { exit 1 }
+    } else {
+        `$logicalDisk = Get-WmiObject -Query \"SELECT * FROM Win32_LogicalDisk WHERE DeviceID='$DriveLetter`:'\"
+        if (`$logicalDisk) {
+            `$logicalDisk.VolumeName = '$NewLabel'
+            `$result = `$logicalDisk.Put()
+            if (`$result.ReturnValue -eq 0) { exit 0 } else { exit 1 }
+        } else {
+            exit 1
+        }
+    }
+}"
 if errorlevel 1 (
     echo ERROR: Failed to rename the drive. Check the drive letter and try again.
     pause
@@ -2282,7 +2423,8 @@ pause
         $renameButton = New-DynamicButton -text "Rename Volume" -x 20 -y 320 -width 200 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
             # Lấy thông tin từ form
             $driveLetter = $driveLetterTextBox.Text.Trim().ToUpper()
-            $newLabel = $newLabelTextBox.Text
+            # Đảm bảo không có khoảng trắng ở đầu và cuối tên nhãn
+            $newLabel = $newLabelTextBox.Text.Trim()
 
             # Kiểm tra đầu vào
             if ($driveLetter -eq "") {
