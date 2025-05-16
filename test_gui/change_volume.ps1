@@ -161,34 +161,34 @@ function New-DynamicButton {
        $path.AddArc($button.ClientRectangle.X, $button.ClientRectangle.Height - $radius * 2, $radius * 2, $radius * 2, 90, 90)
        $path.CloseAllFigures()
        $button.Region = New-Object System.Drawing.Region($path)
-   
+
        # Mouse enter event - simple hover effect (no border)
        $button.Add_MouseEnter({
                # No border, just color change handled by FlatAppearance.MouseOverBackColor
                $this.FlatAppearance.BorderSize = 0
            })
-   
+
        # Mouse leave event
        $button.Add_MouseLeave({
                # Keep border size at 0
                $this.FlatAppearance.BorderSize = 0
            })
-   
+
        # Mouse down event
        $button.Add_MouseDown({
                # No border on press, just color change handled by FlatAppearance.MouseDownBackColor
                $this.FlatAppearance.BorderSize = 0
            })
-   
+
        # Mouse up event
        $button.Add_MouseUp({
                # Keep border size at 0
                $this.FlatAppearance.BorderSize = 0
            })
-   
+
        # Click event
        $button.Add_Click($clickAction)
-   
+
        return $button
 }
 
@@ -1290,23 +1290,14 @@ list volume
 
     # Extend Volume button
     $btnExtendVolume = New-DynamicButton -text "Extend Volume" -x 340 -y 150 -width 150 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
-        # Clear content panel
+        # Clear the content panel
         $contentPanel.Controls.Clear()
-        # Create Merge Volumes form
-        $mergeForm = New-Object System.Windows.Forms.Form
-        $mergeForm.Text = "Extend Volumes"
-        $mergeForm.Size = New-Object System.Drawing.Size(600, 500)
-        $mergeForm.StartPosition = "CenterScreen"
-        $mergeForm.BackColor = [System.Drawing.Color]::Black
-        $mergeForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
-        $mergeForm.MaximizeBox = $false
-        $mergeForm.MinimizeBox = $false
 
         # Title label
         $titleLabel = New-Object System.Windows.Forms.Label
-        $titleLabel.Text = "Merge Volumes"
-        $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
-        $titleLabel.Size = New-Object System.Drawing.Size(600, 30)
+        $titleLabel.Text = "Extend Volume by Merging"
+        $titleLabel.Location = New-Object System.Drawing.Point(0, 10)
+        $titleLabel.Size = New-Object System.Drawing.Size(760, 30)
         $titleLabel.ForeColor = [System.Drawing.Color]::Lime
         $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
         $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
@@ -1378,20 +1369,23 @@ list volume
         $warningLabel.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
         $contentPanel.Controls.Add($warningLabel)
 
-        # Status textbox
+
+
+        # Status textbox for merge operations
         $mergeStatusTextBox = New-Object System.Windows.Forms.TextBox
         $mergeStatusTextBox.Multiline = $true
         $mergeStatusTextBox.ScrollBars = "Vertical"
-        $mergeStatusTextBox.Location = New-Object System.Drawing.Point(20, 390)
-        $mergeStatusTextBox.Size = New-Object System.Drawing.Size(560, 70)
+        $mergeStatusTextBox.Location = New-Object System.Drawing.Point(20, 180)
+        $mergeStatusTextBox.Size = New-Object System.Drawing.Size(720, 70)
         $mergeStatusTextBox.BackColor = [System.Drawing.Color]::Black
         $mergeStatusTextBox.ForeColor = [System.Drawing.Color]::Lime
         $mergeStatusTextBox.Font = New-Object System.Drawing.Font("Consolas", 9)
         $mergeStatusTextBox.ReadOnly = $true
         $mergeStatusTextBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
         $mergeStatusTextBox.Text = "Ready to merge volumes..."
+        $contentPanel.Controls.Add($mergeStatusTextBox)
 
-        # Function to add status message to the merge form
+        # Function to add status message to the merge status box
         function Add-MergeStatus {
             param(
                 [Parameter(Mandatory=$true)]
@@ -1441,7 +1435,7 @@ list volume
             })
 
         # Merge button
-        $mergeButton = New-DynamicButton -text "Merge and Extend Volume" -x 20 -y 340 -width 250 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+        $mergeButton = New-DynamicButton -text "Merge and Extend Volume" -x 20 -y 140 -width 250 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
             # Lấy và kiểm tra đầu vào
             $sourceDrive = $sourceDriveTextBox.Text.Trim().ToUpper()
             $targetDrive = $targetDriveTextBox.Text.Trim().ToUpper()
@@ -2134,152 +2128,116 @@ extend
                 }
             }
         }
-        $controlpanelForm.Controls.Add($mergeButton)
+        $contentPanel.Controls.Add($mergeButton)
 
         # Cancel button
-        $cancelButton = New-DynamicButton -text "Cancel" -x 290 -y 200 -width 200 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
-            $mergeForm.Close()
+        $cancelButton = New-DynamicButton -text "Cancel" -x 290 -y 140 -width 200 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
+            $contentPanel.Controls.Clear()
         }
-        $controlpanelForm.Controls.Add($cancelButton)
+        $contentPanel.Controls.Add($cancelButton)
 
-        # Show the form
-        Add-Status "Opening Merge Volumes dialog..."
-        $statusTextBox.ShowDialog()
+        Add-Status "Ready to extend volume..."
     }
     $volumeForm.Controls.Add($btnExtendVolume)
 
     # Rename Volume button
     $btnRenameVolume = New-DynamicButton -text "Rename Volume" -x 500 -y 150 -width 150 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
-        # Create Rename Volume form
-        $renameVolumeForm = New-Object System.Windows.Forms.Form
-        $renameVolumeForm.Text = "Rename Volume"
-        $renameVolumeForm.Size = New-Object System.Drawing.Size(500, 500)
-        $renameVolumeForm.StartPosition = "CenterScreen"
-        $renameVolumeForm.BackColor = [System.Drawing.Color]::Black
-        $renameVolumeForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
-        $renameVolumeForm.MaximizeBox = $false
-        $renameVolumeForm.MinimizeBox = $false
-
-        # Thêm xử lý phím Esc để đóng form
-        $renameVolumeForm.KeyPreview = $true
-        $renameVolumeForm.Add_KeyDown({
-            if ($_.KeyCode -eq [System.Windows.Forms.Keys]::Escape) {
-                $renameVolumeForm.Close()
-            }
-        })
+        # Clear the content panel
+        $contentPanel.Controls.Clear()
 
         # Title label
         $titleLabel = New-Object System.Windows.Forms.Label
         $titleLabel.Text = "Rename Volume"
-        $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
-        $titleLabel.Size = New-Object System.Drawing.Size(500, 30)
+        $titleLabel.Location = New-Object System.Drawing.Point(0, 10)
+        $titleLabel.Size = New-Object System.Drawing.Size(760, 30)
         $titleLabel.ForeColor = [System.Drawing.Color]::Lime
         $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
         $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
         $titleLabel.BackColor = [System.Drawing.Color]::Transparent
-        $renameVolumeForm.Controls.Add($titleLabel)
+        $contentPanel.Controls.Add($titleLabel)
 
-        # Drive list label
-        $driveListLabel = New-Object System.Windows.Forms.Label
-        $driveListLabel.Text = "Available Drives:"
-        $driveListLabel.Location = New-Object System.Drawing.Point(20, 60)
-        $driveListLabel.Size = New-Object System.Drawing.Size(200, 20)
-        $driveListLabel.ForeColor = [System.Drawing.Color]::White
-        $driveListLabel.Font = New-Object System.Drawing.Font("Arial", 10)
-        $renameVolumeForm.Controls.Add($driveListLabel)
-
-        # Drive list box
-        $driveListBox = New-Object System.Windows.Forms.ListBox
-        $driveListBox.Location = New-Object System.Drawing.Point(20, 90)
-        $driveListBox.Size = New-Object System.Drawing.Size(460, 150)
-        $driveListBox.BackColor = [System.Drawing.Color]::Black
-        $driveListBox.ForeColor = [System.Drawing.Color]::Lime
-        $driveListBox.Font = New-Object System.Drawing.Font("Consolas", 10)
-        $renameVolumeForm.Controls.Add($driveListBox)
-
-        # Populate drive list
-        Add-Status "Getting list of drives..."
-        try {
-            $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } },
-            @{Name = 'VolumeName'; Expression = { $_.VolumeName } },
-            @{Name = 'Size (GB)'; Expression = { [math]::round($_.Size / 1GB, 0) } },
-            @{Name = 'FreeSpace (GB)'; Expression = { [math]::round($_.FreeSpace / 1GB, 0) } }
-
-            foreach ($drive in $drives) {
-                $driveInfo = "$($drive.Name) - $($drive.VolumeName) - Size: $($drive.'Size (GB)') GB - Free: $($drive.'FreeSpace (GB)') GB"
-                $driveListBox.Items.Add($driveInfo)
-            }
-
-            if ($driveListBox.Items.Count -gt 0) {
-                $driveListBox.SelectedIndex = 0
-            }
-
-            Add-Status "Found $($drives.Count) drives."
-        }
-        catch {
-            Add-Status "Error getting drive list: $_"
-        }
+        # Note: We're using the driveListBox that's already in the parent form
 
         # Drive letter label
         $driveLetterLabel = New-Object System.Windows.Forms.Label
         $driveLetterLabel.Text = "Drive Letter:"
-        $driveLetterLabel.Location = New-Object System.Drawing.Point(20, 250)
+        $driveLetterLabel.Location = New-Object System.Drawing.Point(20, 50)
         $driveLetterLabel.Size = New-Object System.Drawing.Size(100, 20)
         $driveLetterLabel.ForeColor = [System.Drawing.Color]::White
         $driveLetterLabel.Font = New-Object System.Drawing.Font("Arial", 10)
-        $renameVolumeForm.Controls.Add($driveLetterLabel)
+        $contentPanel.Controls.Add($driveLetterLabel)
 
         # Drive letter textbox
         $driveLetterTextBox = New-Object System.Windows.Forms.TextBox
-        $driveLetterTextBox.Location = New-Object System.Drawing.Point(130, 250)
+        $driveLetterTextBox.Location = New-Object System.Drawing.Point(130, 50)
         $driveLetterTextBox.Size = New-Object System.Drawing.Size(50, 20)
-        $driveLetterTextBox.BackColor = [System.Drawing.Color]::Black
-        $driveLetterTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $driveLetterTextBox.BackColor = [System.Drawing.Color]::White
+        $driveLetterTextBox.ForeColor = [System.Drawing.Color]::Black
         $driveLetterTextBox.Font = New-Object System.Drawing.Font("Consolas", 10)
         $driveLetterTextBox.MaxLength = 1
         $driveLetterTextBox.ReadOnly = $true
-        $renameVolumeForm.Controls.Add($driveLetterTextBox)
+        $contentPanel.Controls.Add($driveLetterTextBox)
+
+        # Update drive letter from selected drive
+        if ($driveListBox.SelectedItem) {
+            $selectedDrive = $driveListBox.SelectedItem.ToString()
+            $driveLetter = $selectedDrive.Substring(0, 1)
+            $driveLetterTextBox.Text = $driveLetter
+
+            # Get current volume name
+            $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } },
+            @{Name = 'VolumeName'; Expression = { $_.VolumeName } }
+
+            $currentVolumeName = ""
+            foreach ($drive in $drives) {
+                if ($drive.Name -eq "$($driveLetter):") {
+                    $currentVolumeName = $drive.VolumeName
+                    break
+                }
+            }
+        }
 
         # New label label
         $newLabelLabel = New-Object System.Windows.Forms.Label
         $newLabelLabel.Text = "New Label:"
-        $newLabelLabel.Location = New-Object System.Drawing.Point(20, 280)
+        $newLabelLabel.Location = New-Object System.Drawing.Point(20, 80)
         $newLabelLabel.Size = New-Object System.Drawing.Size(100, 20)
         $newLabelLabel.ForeColor = [System.Drawing.Color]::White
         $newLabelLabel.Font = New-Object System.Drawing.Font("Arial", 10)
-        $renameVolumeForm.Controls.Add($newLabelLabel)
+        $contentPanel.Controls.Add($newLabelLabel)
 
         # New label textbox
         $newLabelTextBox = New-Object System.Windows.Forms.TextBox
-        $newLabelTextBox.Location = New-Object System.Drawing.Point(130, 280)
+        $newLabelTextBox.Location = New-Object System.Drawing.Point(130, 80)
         $newLabelTextBox.Size = New-Object System.Drawing.Size(350, 20)
-        $newLabelTextBox.BackColor = [System.Drawing.Color]::Black
-        $newLabelTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $newLabelTextBox.BackColor = [System.Drawing.Color]::White
+        $newLabelTextBox.ForeColor = [System.Drawing.Color]::Black
         $newLabelTextBox.Font = New-Object System.Drawing.Font("Consolas", 10)
+        $newLabelTextBox.Text = $currentVolumeName
 
-        # Thêm xử lý sự kiện khi nhấn Enter để rename volume
+        # Add event handler for Enter key
         $newLabelTextBox.Add_KeyDown({
             if ($_.KeyCode -eq [System.Windows.Forms.Keys]::Enter) {
-                $_.SuppressKeyPress = $true  # Ngăn chặn tiếng "beep"
-                $renameButton.PerformClick()  # Kích hoạt nút Rename
+                $_.SuppressKeyPress = $true  # Prevent beep sound
+                $renameButton.PerformClick()  # Activate Rename button
             }
         })
 
-        $renameVolumeForm.Controls.Add($newLabelTextBox)
+        $contentPanel.Controls.Add($newLabelTextBox)
 
         # Status textbox
         $renameStatusTextBox = New-Object System.Windows.Forms.TextBox
         $renameStatusTextBox.Multiline = $true
         $renameStatusTextBox.ScrollBars = "Vertical"
-        $renameStatusTextBox.Location = New-Object System.Drawing.Point(20, 360)
-        $renameStatusTextBox.Size = New-Object System.Drawing.Size(460, 70)
+        $renameStatusTextBox.Location = New-Object System.Drawing.Point(20, 180)
+        $renameStatusTextBox.Size = New-Object System.Drawing.Size(720, 70)
         $renameStatusTextBox.BackColor = [System.Drawing.Color]::Black
         $renameStatusTextBox.ForeColor = [System.Drawing.Color]::Lime
         $renameStatusTextBox.Font = New-Object System.Drawing.Font("Consolas", 9)
         $renameStatusTextBox.ReadOnly = $true
         $renameStatusTextBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
         $renameStatusTextBox.Text = "Ready to rename volume..."
-        $renameVolumeForm.Controls.Add($renameStatusTextBox)
+        $contentPanel.Controls.Add($renameStatusTextBox)
 
         # Function to add status message to the rename form
         function Add-RenameStatus {
@@ -2289,14 +2247,19 @@ extend
             [System.Windows.Forms.Application]::DoEvents()
         }
 
-        # Update selected drive when drive is selected
+        # Update selected drive when drive is selected in the main drive list
         $driveListBox.Add_SelectedIndexChanged({
-                if ($driveListBox.SelectedItem) {
+            if ($driveListBox.SelectedItem) {
+                # Only update if the rename panel is visible (has controls)
+                if ($contentPanel.Controls.Count -gt 0 -and $contentPanel.Controls[0].Text -eq "Rename Volume") {
                     $selectedDrive = $driveListBox.SelectedItem.ToString()
                     $driveLetter = $selectedDrive.Substring(0, 1)
                     $driveLetterTextBox.Text = $driveLetter
 
                     # Get current volume name
+                    $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } },
+                    @{Name = 'VolumeName'; Expression = { $_.VolumeName } }
+
                     $currentVolumeName = ""
                     foreach ($drive in $drives) {
                         if ($drive.Name -eq "$($driveLetter):") {
@@ -2308,7 +2271,8 @@ extend
                     # Set current volume name as default text
                     $newLabelTextBox.Text = $currentVolumeName
                 }
-            })
+            }
+        })
 
         # Hàm để lấy thông tin ổ đĩa
         function Get-DriveInfo {
@@ -2518,7 +2482,7 @@ extend
         }
 
         # Rename button
-        $renameButton = New-DynamicButton -text "Rename Volume" -x 20 -y 320 -width 200 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+        $renameButton = New-DynamicButton -text "Rename Volume" -x 20 -y 140 -width 200 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
             # Lấy thông tin từ form
             $driveLetter = $driveLetterTextBox.Text.Trim().ToUpper()
             # Đảm bảo không có khoảng trắng ở đầu và cuối tên nhãn
@@ -2629,17 +2593,15 @@ extend
                 }
             }
         }
-        $renameVolumeForm.Controls.Add($renameButton)
+        $contentPanel.Controls.Add($renameButton)
 
         # Cancel button
-        $cancelButton = New-DynamicButton -text "Cancel" -x 240 -y 320 -width 200 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
-            $renameVolumeForm.Close()
+        $cancelButton = New-DynamicButton -text "Cancel" -x 240 -y 140 -width 200 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
+            $contentPanel.Controls.Clear()
         }
-        $renameVolumeForm.Controls.Add($cancelButton)
+        $contentPanel.Controls.Add($cancelButton)
 
-        # Show the form
-        Add-Status "Opening Rename Volume dialog..."
-        $renameVolumeForm.ShowDialog()
+        Add-Status "Ready to rename volume..."
     }
     $volumeForm.Controls.Add($btnRenameVolume)
 
