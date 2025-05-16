@@ -4033,7 +4033,7 @@ $buttonRenameDevice = New-DynamicButton -text "[7] Rename Device" -x 430 -y 180 
 }
 
 # [8] Set Password
-$buttonSetPassword = New-DynamicButton -text "[6] Set Password" -x 430 -y 260 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+$buttonSetPassword = New-DynamicButton -text "[8] Set Password" -x 430 -y 260 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
     # Hide the main menu
     Hide-MainMenu
     # Create password setting form
@@ -4108,30 +4108,26 @@ $buttonSetPassword = New-DynamicButton -text "[6] Set Password" -x 430 -y 260 -w
             try {
                 # Create a command to set the password
                 if ([string]::IsNullOrEmpty($password)) {
-                    # For empty password, use wmic command to remove password requirement
-                    $command = "wmic useraccount where name='$currentUser' set passwordrequired=false"
+                    # For empty password, use net user command to remove password
+                    $command = "net user $currentUser """""
                 } else {
                     $command = "net user $currentUser $password"
                 }
 
-                # Create a process to run the command with elevated privileges
-                $psi = New-Object System.Diagnostics.ProcessStartInfo
-                $psi.FileName = "powershell.exe"
-                $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
-                $psi.UseShellExecute = $true
-                $psi.Verb = "runas"
-                $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+                # Execute the command
+                $process = Start-Process -FilePath "cmd.exe" -ArgumentList "/c $command" -NoNewWindow -Wait -PassThru
 
-                # Start the process
-                [System.Diagnostics.Process]::Start($psi)
-
-                # Show success message
-                if ([string]::IsNullOrEmpty($password)) {
-                    [System.Windows.Forms.MessageBox]::Show("Password requirement has been removed. User '$currentUser' can now log in without a password. If prompted, please allow the elevation request.", "Password Removed", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                if ($process.ExitCode -eq 0) {
+                    # Show success message
+                    if ([string]::IsNullOrEmpty($password)) {
+                        [System.Windows.Forms.MessageBox]::Show("Password has been removed. User '$currentUser' can now log in without a password.", "Password Removed", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                    } else {
+                        [System.Windows.Forms.MessageBox]::Show("Password has been changed.", "Password Change", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                    }
+                    $passwordForm.Close()
                 } else {
-                    [System.Windows.Forms.MessageBox]::Show("Password has been changed. If prompted, please allow the elevation request.", "Password Change", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                    throw "Failed to set password. Exit code: $($process.ExitCode)"
                 }
-                $passwordForm.Close()
             }
             catch {
                 [System.Windows.Forms.MessageBox]::Show("Error setting password: $_`n`nNote: This operation requires administrative privileges.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
@@ -4156,23 +4152,19 @@ $buttonSetPassword = New-DynamicButton -text "[6] Set Password" -x 430 -y 260 -w
                 [System.Windows.Forms.MessageBoxIcon]::Question)
 
             if ($confirmResult -eq [System.Windows.Forms.DialogResult]::Yes) {
-                # Command to remove password using net user with an alternative approach
-                $command = "wmic useraccount where name='$currentUser' set passwordrequired=false"
+                # Command to remove password using net user
+                $command = "net user $currentUser """""
 
-                # Create a process to run the command with elevated privileges
-                $psi = New-Object System.Diagnostics.ProcessStartInfo
-                $psi.FileName = "powershell.exe"
-                $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
-                $psi.UseShellExecute = $true
-                $psi.Verb = "runas"
-                $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+                # Execute the command
+                $process = Start-Process -FilePath "cmd.exe" -ArgumentList "/c $command" -NoNewWindow -Wait -PassThru
 
-                # Start the process
-                [System.Diagnostics.Process]::Start($psi)
-
-                # Show success message
-                [System.Windows.Forms.MessageBox]::Show("Password has been removed. User '$currentUser' can now log in without a password.", "Password Removed", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-                $passwordForm.Close()
+                if ($process.ExitCode -eq 0) {
+                    # Show success message
+                    [System.Windows.Forms.MessageBox]::Show("Password has been removed. User '$currentUser' can now log in without a password.", "Password Removed", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                    $passwordForm.Close()
+                } else {
+                    throw "Failed to remove password. Exit code: $($process.ExitCode)"
+                }
             }
         }
         catch {
@@ -4196,7 +4188,7 @@ $buttonSetPassword = New-DynamicButton -text "[6] Set Password" -x 430 -y 260 -w
 }
 
 # [9] Join/Leave Domain
-$buttonJoinDomain = New-DynamicButton -text "[8] Domain Management" -x 430 -y 340 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+$buttonJoinDomain = New-DynamicButton -text "[9] Domain Management" -x 430 -y 340 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
     # Hide the main menu
     Hide-MainMenu
     # Create domain/workgroup join form
