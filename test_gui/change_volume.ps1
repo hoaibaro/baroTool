@@ -1,17 +1,17 @@
-# Check for admin privileges
-if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-    Write-Warning "This script requires administrative privileges. Attempting to restart with elevation..."
-    Start-Sleep -Seconds 1
+# # Check for admin privileges
+# if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+#     Write-Warning "This script requires administrative privileges. Attempting to restart with elevation..."
+#     Start-Sleep -Seconds 1
 
-    # Restart script with admin privileges
-    $scriptPath = $MyInvocation.MyCommand.Path
-    $arguments = "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$scriptPath`""
+#     # Restart script with admin privileges
+#     $scriptPath = $MyInvocation.MyCommand.Path
+#     $arguments = "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$scriptPath`""
 
-    Start-Process powershell.exe -ArgumentList $arguments -Verb RunAs
+#     Start-Process powershell.exe -ArgumentList $arguments -Verb RunAs
 
-    # Exit the current non-elevated instance
-    exit
-}
+#     # Exit the current non-elevated instance
+#     exit
+# }
 
 # Hide PowerShell console window
 Add-Type -Name Window -Namespace Console -MemberDefinition '
@@ -1307,7 +1307,7 @@ list volume
         # Source drive label
         $sourceDriveLabel = New-Object System.Windows.Forms.Label
         $sourceDriveLabel.Text = "Source Drive (to delete):"
-        $sourceDriveLabel.Location = New-Object System.Drawing.Point(20, 70)
+        $sourceDriveLabel.Location = New-Object System.Drawing.Point(150, 70)
         $sourceDriveLabel.Size = New-Object System.Drawing.Size(180, 20)
         $sourceDriveLabel.ForeColor = [System.Drawing.Color]::White
         $sourceDriveLabel.Font = New-Object System.Drawing.Font("Arial", 10)
@@ -1315,12 +1315,13 @@ list volume
 
         # Source drive textbox
         $sourceDriveTextBox = New-Object System.Windows.Forms.TextBox
-        $sourceDriveTextBox.Location = New-Object System.Drawing.Point(200, 70)
+        $sourceDriveTextBox.Location = New-Object System.Drawing.Point(330, 70)
         $sourceDriveTextBox.Size = New-Object System.Drawing.Size(50, 20)
         $sourceDriveTextBox.BackColor = [System.Drawing.Color]::Black
         $sourceDriveTextBox.ForeColor = [System.Drawing.Color]::Lime
         $sourceDriveTextBox.Font = New-Object System.Drawing.Font("Consolas", 10)
         $sourceDriveTextBox.MaxLength = 1
+        $sourceDriveTextBox.TextAlign = [System.Windows.Forms.HorizontalAlignment]::Center
 
         # Thêm xử lý sự kiện khi nhấn Enter
         $sourceDriveTextBox.Add_KeyDown({
@@ -1335,20 +1336,21 @@ list volume
         # Target drive label
         $targetDriveLabel = New-Object System.Windows.Forms.Label
         $targetDriveLabel.Text = "Target Drive (to expand):"
-        $targetDriveLabel.Location = New-Object System.Drawing.Point(20, 100)
-        $targetDriveLabel.Size = New-Object System.Drawing.Size(150, 20)
+        $targetDriveLabel.Location = New-Object System.Drawing.Point(400, 70)
+        $targetDriveLabel.Size = New-Object System.Drawing.Size(180, 20)
         $targetDriveLabel.ForeColor = [System.Drawing.Color]::White
         $targetDriveLabel.Font = New-Object System.Drawing.Font("Arial", 10)
         $contentPanel.Controls.Add($targetDriveLabel)
 
         # Target drive textbox
         $targetDriveTextBox = New-Object System.Windows.Forms.TextBox
-        $targetDriveTextBox.Location = New-Object System.Drawing.Point(180, 100)
+        $targetDriveTextBox.Location = New-Object System.Drawing.Point(580, 70)
         $targetDriveTextBox.Size = New-Object System.Drawing.Size(50, 20)
         $targetDriveTextBox.BackColor = [System.Drawing.Color]::Black
         $targetDriveTextBox.ForeColor = [System.Drawing.Color]::Lime
         $targetDriveTextBox.Font = New-Object System.Drawing.Font("Consolas", 10)
         $targetDriveTextBox.MaxLength = 1
+        $targetDriveTextBox.TextAlign = [System.Windows.Forms.HorizontalAlignment]::Center
 
         # Thêm xử lý sự kiện khi nhấn Enter
         $targetDriveTextBox.Add_KeyDown({
@@ -1363,29 +1365,15 @@ list volume
         # Warning label
         $warningLabel = New-Object System.Windows.Forms.Label
         $warningLabel.Text = "WARNING: This will DELETE the source drive and all its data!"
-        $warningLabel.Location = New-Object System.Drawing.Point(20, 310)
-        $warningLabel.Size = New-Object System.Drawing.Size(560, 20)
+        $warningLabel.Location = New-Object System.Drawing.Point(0, 100) # Căn giữa theo chiều ngang
+        $warningLabel.Size = New-Object System.Drawing.Size(760, 20) # Sử dụng toàn bộ chiều rộng của panel
         $warningLabel.ForeColor = [System.Drawing.Color]::Red
         $warningLabel.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $warningLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter # Căn giữa văn bản
         $contentPanel.Controls.Add($warningLabel)
 
 
-
-        # Status textbox for merge operations
-        $mergeStatusTextBox = New-Object System.Windows.Forms.TextBox
-        $mergeStatusTextBox.Multiline = $true
-        $mergeStatusTextBox.ScrollBars = "Vertical"
-        $mergeStatusTextBox.Location = New-Object System.Drawing.Point(20, 180)
-        $mergeStatusTextBox.Size = New-Object System.Drawing.Size(720, 70)
-        $mergeStatusTextBox.BackColor = [System.Drawing.Color]::Black
-        $mergeStatusTextBox.ForeColor = [System.Drawing.Color]::Lime
-        $mergeStatusTextBox.Font = New-Object System.Drawing.Font("Consolas", 9)
-        $mergeStatusTextBox.ReadOnly = $true
-        $mergeStatusTextBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-        $mergeStatusTextBox.Text = "Ready to merge volumes..."
-        $contentPanel.Controls.Add($mergeStatusTextBox)
-
-        # Function to add status message to the merge status box
+        # Function to add status message to the main status box for merge operations
         function Add-MergeStatus {
             param(
                 [Parameter(Mandatory=$true)]
@@ -1398,23 +1386,8 @@ list volume
                 [switch]$ClearLine
             )
 
-            if ($ClearLine) {
-                # Xóa dòng cuối cùng
-                $text = $mergeStatusTextBox.Text
-                $lastNewLinePos = $text.LastIndexOf("`r`n")
-                if ($lastNewLinePos -ge 0) {
-                    $mergeStatusTextBox.Text = $text.Substring(0, $lastNewLinePos + 2)
-                }
-            }
-
-            if ($NoNewLine) {
-                $mergeStatusTextBox.AppendText("$message")
-            } else {
-                $mergeStatusTextBox.AppendText("$message`r`n")
-            }
-
-            $mergeStatusTextBox.ScrollToCaret()
-            [System.Windows.Forms.Application]::DoEvents()
+            # Use the main status box
+            Add-Status $message
         }
 
         # Update selected drive when drive is selected
@@ -1435,14 +1408,14 @@ list volume
             })
 
         # Merge button
-        $mergeButton = New-DynamicButton -text "Merge and Extend Volume" -x 20 -y 140 -width 250 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+        $mergeButton = New-DynamicButton -text "Merge and Extend Volume" -x 150 -y 140 -width 250 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
             # Lấy và kiểm tra đầu vào
             $sourceDrive = $sourceDriveTextBox.Text.Trim().ToUpper()
             $targetDrive = $targetDriveTextBox.Text.Trim().ToUpper()
 
-            # Hiển thị thông tin đầu vào để debug
-            Add-MergeStatus "Source drive entered: '$sourceDrive'"
-            Add-MergeStatus "Target drive entered: '$targetDrive'"
+            # Hiển thị thông tin đầu vào
+            Add-Status "Extend Volume: Source drive entered: '$sourceDrive'"
+            Add-Status "Extend Volume: Target drive entered: '$targetDrive'"
 
             # Kiểm tra đầu vào chi tiết
             if ([string]::IsNullOrEmpty($sourceDrive)) {
@@ -2131,12 +2104,13 @@ extend
         $contentPanel.Controls.Add($mergeButton)
 
         # Cancel button
-        $cancelButton = New-DynamicButton -text "Cancel" -x 290 -y 140 -width 200 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
+        $cancelButton = New-DynamicButton -text "Cancel" -x 410 -y 140 -width 200 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
             $contentPanel.Controls.Clear()
         }
         $contentPanel.Controls.Add($cancelButton)
 
-        Add-Status "Ready to extend volume..."
+        Add-Status "Ready to extend volume. Select source and target drives, then click Merge and Extend Volume."
+
     }
     $volumeForm.Controls.Add($btnExtendVolume)
 
@@ -2161,7 +2135,7 @@ extend
         # Drive letter label
         $driveLetterLabel = New-Object System.Windows.Forms.Label
         $driveLetterLabel.Text = "Drive Letter:"
-        $driveLetterLabel.Location = New-Object System.Drawing.Point(20, 50)
+        $driveLetterLabel.Location = New-Object System.Drawing.Point(200, 50)
         $driveLetterLabel.Size = New-Object System.Drawing.Size(100, 20)
         $driveLetterLabel.ForeColor = [System.Drawing.Color]::White
         $driveLetterLabel.Font = New-Object System.Drawing.Font("Arial", 10)
@@ -2169,13 +2143,14 @@ extend
 
         # Drive letter textbox
         $driveLetterTextBox = New-Object System.Windows.Forms.TextBox
-        $driveLetterTextBox.Location = New-Object System.Drawing.Point(130, 50)
+        $driveLetterTextBox.Location = New-Object System.Drawing.Point(310, 50)
         $driveLetterTextBox.Size = New-Object System.Drawing.Size(50, 20)
         $driveLetterTextBox.BackColor = [System.Drawing.Color]::White
         $driveLetterTextBox.ForeColor = [System.Drawing.Color]::Black
         $driveLetterTextBox.Font = New-Object System.Drawing.Font("Consolas", 10)
         $driveLetterTextBox.MaxLength = 1
         $driveLetterTextBox.ReadOnly = $true
+        $driveLetterTextBox.TextAlign = [System.Windows.Forms.HorizontalAlignment]::Center
         $contentPanel.Controls.Add($driveLetterTextBox)
 
         # Update drive letter from selected drive
@@ -2200,7 +2175,7 @@ extend
         # New label label
         $newLabelLabel = New-Object System.Windows.Forms.Label
         $newLabelLabel.Text = "New Label:"
-        $newLabelLabel.Location = New-Object System.Drawing.Point(20, 80)
+        $newLabelLabel.Location = New-Object System.Drawing.Point(200, 80)
         $newLabelLabel.Size = New-Object System.Drawing.Size(100, 20)
         $newLabelLabel.ForeColor = [System.Drawing.Color]::White
         $newLabelLabel.Font = New-Object System.Drawing.Font("Arial", 10)
@@ -2208,8 +2183,8 @@ extend
 
         # New label textbox
         $newLabelTextBox = New-Object System.Windows.Forms.TextBox
-        $newLabelTextBox.Location = New-Object System.Drawing.Point(130, 80)
-        $newLabelTextBox.Size = New-Object System.Drawing.Size(350, 20)
+        $newLabelTextBox.Location = New-Object System.Drawing.Point(310, 80)
+        $newLabelTextBox.Size = New-Object System.Drawing.Size(250, 20)
         $newLabelTextBox.BackColor = [System.Drawing.Color]::White
         $newLabelTextBox.ForeColor = [System.Drawing.Color]::Black
         $newLabelTextBox.Font = New-Object System.Drawing.Font("Consolas", 10)
@@ -2225,26 +2200,11 @@ extend
 
         $contentPanel.Controls.Add($newLabelTextBox)
 
-        # Status textbox
-        $renameStatusTextBox = New-Object System.Windows.Forms.TextBox
-        $renameStatusTextBox.Multiline = $true
-        $renameStatusTextBox.ScrollBars = "Vertical"
-        $renameStatusTextBox.Location = New-Object System.Drawing.Point(20, 180)
-        $renameStatusTextBox.Size = New-Object System.Drawing.Size(720, 70)
-        $renameStatusTextBox.BackColor = [System.Drawing.Color]::Black
-        $renameStatusTextBox.ForeColor = [System.Drawing.Color]::Lime
-        $renameStatusTextBox.Font = New-Object System.Drawing.Font("Consolas", 9)
-        $renameStatusTextBox.ReadOnly = $true
-        $renameStatusTextBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-        $renameStatusTextBox.Text = "Ready to rename volume..."
-        $contentPanel.Controls.Add($renameStatusTextBox)
-
-        # Function to add status message to the rename form
+        # Function to add status message to the main status box for rename operations
         function Add-RenameStatus {
             param([string]$message)
-            $renameStatusTextBox.AppendText("$message`r`n")
-            $renameStatusTextBox.ScrollToCaret()
-            [System.Windows.Forms.Application]::DoEvents()
+            # Use the main status box
+            Add-Status $message
         }
 
         # Update selected drive when drive is selected in the main drive list
@@ -2482,7 +2442,7 @@ extend
         }
 
         # Rename button
-        $renameButton = New-DynamicButton -text "Rename Volume" -x 20 -y 140 -width 200 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+        $renameButton = New-DynamicButton -text "Rename Volume" -x 150 -y 140 -width 200 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
             # Lấy thông tin từ form
             $driveLetter = $driveLetterTextBox.Text.Trim().ToUpper()
             # Đảm bảo không có khoảng trắng ở đầu và cuối tên nhãn
@@ -2490,17 +2450,17 @@ extend
 
             # Kiểm tra đầu vào
             if ($driveLetter -eq "") {
-                Add-RenameStatus "Error: Please select a drive."
+                Add-Status "Rename Volume: Error: Please select a drive."
                 return
             }
 
             if ($newLabel -eq "") {
-                Add-RenameStatus "Error: Please enter a new label."
+                Add-Status "Rename Volume: Error: Please enter a new label."
                 return
             }
 
             # Thông báo bắt đầu đổi tên
-            Add-RenameStatus "Renaming drive $driveLetter to $newLabel..."
+            Add-Status "Rename Volume: Renaming drive $driveLetter to $newLabel..."
 
             # Biến để lưu trạng thái thành công
             $success = $false
@@ -2596,12 +2556,12 @@ extend
         $contentPanel.Controls.Add($renameButton)
 
         # Cancel button
-        $cancelButton = New-DynamicButton -text "Cancel" -x 240 -y 140 -width 200 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
+        $cancelButton = New-DynamicButton -text "Cancel" -x 410 -y 140 -width 200 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
             $contentPanel.Controls.Clear()
         }
         $contentPanel.Controls.Add($cancelButton)
 
-        Add-Status "Ready to rename volume..."
+        Add-Status "Ready to rename volume. Select a drive from the list, enter a new label, then click Rename Volume."
     }
     $volumeForm.Controls.Add($btnRenameVolume)
 
