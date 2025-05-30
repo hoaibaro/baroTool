@@ -1,17 +1,17 @@
-# # Check for admin privileges
-# if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-#     Write-Warning "This script requires administrative privileges. Attempting to restart with elevation..."
-#     Start-Sleep -Seconds 1
+# Check for admin privileges
+if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    Write-Warning "This script requires administrative privileges. Attempting to restart with elevation..."
+    Start-Sleep -Seconds 1
 
-#     # Restart script with admin privileges
-#     $scriptPath = $MyInvocation.MyCommand.Path
-#     $arguments = "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$scriptPath`""
+    # Restart script with admin privileges
+    $scriptPath = $MyInvocation.MyCommand.Path
+    $arguments = "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$scriptPath`""
 
-#     Start-Process powershell.exe -ArgumentList $arguments -Verb RunAs
+    Start-Process powershell.exe -ArgumentList $arguments -Verb RunAs
 
-#     # Exit the current non-elevated instance
-#     exit
-# }
+    # Exit the current non-elevated instance
+    exit
+}
 
 # Hide PowerShell console window
 Add-Type -Name Window -Namespace Console -MemberDefinition '
@@ -296,9 +296,9 @@ $buttonChangeVolume = New-DynamicButton -text "[4] Change / Edit Volume" -x 30 -
     # Function to update drive list
     function Update-DriveList {
         $driveListBox.Items.Clear()
-        $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } },
-        @{Name = 'VolumeName'; Expression = { $_.VolumeName } },
-        @{Name = 'Size (GB)'; Expression = { [math]::round($_.Size / 1GB, 0) } },
+        $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } }, `
+        @{Name = 'VolumeName'; Expression = { $_.VolumeName } }, `
+        @{Name = 'Size (GB)'; Expression = { [math]::round($_.Size / 1GB, 0) } }, `
         @{Name = 'FreeSpace (GB)'; Expression = { [math]::round($_.FreeSpace / 1GB, 0) } }
 
         foreach ($drive in $drives) {
@@ -323,6 +323,76 @@ $buttonChangeVolume = New-DynamicButton -text "[4] Change / Edit Volume" -x 30 -
         Add-Status "Error getting drive list: $_"
     }
 
+    # Add a common event handler for driveListBox to update all input fields in all buttons
+    $driveListBox.Add_SelectedIndexChanged({
+        if ($driveListBox.SelectedItem) {
+            $selectedDrive = $driveListBox.SelectedItem.ToString()
+            $driveLetter = $selectedDrive.Substring(0, 1)
+
+            # Update for Change Letter button
+            if ($contentPanel.Controls.Count -gt 0 -and $contentPanel.Controls[0].Text -eq "Change Drive Letter") {
+                # Update the script scope textbox directly
+                if ($script:oldLetterTextBox) {
+                    $script:oldLetterTextBox.Text = $driveLetter
+                }
+            }
+
+            # Update for Shrink Volume button
+            if ($contentPanel.Controls.Count -gt 0 -and $contentPanel.Controls[0].Text -eq "Shrink Volume and Create New Partition") {
+                # Use script scope variable directly
+                if ($script:selectedDriveTextBox) {
+                    $script:selectedDriveTextBox.Text = $driveLetter
+                }
+            }
+
+            # Update for Extend Volume button
+            if ($contentPanel.Controls.Count -gt 0 -and $contentPanel.Controls[0].Text -eq "Extend Volume by Merging") {
+                # Find the source and target drive textboxes
+                $sourceDriveTextBox = $contentPanel.Controls | Where-Object { $_ -is [System.Windows.Forms.TextBox] -and $_.Location.X -eq 330 }
+                $targetDriveTextBox = $contentPanel.Controls | Where-Object { $_ -is [System.Windows.Forms.TextBox] -and $_.Location.X -eq 580 }
+
+                if ($sourceDriveTextBox -and $targetDriveTextBox) {
+                    # If source drive is empty, fill it
+                    if ($sourceDriveTextBox.Text -eq "") {
+                        $sourceDriveTextBox.Text = $driveLetter
+                    }
+                    # Otherwise, if target drive is empty and different from source, fill it
+                    elseif ($targetDriveTextBox.Text -eq "" -and $driveLetter -ne $sourceDriveTextBox.Text) {
+                        $targetDriveTextBox.Text = $driveLetter
+                    }
+                }
+            }
+
+            # Update for Rename Volume button
+            if ($contentPanel.Controls.Count -gt 0 -and $contentPanel.Controls[0].Text -eq "Rename Volume") {
+                # Find the drive letter textbox
+                $driveLetterTextBox = $contentPanel.Controls | Where-Object { $_ -is [System.Windows.Forms.TextBox] -and $_.Location.X -eq 310 -and $_.Location.Y -eq 50 }
+                $newLabelTextBox = $contentPanel.Controls | Where-Object { $_ -is [System.Windows.Forms.TextBox] -and $_.Location.X -eq 310 -and $_.Location.Y -eq 80 }
+
+                if ($driveLetterTextBox) {
+                    $driveLetterTextBox.Text = $driveLetter
+
+                    # Get current volume name
+                    $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } }, `
+                    @{Name = 'VolumeName'; Expression = { $_.VolumeName } }
+
+                    $currentVolumeName = ""
+                    foreach ($drive in $drives) {
+                        if ($drive.Name -eq "$($driveLetter):") {
+                            $currentVolumeName = $drive.VolumeName
+                            break
+                        }
+                    }
+
+                    # Set current volume name as default text
+                    if ($newLabelTextBox) {
+                        $newLabelTextBox.Text = $currentVolumeName
+                    }
+                }
+            }
+        }
+    })
+
     # Create buttons horizontally
     # Change Drive Letter button
     $btnChangeDriveLetter = New-DynamicButton -text "Change Letter" -x 20 -y 150 -width 150 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
@@ -340,55 +410,69 @@ $buttonChangeVolume = New-DynamicButton -text "[4] Change / Edit Volume" -x 30 -
         $titleLabel.BackColor = [System.Drawing.Color]::Transparent
         $contentPanel.Controls.Add($titleLabel)
 
+        # Create GroupBox for centered content
+        $changeGroupBox = New-Object System.Windows.Forms.GroupBox
+        $changeGroupBox.Text = "Drive Letter Configuration"
+        $changeGroupBox.Location = New-Object System.Drawing.Point(180, 60)
+        $changeGroupBox.Size = New-Object System.Drawing.Size(400, 150)
+        $changeGroupBox.ForeColor = [System.Drawing.Color]::Lime
+        $changeGroupBox.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $contentPanel.Controls.Add($changeGroupBox)
+
         # Old drive letter label
         $oldLetterLabel = New-Object System.Windows.Forms.Label
         $oldLetterLabel.Text = "Select Drive Letter to Change:"
-        $oldLetterLabel.Location = New-Object System.Drawing.Point(20, 50)
+        $oldLetterLabel.Location = New-Object System.Drawing.Point(20, 30)
         $oldLetterLabel.Size = New-Object System.Drawing.Size(200, 20)
         $oldLetterLabel.ForeColor = [System.Drawing.Color]::White
         $oldLetterLabel.Font = New-Object System.Drawing.Font("Arial", 10)
-        $contentPanel.Controls.Add($oldLetterLabel)
+        $changeGroupBox.Controls.Add($oldLetterLabel)
 
         # Old drive letter textbox
-        $oldLetterTextBox = New-Object System.Windows.Forms.TextBox
-        $oldLetterTextBox.Location = New-Object System.Drawing.Point(230, 50)
-        $oldLetterTextBox.Size = New-Object System.Drawing.Size(50, 20)
-        $oldLetterTextBox.BackColor = [System.Drawing.Color]::Black
-        $oldLetterTextBox.ForeColor = [System.Drawing.Color]::Lime
-        $oldLetterTextBox.Font = New-Object System.Drawing.Font("Consolas", 10)
-        $oldLetterTextBox.MaxLength = 1
-        $contentPanel.Controls.Add($oldLetterTextBox)
+        $script:oldLetterTextBox = New-Object System.Windows.Forms.TextBox
+        $script:oldLetterTextBox.Location = New-Object System.Drawing.Point(230, 30)
+        $script:oldLetterTextBox.Size = New-Object System.Drawing.Size(50, 20)
+        $script:oldLetterTextBox.BackColor = [System.Drawing.Color]::Black
+        $script:oldLetterTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $script:oldLetterTextBox.Font = New-Object System.Drawing.Font("Consolas", 10)
+        $script:oldLetterTextBox.MaxLength = 1
+        $script:oldLetterTextBox.ReadOnly = $true
+        $script:oldLetterTextBox.TextAlign = [System.Windows.Forms.HorizontalAlignment]::Center
+        $changeGroupBox.Controls.Add($script:oldLetterTextBox)
 
         # New drive letter label
         $newLetterLabel = New-Object System.Windows.Forms.Label
         $newLetterLabel.Text = "New Drive Letter:"
-        $newLetterLabel.Location = New-Object System.Drawing.Point(20, 80)
+        $newLetterLabel.Location = New-Object System.Drawing.Point(20, 60)
         $newLetterLabel.Size = New-Object System.Drawing.Size(200, 20)
         $newLetterLabel.ForeColor = [System.Drawing.Color]::White
         $newLetterLabel.Font = New-Object System.Drawing.Font("Arial", 10)
-        $contentPanel.Controls.Add($newLetterLabel)
+        $changeGroupBox.Controls.Add($newLetterLabel)
 
         # New drive letter textbox
-        $newLetterTextBox = New-Object System.Windows.Forms.TextBox
-        $newLetterTextBox.Location = New-Object System.Drawing.Point(230, 80)
-        $newLetterTextBox.Size = New-Object System.Drawing.Size(50, 20)
-        $newLetterTextBox.BackColor = [System.Drawing.Color]::Black
-        $newLetterTextBox.ForeColor = [System.Drawing.Color]::Lime
-        $newLetterTextBox.Font = New-Object System.Drawing.Font("Consolas", 10)
-        $newLetterTextBox.MaxLength = 1
-        $contentPanel.Controls.Add($newLetterTextBox)
+        $script:newLetterTextBox = New-Object System.Windows.Forms.TextBox
+        $script:newLetterTextBox.Location = New-Object System.Drawing.Point(230, 60)
+        $script:newLetterTextBox.Size = New-Object System.Drawing.Size(50, 20)
+        $script:newLetterTextBox.BackColor = [System.Drawing.Color]::Black
+        $script:newLetterTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $script:newLetterTextBox.Font = New-Object System.Drawing.Font("Consolas", 10)
+        $script:newLetterTextBox.MaxLength = 1
+        $script:newLetterTextBox.TextAlign = [System.Windows.Forms.HorizontalAlignment]::Center
+        $changeGroupBox.Controls.Add($script:newLetterTextBox)
 
-        # Update old letter when drive is selected in the main drive list
+        # Set initial value if a drive is already selected
         if ($driveListBox.SelectedItem) {
             $selectedDrive = $driveListBox.SelectedItem.ToString()
             $driveLetter = $selectedDrive.Substring(0, 1)
-            $oldLetterTextBox.Text = $driveLetter
+            $script:oldLetterTextBox.Text = $driveLetter
         }
 
-        # Change button
-        $changeButton = New-DynamicButton -text "Change Drive Letter" -x 20 -y 120 -width 200 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
-            $oldLetter = $oldLetterTextBox.Text.Trim().ToUpper()
-            $newLetter = $newLetterTextBox.Text.Trim().ToUpper()
+        # Note: The driveListBox.SelectedIndexChanged event is now handled at the form level
+
+        # Change button (inside GroupBox)
+        $changeButton = New-DynamicButton -text "Change Drive Letter" -x 100 -y 100 -width 200 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+            $oldLetter = if ($script:oldLetterTextBox) { $script:oldLetterTextBox.Text.Trim().ToUpper() } else { "" }
+            $newLetter = if ($script:newLetterTextBox) { $script:newLetterTextBox.Text.Trim().ToUpper() } else { "" }
 
             # Validate input
             if ($oldLetter -eq "") {
@@ -439,15 +523,25 @@ assign letter=$newLetter
                 if ($process.ExitCode -eq 0) {
                     Add-Status "Successfully changed drive letter from $oldLetter to $newLetter."
 
-                    # Refresh drive list in main form
-                    Update-DriveList
+                    # Refresh drive list
+                    $driveListBox.Items.Clear()
+                    $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } }, `
+                    @{Name = 'VolumeName'; Expression = { $_.VolumeName } }, `
+                    @{Name = 'Size (GB)'; Expression = { [math]::round($_.Size / 1GB, 0) } }, `
+                    @{Name = 'FreeSpace (GB)'; Expression = { [math]::round($_.FreeSpace / 1GB, 0) } }
 
-                    # Update old letter textbox with new selection
-                    if ($driveListBox.SelectedItem) {
-                        $selectedDrive = $driveListBox.SelectedItem.ToString()
-                        $driveLetter = $selectedDrive.Substring(0, 1)
-                        $oldLetterTextBox.Text = $driveLetter
+                    foreach ($drive in $drives) {
+                        $driveInfo = "$($drive.Name) - $($drive.VolumeName) - Size: $($drive.'Size (GB)') GB - Free: $($drive.'FreeSpace (GB)') GB"
+                        $driveListBox.Items.Add($driveInfo)
                     }
+
+                    if ($driveListBox.Items.Count -gt 0) {
+                        $driveListBox.SelectedIndex = 0
+                    }
+
+                    # Clear textboxes
+                    $script:oldLetterTextBox.Text = ""
+                    $script:newLetterTextBox.Text = ""
                 }
                 else {
                     Add-Status "Error changing drive letter. Exit code: $($process.ExitCode)"
@@ -463,7 +557,7 @@ assign letter=$newLetter
                 }
             }
         }
-        $contentPanel.Controls.Add($changeButton)
+        $changeGroupBox.Controls.Add($changeButton)
     }
     $volumeForm.Controls.Add($btnChangeDriveLetter)
 
@@ -492,24 +586,17 @@ assign letter=$newLetter
         $selectedDriveLabel.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
         $contentPanel.Controls.Add($selectedDriveLabel)
 
-        # Selected drive letter textbox
-        $selectedDriveTextBox = New-Object System.Windows.Forms.TextBox
-        $selectedDriveTextBox.Location = New-Object System.Drawing.Point(180, 50)
-        $selectedDriveTextBox.Size = New-Object System.Drawing.Size(50, 25)
-        $selectedDriveTextBox.BackColor = [System.Drawing.Color]::Black
-        $selectedDriveTextBox.ForeColor = [System.Drawing.Color]::Lime
-        $selectedDriveTextBox.Font = New-Object System.Drawing.Font("Consolas", 11, [System.Drawing.FontStyle]::Bold)
-        $selectedDriveTextBox.MaxLength = 1
-        $selectedDriveTextBox.ReadOnly = $true
-        $selectedDriveTextBox.TextAlign = [System.Windows.Forms.HorizontalAlignment]::Center
-        $contentPanel.Controls.Add($selectedDriveTextBox)
-
-        # Update selected drive from main drive list
-        if ($driveListBox.SelectedItem) {
-            $selectedDrive = $driveListBox.SelectedItem.ToString()
-            $driveLetter = $selectedDrive.Substring(0, 1)
-            $selectedDriveTextBox.Text = $driveLetter
-        }
+        # Selected drive letter textbox - use script scope
+        $script:selectedDriveTextBox = New-Object System.Windows.Forms.TextBox
+        $script:selectedDriveTextBox.Location = New-Object System.Drawing.Point(180, 50)
+        $script:selectedDriveTextBox.Size = New-Object System.Drawing.Size(50, 25)
+        $script:selectedDriveTextBox.BackColor = [System.Drawing.Color]::Black
+        $script:selectedDriveTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $script:selectedDriveTextBox.Font = New-Object System.Drawing.Font("Consolas", 11, [System.Drawing.FontStyle]::Bold)
+        $script:selectedDriveTextBox.MaxLength = 1
+        $script:selectedDriveTextBox.ReadOnly = $true
+        $script:selectedDriveTextBox.TextAlign = [System.Windows.Forms.HorizontalAlignment]::Center
+        $contentPanel.Controls.Add($script:selectedDriveTextBox)
 
         # Partition size options group box
         $partitionGroupBox = New-Object System.Windows.Forms.GroupBox
@@ -520,57 +607,88 @@ assign letter=$newLetter
         $partitionGroupBox.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
         $contentPanel.Controls.Add($partitionGroupBox)
 
-        # 80GB radio button
-        $radio80GB = New-Object System.Windows.Forms.RadioButton
-        $radio80GB.Text = "80GB (recommended for 256GB drives)"
-        $radio80GB.Location = New-Object System.Drawing.Point(20, 30)
-        $radio80GB.Size = New-Object System.Drawing.Size(350, 20)
-        $radio80GB.ForeColor = [System.Drawing.Color]::White
-        $radio80GB.Font = New-Object System.Drawing.Font("Arial", 10)
-        $radio80GB.Checked = $true
-        $partitionGroupBox.Controls.Add($radio80GB)
+        # Create a panel inside the GroupBox to properly group radio buttons
+        $radioPanel = New-Object System.Windows.Forms.Panel
+        $radioPanel.Location = New-Object System.Drawing.Point(10, 20)
+        $radioPanel.Size = New-Object System.Drawing.Size(700, 90)
+        $radioPanel.BackColor = [System.Drawing.Color]::Transparent
+        $partitionGroupBox.Controls.Add($radioPanel)
+
+        # Declare radio buttons at script scope so they're accessible in the shrink button click event
+        $script:radio80GB = New-Object System.Windows.Forms.RadioButton
+        $script:radio80GB.Text = "80GB (recommended for 256GB drives)"
+        $script:radio80GB.Location = New-Object System.Drawing.Point(10, 10)
+        $script:radio80GB.Size = New-Object System.Drawing.Size(350, 20)
+        $script:radio80GB.ForeColor = [System.Drawing.Color]::White
+        $script:radio80GB.Font = New-Object System.Drawing.Font("Arial", 10)
+        $script:radio80GB.Checked = $true
+        $radioPanel.Controls.Add($script:radio80GB)
 
         # 200GB radio button
-        $radio200GB = New-Object System.Windows.Forms.RadioButton
-        $radio200GB.Text = "200GB (recommended for 500GB drives)"
-        $radio200GB.Location = New-Object System.Drawing.Point(20, 55)
-        $radio200GB.Size = New-Object System.Drawing.Size(350, 20)
-        $radio200GB.ForeColor = [System.Drawing.Color]::White
-        $radio200GB.Font = New-Object System.Drawing.Font("Arial", 10)
-        $partitionGroupBox.Controls.Add($radio200GB)
+        $script:radio200GB = New-Object System.Windows.Forms.RadioButton
+        $script:radio200GB.Text = "200GB (recommended for 500GB drives)"
+        $script:radio200GB.Location = New-Object System.Drawing.Point(10, 35)
+        $script:radio200GB.Size = New-Object System.Drawing.Size(350, 20)
+        $script:radio200GB.ForeColor = [System.Drawing.Color]::White
+        $script:radio200GB.Font = New-Object System.Drawing.Font("Arial", 10)
+        $radioPanel.Controls.Add($script:radio200GB)
 
         # 500GB radio button
-        $radio500GB = New-Object System.Windows.Forms.RadioButton
-        $radio500GB.Text = "500GB (recommended for 1TB+ drives)"
-        $radio500GB.Location = New-Object System.Drawing.Point(20, 80)
-        $radio500GB.Size = New-Object System.Drawing.Size(350, 20)
-        $radio500GB.ForeColor = [System.Drawing.Color]::White
-        $radio500GB.Font = New-Object System.Drawing.Font("Arial", 10)
-        $partitionGroupBox.Controls.Add($radio500GB)
+        $script:radio500GB = New-Object System.Windows.Forms.RadioButton
+        $script:radio500GB.Text = "500GB (recommended for 1TB+ drives)"
+        $script:radio500GB.Location = New-Object System.Drawing.Point(10, 60)
+        $script:radio500GB.Size = New-Object System.Drawing.Size(350, 20)
+        $script:radio500GB.ForeColor = [System.Drawing.Color]::White
+        $script:radio500GB.Font = New-Object System.Drawing.Font("Arial", 10)
+        $radioPanel.Controls.Add($script:radio500GB)
 
         # Custom size radio button
-        $radioCustom = New-Object System.Windows.Forms.RadioButton
-        $radioCustom.Text = "Custom size (MB):"
-        $radioCustom.Location = New-Object System.Drawing.Point(380, 30)
-        $radioCustom.Size = New-Object System.Drawing.Size(150, 20)
-        $radioCustom.ForeColor = [System.Drawing.Color]::White
-        $radioCustom.Font = New-Object System.Drawing.Font("Arial", 10)
-        $partitionGroupBox.Controls.Add($radioCustom)
+        $script:radioCustom = New-Object System.Windows.Forms.RadioButton
+        $script:radioCustom.Text = "Custom size (MB):"
+        $script:radioCustom.Location = New-Object System.Drawing.Point(370, 10)
+        $script:radioCustom.Size = New-Object System.Drawing.Size(150, 20)
+        $script:radioCustom.ForeColor = [System.Drawing.Color]::White
+        $script:radioCustom.Font = New-Object System.Drawing.Font("Arial", 10)
+        $radioPanel.Controls.Add($script:radioCustom)
 
         # Custom size textbox
-        $customSizeTextBox = New-Object System.Windows.Forms.TextBox
-        $customSizeTextBox.Location = New-Object System.Drawing.Point(380, 55)
-        $customSizeTextBox.Size = New-Object System.Drawing.Size(150, 25)
-        $customSizeTextBox.BackColor = [System.Drawing.Color]::Black
-        $customSizeTextBox.ForeColor = [System.Drawing.Color]::Lime
-        $customSizeTextBox.Font = New-Object System.Drawing.Font("Consolas", 11)
-        $customSizeTextBox.Text = "102400"  # Default to 100GB in MB
-        $customSizeTextBox.Enabled = $false
-        $partitionGroupBox.Controls.Add($customSizeTextBox)
+        $script:customSizeTextBox = New-Object System.Windows.Forms.TextBox
+        $script:customSizeTextBox.Location = New-Object System.Drawing.Point(370, 35)
+        $script:customSizeTextBox.Size = New-Object System.Drawing.Size(150, 25)
+        $script:customSizeTextBox.BackColor = [System.Drawing.Color]::Black
+        $script:customSizeTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $script:customSizeTextBox.Font = New-Object System.Drawing.Font("Consolas", 11)
+        $script:customSizeTextBox.Text = "102400"  # Default to 100GB in MB
+        $script:customSizeTextBox.Enabled = $false
+        $radioPanel.Controls.Add($script:customSizeTextBox)
 
-        # Enable/disable custom size textbox based on radio selection
-        $radioCustom.Add_CheckedChanged({
-            $customSizeTextBox.Enabled = $radioCustom.Checked
+        # Add event handlers for radio buttons to enable/disable custom textbox
+        $script:radioCustom.Add_CheckedChanged({
+            if ($script:radioCustom.Checked) {
+                $script:customSizeTextBox.Enabled = $true
+                $script:customSizeTextBox.Focus()
+            } else {
+                $script:customSizeTextBox.Enabled = $false
+            }
+        })
+
+        # Add event handlers for other radio buttons to disable custom textbox
+        $script:radio80GB.Add_CheckedChanged({
+            if ($script:radio80GB.Checked) {
+                $script:customSizeTextBox.Enabled = $false
+            }
+        })
+
+        $script:radio200GB.Add_CheckedChanged({
+            if ($script:radio200GB.Checked) {
+                $script:customSizeTextBox.Enabled = $false
+            }
+        })
+
+        $script:radio500GB.Add_CheckedChanged({
+            if ($script:radio500GB.Checked) {
+                $script:customSizeTextBox.Enabled = $false
+            }
         })
 
         # New partition label
@@ -594,7 +712,7 @@ assign letter=$newLetter
 
         # Shrink button
         $shrinkButton = New-DynamicButton -text "Shrink" -x 275 -y 210 -width 200 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
-            $driveLetter = $selectedDriveTextBox.Text.Trim().ToUpper()
+            $driveLetter = $script:selectedDriveTextBox.Text.Trim().ToUpper()
             $newLabel = $newLabelTextBox.Text.Trim()
 
             # Validate input
@@ -610,21 +728,22 @@ assign letter=$newLetter
 
             # Determine partition size
             $sizeMB = 0
-            if ($radio80GB.Checked) {
+
+            if ($script:radio80GB.Checked) {
                 $sizeMB = 82020
-                Add-Status "Selected 80GB partition."
+                Add-Status "Selected 80GB partition (82,020 MB)."
             }
-            elseif ($radio200GB.Checked) {
+            elseif ($script:radio200GB.Checked) {
                 $sizeMB = 204955
-                Add-Status "Selected 200GB partition."
+                Add-Status "Selected 200GB partition (204,955 MB)."
             }
-            elseif ($radio500GB.Checked) {
+            elseif ($script:radio500GB.Checked) {
                 $sizeMB = 512000
-                Add-Status "Selected 500GB partition."
+                Add-Status "Selected 500GB partition (512,000 MB)."
             }
-            elseif ($radioCustom.Checked) {
+            elseif ($script:radioCustom.Checked) {
                 # Validate custom size input
-                $customSize = $customSizeTextBox.Text.Trim()
+                $customSize = $script:customSizeTextBox.Text.Trim()
                 if ($customSize -match '^\d+$') {
                     try {
                         $sizeMB = [int]$customSize
@@ -632,436 +751,137 @@ assign letter=$newLetter
                             Add-Status "Error: Custom size must be at least 1024 MB (1 GB)."
                             return
                         }
-                        Add-Status "Selected custom size: $sizeMB MB."
+                        if ($sizeMB -gt 2097152) { # 2TB limit
+                            Add-Status "Error: Custom size cannot exceed 2,097,152 MB (2 TB)."
+                            return
+                        }
+                        Add-Status "Selected custom size: $sizeMB MB ($([math]::Round($sizeMB/1024, 1)) GB)."
                     }
                     catch {
                         Add-Status "Error processing custom size: $_"
                         return
                     }
                 } else {
-                    Add-Status "Error: Custom size must be a valid number."
+                    Add-Status "Error: Custom size must be a valid number (digits only)."
                     return
                 }
             }
+            else {
+                Add-Status "Error: Please select a partition size option."
+                return
+            }
 
-            # Create diskpart script
-            $tempFile = [System.IO.Path]::GetTempFileName()
-            $diskpartScript = @"
-select volume $driveLetter
-shrink desired=$sizeMB
-create partition primary
-format fs=ntfs quick label=$newLabel
-assign
-list volume
-"@
-            Set-Content -Path $tempFile -Value $diskpartScript
-
-            Add-Status "Shrinking drive $driveLetter and creating new partition of $sizeMB MB..."
-
+            # Validate drive exists and get info
             try {
-                # Run diskpart with elevated privileges
-                $psi = New-Object System.Diagnostics.ProcessStartInfo
-                $psi.FileName = "diskpart.exe"
-                $psi.Arguments = "/s `"$tempFile`""
-                $psi.UseShellExecute = $true
-                $psi.Verb = "runas"
-                $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-
-                $process = [System.Diagnostics.Process]::Start($psi)
-                $process.WaitForExit()
-
-                # Check if successful
-                if ($process.ExitCode -eq 0) {
-                    Add-Status "Successfully shrunk drive $driveLetter and created new partition with label $newLabel."
-
-                    # Refresh drive list in main form
-                    Update-DriveList
+                $driveInfo = Get-WmiObject Win32_LogicalDisk | Where-Object { $_.DeviceID -eq "$($driveLetter):" }
+                if (-not $driveInfo) {
+                    Add-Status "Error: Drive $driveLetter does not exist."
+                    return
                 }
-                else {
-                    Add-Status "Error shrinking volume. Exit code: $($process.ExitCode)"
+
+                $freeSpaceMB = [math]::Floor($driveInfo.FreeSpace / 1MB)
+                $totalSizeMB = [math]::Floor($driveInfo.Size / 1MB)
+                $usedSpaceMB = $totalSizeMB - $freeSpaceMB
+
+                Add-Status "Drive $driveLetter info: Total: $totalSizeMB MB, Used: $usedSpaceMB MB, Free: $freeSpaceMB MB"
+
+                # Get actual shrinkable space using PowerShell (more accurate)
+                try {
+                    $partition = Get-Partition -DriveLetter $driveLetter -ErrorAction Stop
+                    $shrinkInfo = Get-PartitionSupportedSize -DriveLetter $driveLetter -ErrorAction Stop
+                    $maxShrinkBytes = $partition.Size - $shrinkInfo.SizeMin
+                    $maxShrinkMB = [math]::Floor($maxShrinkBytes / 1MB)
+
+                    Add-Status "Maximum shrinkable space: $maxShrinkMB MB"
+
+                    if ($sizeMB -gt $maxShrinkMB) {
+                        Add-Status "Error: Requested size ($sizeMB MB) exceeds maximum shrinkable space ($maxShrinkMB MB)."
+                        Add-Status "Try running disk defragmentation first or choose a smaller size."
+                        return
+                    }
+                }
+                catch {
+                    Add-Status "Warning: Could not get precise shrink info. Using fallback calculation."
+                    # Fallback: Use 80% of free space as safe shrink limit
+                    $maxShrinkMB = [math]::Floor($freeSpaceMB * 0.8)
+                    Add-Status "Estimated maximum shrinkable space: $maxShrinkMB MB"
+
+                    if ($sizeMB -gt $maxShrinkMB) {
+                        Add-Status "Error: Requested size ($sizeMB MB) exceeds estimated safe shrink limit ($maxShrinkMB MB)."
+                        Add-Status "Try a smaller size or free up more space on the drive."
+                        return
+                    }
                 }
             }
             catch {
-                Add-Status "Error: $_"
-            }
-            finally {
-                # Clean up temp file
-                if (Test-Path $tempFile) {
-                    Remove-Item $tempFile -Force
-                }
-            }
-        }
-        $contentPanel.Controls.Add($shrinkButton)
-
-        # Thêm xử lý phím Esc để đóng form
-        $shrinkForm.KeyPreview = $true
-        $shrinkForm.Add_KeyDown({
-            if ($_.KeyCode -eq [System.Windows.Forms.Keys]::Escape) {
-                $shrinkForm.Close()
-            }
-        })
-
-        # Title label
-        $titleLabel = New-Object System.Windows.Forms.Label
-        $titleLabel.Text = "SHRINK VOLUME AND CREATE NEW PARTITION"
-        $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
-        $titleLabel.Size = New-Object System.Drawing.Size(600, 30)
-        $titleLabel.ForeColor = [System.Drawing.Color]::Lime
-        $titleLabel.Font = New-Object System.Drawing.Font("Arial", 16, [System.Drawing.FontStyle]::Bold)
-        $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
-        $titleLabel.BackColor = [System.Drawing.Color]::Transparent
-        $shrinkForm.Controls.Add($titleLabel)
-
-        # Thêm hiệu ứng nhấp nháy cho tiêu đề
-        $titleTimer = New-Object System.Windows.Forms.Timer
-        $titleTimer.Interval = 800
-        $titleTimer.Add_Tick({
-            if ($titleLabel.ForeColor -eq [System.Drawing.Color]::Lime) {
-                $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 200, 0)
-            }
-            else {
-                $titleLabel.ForeColor = [System.Drawing.Color]::Lime
-            }
-        })
-        $titleTimer.Start()
-
-        # Drive list label
-        $driveListLabel = New-Object System.Windows.Forms.Label
-        $driveListLabel.Text = "Available Drives:"
-        $driveListLabel.Location = New-Object System.Drawing.Point(10, 60)
-        $driveListLabel.Size = New-Object System.Drawing.Size(200, 20)
-        $driveListLabel.ForeColor = [System.Drawing.Color]::White
-        $driveListLabel.Font = New-Object System.Drawing.Font("Arial", 11, [System.Drawing.FontStyle]::Bold)
-        $shrinkForm.Controls.Add($driveListLabel)
-
-        # Drive list box
-        $driveListBox = New-Object System.Windows.Forms.ListBox
-        $driveListBox.Location = New-Object System.Drawing.Point(10, 90)
-        $driveListBox.Size = New-Object System.Drawing.Size(560, 150)
-        $driveListBox.BackColor = [System.Drawing.Color]::Black
-        $driveListBox.ForeColor = [System.Drawing.Color]::Lime
-        $driveListBox.Font = New-Object System.Drawing.Font("Consolas", 10)
-        $shrinkForm.Controls.Add($driveListBox)
-
-        # Populate drive list
-        Add-Status "Getting list of drives..."
-        try {
-            $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } },
-            @{Name = 'VolumeName'; Expression = { $_.VolumeName } },
-            @{Name = 'Size (GB)'; Expression = { [math]::round($_.Size / 1GB, 0) } },
-            @{Name = 'FreeSpace (GB)'; Expression = { [math]::round($_.FreeSpace / 1GB, 0) } }
-
-            foreach ($drive in $drives) {
-                $driveInfo = "$($drive.Name) - $($drive.VolumeName) - Size: $($drive.'Size (GB)') GB - Free: $($drive.'FreeSpace (GB)') GB"
-                $driveListBox.Items.Add($driveInfo)
-            }
-
-            if ($driveListBox.Items.Count -gt 0) {
-                $driveListBox.SelectedIndex = 0
-            }
-
-            Add-Status "Found $($drives.Count) drives."
-        }
-        catch {
-            Add-Status "Error getting drive list: $_"
-        }
-
-        # Selected drive letter label
-        $selectedDriveLabel = New-Object System.Windows.Forms.Label
-        $selectedDriveLabel.Text = "Selected Drive Letter:"
-        $selectedDriveLabel.Location = New-Object System.Drawing.Point(10, 250)
-        $selectedDriveLabel.Size = New-Object System.Drawing.Size(150, 20)
-        $selectedDriveLabel.ForeColor = [System.Drawing.Color]::White
-        $selectedDriveLabel.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
-        $shrinkForm.Controls.Add($selectedDriveLabel)
-
-        # Selected drive letter textbox
-        $selectedDriveTextBox = New-Object System.Windows.Forms.TextBox
-        $selectedDriveTextBox.Location = New-Object System.Drawing.Point(180, 250)
-        $selectedDriveTextBox.Size = New-Object System.Drawing.Size(50, 25)
-        $selectedDriveTextBox.BackColor = [System.Drawing.Color]::Black
-        $selectedDriveTextBox.ForeColor = [System.Drawing.Color]::Lime
-        $selectedDriveTextBox.Font = New-Object System.Drawing.Font("Consolas", 11, [System.Drawing.FontStyle]::Bold)
-        $selectedDriveTextBox.MaxLength = 1
-        $selectedDriveTextBox.ReadOnly = $true
-        $selectedDriveTextBox.TextAlign = [System.Windows.Forms.HorizontalAlignment]::Center
-        $shrinkForm.Controls.Add($selectedDriveTextBox)
-
-        # Partition size options group box
-        $partitionGroupBox = New-Object System.Windows.Forms.GroupBox
-        $partitionGroupBox.Text = "Choose Partition Size"
-        $partitionGroupBox.Location = New-Object System.Drawing.Point(10, 280)
-        $partitionGroupBox.Size = New-Object System.Drawing.Size(560, 120)
-        $partitionGroupBox.ForeColor = [System.Drawing.Color]::Lime
-        $partitionGroupBox.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
-        $shrinkForm.Controls.Add($partitionGroupBox)
-
-            # 80GB radio button
-            $radio80GB = New-Object System.Windows.Forms.RadioButton
-            $radio80GB.Text = "80GB (recommended for 256GB drives)"
-            $radio80GB.Location = New-Object System.Drawing.Point(20, 30)
-            $radio80GB.Size = New-Object System.Drawing.Size(350, 20)
-            $radio80GB.ForeColor = [System.Drawing.Color]::White
-            $radio80GB.Font = New-Object System.Drawing.Font("Arial", 10)
-            $radio80GB.Checked = $true
-            $partitionGroupBox.Controls.Add($radio80GB)
-
-            # 200GB radio button
-            $radio200GB = New-Object System.Windows.Forms.RadioButton
-            $radio200GB.Text = "200GB (recommended for 500GB drives)"
-            $radio200GB.Location = New-Object System.Drawing.Point(20, 55)
-            $radio200GB.Size = New-Object System.Drawing.Size(350, 20)
-            $radio200GB.ForeColor = [System.Drawing.Color]::White
-            $radio200GB.Font = New-Object System.Drawing.Font("Arial", 10)
-            $partitionGroupBox.Controls.Add($radio200GB)
-
-            # 500GB radio button
-            $radio500GB = New-Object System.Windows.Forms.RadioButton
-            $radio500GB.Text = "500GB (recommended for 1TB+ drives)"
-            $radio500GB.Location = New-Object System.Drawing.Point(20, 80)
-            $radio500GB.Size = New-Object System.Drawing.Size(350, 20)
-            $radio500GB.ForeColor = [System.Drawing.Color]::White
-            $radio500GB.Font = New-Object System.Drawing.Font("Arial", 10)
-            $partitionGroupBox.Controls.Add($radio500GB)
-
-            # Custom size radio button
-            $radioCustom = New-Object System.Windows.Forms.RadioButton
-            $radioCustom.Text = "Custom size (MB):"
-            $radioCustom.Location = New-Object System.Drawing.Point(380, 30)
-            $radioCustom.Size = New-Object System.Drawing.Size(150, 20)
-            $radioCustom.ForeColor = [System.Drawing.Color]::White
-            $radioCustom.Font = New-Object System.Drawing.Font("Arial", 10)
-            $partitionGroupBox.Controls.Add($radioCustom)
-
-            # Custom size textbox
-            $customSizeTextBox = New-Object System.Windows.Forms.TextBox
-            $customSizeTextBox.Location = New-Object System.Drawing.Point(380, 55)
-            $customSizeTextBox.Size = New-Object System.Drawing.Size(150, 25)
-            $customSizeTextBox.BackColor = [System.Drawing.Color]::Black
-            $customSizeTextBox.ForeColor = [System.Drawing.Color]::Lime
-            $customSizeTextBox.Font = New-Object System.Drawing.Font("Consolas", 11)
-            $customSizeTextBox.Text = "102400"  # Default to 100GB in MB
-            $customSizeTextBox.Enabled = $false
-            $partitionGroupBox.Controls.Add($customSizeTextBox)
-
-            # Thêm xử lý sự kiện khi nhấn Enter trong ô custom size
-            $customSizeTextBox.Add_KeyDown({
-                if ($_.KeyCode -eq [System.Windows.Forms.Keys]::Enter) {
-                    $_.SuppressKeyPress = $true  # Ngăn chặn tiếng "beep"
-                    $shrinkButton.PerformClick()  # Kích hoạt nút Shrink
-                }
-            })
-
-            # Enable/disable custom size textbox based on radio selection
-            $radioCustom.Add_CheckedChanged({
-                $customSizeTextBox.Enabled = $radioCustom.Checked
-            })
-
-            # Disable custom size textbox when other options are selected
-            $radio80GB.Add_CheckedChanged({
-                if ($radio80GB.Checked) {
-                    $customSizeTextBox.Enabled = $false
-                }
-            })
-
-            $radio200GB.Add_CheckedChanged({
-                if ($radio200GB.Checked) {
-                    $customSizeTextBox.Enabled = $false
-                }
-            })
-
-            $radio500GB.Add_CheckedChanged({
-                if ($radio500GB.Checked) {
-                    $customSizeTextBox.Enabled = $false
-                }
-            })
-
-        # New partition label
-        $newLabelLabel = New-Object System.Windows.Forms.Label
-        $newLabelLabel.Text = "New Partition Label:"
-        $newLabelLabel.Location = New-Object System.Drawing.Point(10, 415)
-        $newLabelLabel.Size = New-Object System.Drawing.Size(150, 20)
-        $newLabelLabel.ForeColor = [System.Drawing.Color]::White
-        $newLabelLabel.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
-        $shrinkForm.Controls.Add($newLabelLabel)
-
-        # New partition label textbox
-        $newLabelTextBox = New-Object System.Windows.Forms.TextBox
-        $newLabelTextBox.Location = New-Object System.Drawing.Point(180, 410) # Điểm bắt đầu của ô nhập liệu
-        $newLabelTextBox.Size = New-Object System.Drawing.Size(250, 25) # Kích thước của ô nhập liệu
-        $newLabelTextBox.BackColor = [System.Drawing.Color]::Black
-        $newLabelTextBox.ForeColor = [System.Drawing.Color]::Lime
-        $newLabelTextBox.Font = New-Object System.Drawing.Font("Consolas", 11)
-        $newLabelTextBox.Text = "GAME"
-
-        # Thêm xử lý sự kiện khi nhấn Enter để thực hiện shrink volume
-        $newLabelTextBox.Add_KeyDown({
-            if ($_.KeyCode -eq [System.Windows.Forms.Keys]::Enter) {
-                $_.SuppressKeyPress = $true  # Ngăn chặn tiếng "beep"
-                $shrinkButton.PerformClick()  # Kích hoạt nút Shrink
-            }
-        })
-
-        $shrinkForm.Controls.Add($newLabelTextBox)
-
-        # Status textbox
-        $shrinkStatusTextBox = New-Object System.Windows.Forms.TextBox
-        $shrinkStatusTextBox.Multiline = $true
-        $shrinkStatusTextBox.ScrollBars = "Vertical"
-        $shrinkStatusTextBox.Location = New-Object System.Drawing.Point(10, 500)
-        $shrinkStatusTextBox.Size = New-Object System.Drawing.Size(560, 80)
-        $shrinkStatusTextBox.BackColor = [System.Drawing.Color]::Black
-        $shrinkStatusTextBox.ForeColor = [System.Drawing.Color]::Lime
-        $shrinkStatusTextBox.Font = New-Object System.Drawing.Font("Consolas", 9)
-        $shrinkStatusTextBox.ReadOnly = $true
-        $shrinkStatusTextBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-        $shrinkStatusTextBox.Text = "Ready to shrink volume..."
-        $shrinkForm.Controls.Add($shrinkStatusTextBox)
-
-        # Function to add status message to the shrink form
-        function Add-ShrinkStatus {
-            param([string]$message)
-            $shrinkStatusTextBox.AppendText("$message`r`n")
-            $shrinkStatusTextBox.ScrollToCaret()
-            [System.Windows.Forms.Application]::DoEvents()
-        }
-
-        # Update selected drive when drive is selected
-        $driveListBox.Add_SelectedIndexChanged({
-                if ($driveListBox.SelectedItem) {
-                    $selectedDrive = $driveListBox.SelectedItem.ToString()
-                    $driveLetter = $selectedDrive.Substring(0, 1)
-                    $selectedDriveTextBox.Text = $driveLetter
-                }
-            })
-
-        # Shrink button
-        $shrinkButton = New-DynamicButton -text "Shrink" -x 50 -y 400 -width 200 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
-            $driveLetter = $selectedDriveTextBox.Text.Trim().ToUpper()
-            $newLabel = $newLabelTextBox.Text.Trim()
-
-            # Validate input
-            if ($driveLetter -eq "") {
-                Add-ShrinkStatus "Error: Please select a drive."
+                Add-Status "Error getting drive information: $_"
                 return
             }
 
-            if ($newLabel -eq "") {
-                Add-ShrinkStatus "Error: Please enter a label for the new partition."
-                return
-            }
-
-            # Determine partition size
-            $sizeMB = 0
-            if ($radio80GB.Checked) {
-                $sizeMB = 82020
-                Add-ShrinkStatus "Selected 80GB partition."
-            }
-            elseif ($radio200GB.Checked) {
-                $sizeMB = 204955
-                Add-ShrinkStatus "Selected 200GB partition."
-            }
-            elseif ($radio500GB.Checked) {
-                $sizeMB = 512000
-                Add-ShrinkStatus "Selected 500GB partition."
-            }
-            elseif ($radioCustom.Checked) {
-                # Validate custom size input
-                $customSize = $customSizeTextBox.Text.Trim()
-                if ($customSize -match '^\d+$') {
-                    try {
-                        $sizeMB = [int]$customSize
-                        if ($sizeMB -lt 1024) {
-                            Add-ShrinkStatus "Error: Custom size must be at least 1024 MB (1 GB)."
-                            return
-                        }
-
-                        # Kiểm tra xem ổ đĩa có đủ dung lượng không
-                        $selectedDriveInfo = Get-WmiObject Win32_LogicalDisk | Where-Object { $_.DeviceID -eq "$($driveLetter):" }
-                        if ($selectedDriveInfo) {
-                            $freeSpaceMB = [math]::Floor($selectedDriveInfo.FreeSpace / 1MB)
-                            if ($sizeMB -gt $freeSpaceMB) {
-                                Add-ShrinkStatus "Error: Not enough free space. Available: $freeSpaceMB MB, Requested: $sizeMB MB."
-                                return
-                            }
-                        }
-
-                        Add-ShrinkStatus "Selected custom size: $sizeMB MB."
-                    }
-                    catch {
-                        Add-ShrinkStatus "Error processing custom size: $_"
-                        return
-                    }
-                } else {
-                    Add-ShrinkStatus "Error: Custom size must be a valid number."
-                    return
-                }
-            }
-
-            # Create a batch file that will run diskpart and then set the label
+            # Create a batch file that will run diskpart (using exact install.ps1 approach)
             $batchFilePath = "shrink_volume.bat"
 
             $batchContent = @"
-                @echo off
-                echo ============================================================ > shrink_status.txt
-                echo                  Shrinking Volume $driveLetter >> shrink_status.txt
-                echo ============================================================ >> shrink_status.txt
-                echo. >> shrink_status.txt
+@echo off
+echo ============================================================ > shrink_status.txt
+echo                  Shrinking Volume $driveLetter >> shrink_status.txt
+echo ============================================================ >> shrink_status.txt
+echo. >> shrink_status.txt
 
-                echo Creating diskpart script... >> shrink_status.txt
-                (
-                    echo select volume $driveLetter
-                    echo shrink desired=$sizeMB
-                    echo create partition primary
-                    echo format fs=ntfs quick
-                    echo assign
-                    echo list volume
-                ) > diskpart_script.txt
+echo Creating diskpart script... >> shrink_status.txt
+(
+    echo select volume $driveLetter
+    echo shrink desired=$sizeMB
+    echo create partition primary
+    echo format fs=ntfs quick
+    echo assign
+    echo list volume
+) > diskpart_script.txt
 
-                echo Running diskpart... >> shrink_status.txt
-                echo. >> shrink_status.txt
-                echo Diskpart script contents: >> shrink_status.txt
-                type diskpart_script.txt >> shrink_status.txt
-                echo. >> shrink_status.txt
+echo Running diskpart... >> shrink_status.txt
+echo. >> shrink_status.txt
+echo Diskpart script contents: >> shrink_status.txt
+type diskpart_script.txt >> shrink_status.txt
+echo. >> shrink_status.txt
 
-                diskpart /s diskpart_script.txt > diskpart_output.txt
-                if %errorlevel% neq 0 (
-                    echo Error: Diskpart failed with exit code %errorlevel% >> shrink_status.txt
-                    echo This could be due to insufficient free space or the drive being in use. >> shrink_status.txt
-                    echo Try defragmenting the drive first or closing any applications using the drive. >> shrink_status.txt
-                    echo. >> shrink_status.txt
-                    echo Diskpart output: >> shrink_status.txt
-                    type diskpart_output.txt >> shrink_status.txt
+diskpart /s diskpart_script.txt > diskpart_output.txt
+if %errorlevel% neq 0 (
+    echo Error: Diskpart failed with exit code %errorlevel% >> shrink_status.txt
+    echo This could be due to insufficient free space or the drive being in use. >> shrink_status.txt
+    echo Try defragmenting the drive first or closing any applications using the drive. >> shrink_status.txt
+    echo. >> shrink_status.txt
+    echo Diskpart output: >> shrink_status.txt
+    type diskpart_output.txt >> shrink_status.txt
 
-                    echo. >> shrink_status.txt
-                    echo Checking drive information: >> shrink_status.txt
-                    powershell -command "Get-WmiObject Win32_LogicalDisk -Filter \"DeviceID='%driveLetter%:'\" | Select-Object DeviceID, VolumeName, Size, FreeSpace | Format-List" >> shrink_status.txt
+    echo. >> shrink_status.txt
+    echo Checking drive information: >> shrink_status.txt
+    powershell -command "Get-WmiObject Win32_LogicalDisk -Filter \"DeviceID='$($driveLetter):'\" | Select-Object DeviceID, VolumeName, Size, FreeSpace | Format-List" >> shrink_status.txt
 
-                    del diskpart_output.txt
-                    del diskpart_script.txt
-                    exit /b %errorlevel%
-                )
+    del diskpart_output.txt
+    del diskpart_script.txt
+    exit /b %errorlevel%
+)
 
-                echo Diskpart completed successfully. >> shrink_status.txt
-                echo. >> shrink_status.txt
+echo Diskpart completed successfully. >> shrink_status.txt
+echo. >> shrink_status.txt
 
-                echo Getting available drives after operation... >> shrink_status.txt
-                powershell -command "Get-WmiObject Win32_LogicalDisk | Select-Object @{Name='Name';Expression={`$_.DeviceID}}, @{Name='VolumeName';Expression={`$_.VolumeName}}, @{Name='Size (GB)';Expression={[math]::round(`$_.Size/1GB, 0)}}, @{Name='FreeSpace (GB)';Expression={[math]::round(`$_.FreeSpace/1GB, 0)}} | Format-Table -AutoSize | Out-String" >> shrink_status.txt
-                echo. >> shrink_status.txt
+echo Cleaning up temporary files... >> shrink_status.txt
+del diskpart_output.txt
+del diskpart_script.txt
 
-                echo Cleaning up temporary files... >> shrink_status.txt
-                del diskpart_output.txt
-                del diskpart_script.txt
+echo. >> shrink_status.txt
+echo Getting available drives after operation... >> shrink_status.txt
+powershell -command "Get-WmiObject Win32_LogicalDisk | Select-Object @{Name='Name';Expression={`$_.DeviceID}}, @{Name='VolumeName';Expression={`$_.VolumeName}}, @{Name='Size (GB)';Expression={[math]::round(`$_.Size/1GB, 0)}}, @{Name='FreeSpace (GB)';Expression={[math]::round(`$_.FreeSpace/1GB, 0)}} | Format-Table -AutoSize | Out-String" >> shrink_status.txt
 
-                echo Operation completed successfully. >> shrink_status.txt
+echo Operation completed successfully. >> shrink_status.txt
 "@
             Set-Content -Path $batchFilePath -Value $batchContent -Force -Encoding ASCII
 
-            Add-ShrinkStatus "Shrinking drive $driveLetter and creating new partition of $sizeMB MB..."
-            Add-ShrinkStatus "Processing... Please wait while the operation completes."
+            Add-Status "Shrinking drive $driveLetter and creating new partition of $sizeMB MB..."
+            Add-Status "Processing... Please wait while the operation completes."
 
             try {
-                # Tạo một process để chạy batch file với quyền admin và ẩn cửa sổ cmd
+                # Create a process to run batch file with admin privileges and hide cmd window
                 $psi = New-Object System.Diagnostics.ProcessStartInfo
                 $psi.FileName = "cmd.exe"
                 $psi.Arguments = "/c `"$batchFilePath`""
@@ -1069,35 +889,35 @@ list volume
                 $psi.Verb = "runas"
                 $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
 
-                # Chạy process
+                # Run process
                 $batchProcess = [System.Diagnostics.Process]::Start($psi)
                 $batchProcess.WaitForExit()
 
-                # Đọc file status và hiển thị trong status box
+                # Read status file and display in status box
                 if (Test-Path "shrink_status.txt") {
                     $statusContent = Get-Content "shrink_status.txt" -Raw
-                    Add-ShrinkStatus "---- Operation Log ----"
-                    Add-ShrinkStatus $statusContent
-                    Add-ShrinkStatus "---- End of Log ----"
+                    Add-Status "---- Operation Log ----"
+                    Add-Status $statusContent
+                    Add-Status "---- End of Log ----"
                     Remove-Item "shrink_status.txt" -Force -ErrorAction SilentlyContinue
                 }
 
-                # Check if successful
+                # Check if operation was successful (using exact install.ps1 logic)
                 if ($batchProcess.ExitCode -eq 0) {
-                    Add-ShrinkStatus "Operation completed successfully."
+                    Add-Status "Operation completed successfully."
                     Add-Status "Shrunk drive $driveLetter and created new partition."
 
                     # Refresh drive list
-                    Add-ShrinkStatus "Refreshing drive list..."
+                    Add-Status "Refreshing drive list..."
                     Start-Sleep -Seconds 2
 
-                    # Tìm ổ đĩa mới được tạo
+                    # Tìm ổ đĩa mới được tạo (exact same logic as install.ps1)
                     $newDriveFound = $false
                     $newDriveLetter = ""
 
                     # Đợi một chút để đảm bảo hệ thống đã cập nhật
                     Start-Sleep -Seconds 2
-                    Add-ShrinkStatus "Scanning for new drives..."
+                    Add-Status "Scanning for new drives..."
 
                     # Lấy danh sách ổ đĩa hiện tại
                     $currentDrives = Get-WmiObject Win32_LogicalDisk | Select-Object DeviceID, VolumeName
@@ -1108,183 +928,134 @@ list volume
                             ($drive.VolumeName -eq "New Volume" -or $drive.VolumeName -eq "")) {
                             $newDriveFound = $true
                             $newDriveLetter = $drive.DeviceID.TrimEnd(":")
-                            Add-ShrinkStatus "Found new drive: $newDriveLetter"
+                            Add-Status "Found new drive: $newDriveLetter"
                             break
                         }
                     }
 
-                    # Lấy thông tin đầy đủ về các ổ đĩa để hiển thị
-                    $updatedDrives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } },
-                        @{Name = 'VolumeName'; Expression = { $_.VolumeName } },
-                        @{Name = 'Size (GB)'; Expression = { [math]::round($_.Size / 1GB, 0) } },
-                        @{Name = 'FreeSpace (GB)'; Expression = { [math]::round($_.FreeSpace / 1GB, 0) } }
 
-                    # Nếu tìm thấy ổ đĩa mới, đổi tên nó
+
+                    # Nếu tìm thấy ổ đĩa mới, đổi tên nó (fix scope issue)
                     if ($newDriveFound) {
-                        Add-ShrinkStatus "Renaming new drive $newDriveLetter to $newLabel..."
+                        # Debug: Check what we have for label
+                        Add-Status "Debug: newLabel variable = '$newLabel'"
+                        Add-Status "Debug: newLabelTextBox.Text = '$($newLabelTextBox.Text)'"
 
-                        # Khởi tạo biến để theo dõi trạng thái đổi tên
-                        $renameSuccess = $false
-
+                        # Try to get label from textbox directly first
                         try {
-                            # Tạo và chạy script PowerShell để đổi tên ổ đĩa
-                            $tempScriptPath = [System.IO.Path]::GetTempFileName() + ".ps1"
-
-                            # Tạo nội dung script đơn giản hơn
-                            $scriptContent = @"
-                                # Đổi tên ổ đĩa $newDriveLetter thành $newLabel
-                                "Renaming drive $newDriveLetter to $newLabel..." | Out-File -FilePath "rename_status.txt" -Encoding ASCII
-
-                                # Phương pháp 1: Sử dụng Set-Volume (Windows 8 trở lên)
-                                try {
-                                    if (Get-Command Set-Volume -ErrorAction SilentlyContinue) {
-                                        Set-Volume -DriveLetter $newDriveLetter -NewFileSystemLabel '$newLabel' -ErrorAction SilentlyContinue
-                                        "Successfully renamed using Set-Volume" | Out-File -FilePath "rename_status.txt" -Append
-                                        exit 0
-                                    }
-                                } catch {
-                                    # Tiếp tục với phương pháp khác
-                                }
-
-                                # Phương pháp 2: Sử dụng Win32_Volume
-                                `$volume = Get-WmiObject -Query "SELECT * FROM Win32_Volume WHERE DriveLetter='$newDriveLetter`:'" -ErrorAction SilentlyContinue
-                                if (`$volume) {
-                                    `$volume.Label = '$newLabel'
-                                    `$result = `$volume.Put()
-                                    if (`$result.ReturnValue -eq 0) {
-                                        "Successfully renamed using Win32_Volume" | Out-File -FilePath "rename_status.txt" -Append
-                                        exit 0
-                                    }
-                                }
-
-                                # Phương pháp 3: Sử dụng Win32_LogicalDisk
-                                `$logicalDisk = Get-WmiObject -Query "SELECT * FROM Win32_LogicalDisk WHERE DeviceID='$newDriveLetter`:'" -ErrorAction SilentlyContinue
-                                if (`$logicalDisk) {
-                                    `$logicalDisk.VolumeName = '$newLabel'
-                                    `$result = `$logicalDisk.Put()
-                                    if (`$result.ReturnValue -eq 0) {
-                                        "Successfully renamed using Win32_LogicalDisk" | Out-File -FilePath "rename_status.txt" -Append
-                                        exit 0
-                                    }
-                                }
-
-                                # Phương pháp 4: Sử dụng lệnh label
-                                `$labelProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c label $newDriveLetter`:$newLabel" -WindowStyle Hidden -PassThru -Wait
-                                if (`$labelProcess.ExitCode -eq 0) {
-                                    "Successfully renamed using label command" | Out-File -FilePath "rename_status.txt" -Append
-                                    exit 0
-                                }
-
-                                "All rename methods failed" | Out-File -FilePath "rename_status.txt" -Append
-                                exit 1
-"@
-
-                            # Lưu script vào file tạm
-                            Set-Content -Path $tempScriptPath -Value $scriptContent -Force
-
-                            # Chạy script với quyền admin và ẩn cửa sổ
-                            $psi = New-Object System.Diagnostics.ProcessStartInfo
-                            $psi.FileName = "powershell.exe"
-                            $psi.Arguments = "-ExecutionPolicy Bypass -File `"$tempScriptPath`" -WindowStyle Hidden"
-                            $psi.UseShellExecute = $true
-                            $psi.Verb = "runas"
-                            $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-
-                            # Chạy process
-                            $renameProcess = [System.Diagnostics.Process]::Start($psi)
-                            $renameProcess.WaitForExit()
-
-                            # Đọc file log nếu có
-                            if (Test-Path "rename_status.txt") {
-                                $renameLog = Get-Content "rename_status.txt" -Raw
-                                Add-ShrinkStatus "---- Rename Operation Log ----"
-                                Add-ShrinkStatus $renameLog
-                                Add-ShrinkStatus "---- End of Rename Log ----"
-                                Remove-Item "rename_status.txt" -Force -ErrorAction SilentlyContinue
+                            $actualNewLabel = $newLabelTextBox.Text.Trim()
+                            if ([string]::IsNullOrEmpty($actualNewLabel)) {
+                                $actualNewLabel = $newLabel
                             }
-
-                            # Kiểm tra kết quả
-                            if ($renameProcess.ExitCode -eq 0) {
-                                Add-ShrinkStatus "Successfully renamed drive $newDriveLetter to $newLabel."
-                                $renameSuccess = $true
-                            } else {
-                                Add-ShrinkStatus "Failed to rename drive $newDriveLetter. Please rename it manually."
-                            }
-
-                            # Xóa file tạm
-                            if (Test-Path $tempScriptPath) {
-                                Remove-Item $tempScriptPath -Force -ErrorAction SilentlyContinue
+                            if ([string]::IsNullOrEmpty($actualNewLabel)) {
+                                $actualNewLabel = "GAME"  # Fallback default
                             }
                         }
                         catch {
-                            Add-ShrinkStatus "Error renaming drive: $_"
-                            Add-ShrinkStatus "Please rename the drive manually."
+                            $actualNewLabel = if (-not [string]::IsNullOrEmpty($newLabel)) { $newLabel } else { "GAME" }
                         }
 
-                        # Cập nhật lại danh sách ổ đĩa sau khi đổi tên
-                        Start-Sleep -Seconds 2
-                        $updatedDrives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } },
-                            @{Name = 'VolumeName'; Expression = { $_.VolumeName } },
-                            @{Name = 'Size (GB)'; Expression = { [math]::round($_.Size / 1GB, 0) } },
-                            @{Name = 'FreeSpace (GB)'; Expression = { [math]::round($_.FreeSpace / 1GB, 0) } }
+                        Add-Status "Debug: Final actualNewLabel = '$actualNewLabel'"
+                        Add-Status "Renaming new drive $newDriveLetter to $actualNewLabel..."
+
+                        # Use existing rename functions instead of duplicate code
+                        $renameSuccess = $false
+
+                        # Try WMI method first (from existing Rename-DriveWithWMI function)
+                        try {
+                            $volume = Get-WmiObject -Query "SELECT * FROM Win32_Volume WHERE DriveLetter='$newDriveLetter`:'"
+                            if ($volume) {
+                                $volume.Label = $actualNewLabel.Trim()
+                                $result = $volume.Put()
+                                if ($result.ReturnValue -eq 0) {
+                                    Add-Status "Successfully renamed drive $newDriveLetter to $actualNewLabel using WMI."
+                                    $renameSuccess = $true
+                                }
+                            }
+                        }
+                        catch {
+                            # Continue to next method
+                        }
+
+                        # Try PowerShell Set-Volume if WMI fails
+                        if (-not $renameSuccess) {
+                            try {
+                                if (Get-Command Set-Volume -ErrorAction SilentlyContinue) {
+                                    Set-Volume -DriveLetter $newDriveLetter -NewFileSystemLabel $actualNewLabel -ErrorAction Stop
+                                    Add-Status "Successfully renamed drive $newDriveLetter to $actualNewLabel using Set-Volume."
+                                    $renameSuccess = $true
+                                }
+                            }
+                            catch {
+                                # Continue to next method
+                            }
+                        }
+
+                        # Try label command if previous methods fail
+                        if (-not $renameSuccess) {
+                            try {
+                                $labelProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c label $newDriveLetter`:$actualNewLabel" -WindowStyle Hidden -PassThru -Wait
+                                if ($labelProcess.ExitCode -eq 0) {
+                                    Add-Status "Successfully renamed drive $newDriveLetter to $actualNewLabel using label command."
+                                    $renameSuccess = $true
+                                }
+                            }
+                            catch {
+                                # All methods failed
+                            }
+                        }
+
+                        if (-not $renameSuccess) {
+                            Add-Status "Failed to rename drive $newDriveLetter automatically. Please rename it manually to '$actualNewLabel'."
+                        }
+
+                        # Wait for rename to complete
+                        Start-Sleep -Seconds 1
                     }
                     else {
-                        Add-ShrinkStatus "Could not find the newly created drive. Please rename it manually."
+                        Add-Status "Could not find the newly created drive. Please rename it manually."
                     }
 
                     # Cập nhật giao diện
-                    Add-ShrinkStatus "Updating drive list..."
+                    Add-Status "Updating drive list..."
 
-                    # Xóa và cập nhật danh sách ổ đĩa
-                    $driveListBox.Items.Clear()
-                    foreach ($drive in $updatedDrives) {
-                        $driveInfo = "$($drive.Name) - $($drive.VolumeName) - Size: $($drive.'Size (GB)') GB - Free: $($drive.'FreeSpace (GB)') GB"
-                        $driveListBox.Items.Add($driveInfo)
-                    }
-
-                    # Chọn ổ đĩa mới trong danh sách nếu tìm thấy
-                    if ($newDriveFound) {
-                        # Tìm ổ đĩa mới trong danh sách
-                        for ($i = 0; $i -lt $driveListBox.Items.Count; $i++) {
-                            if ($driveListBox.Items[$i].ToString().StartsWith("$($newDriveLetter):")) {
-                                $driveListBox.SelectedIndex = $i
-                                break
-                            }
-                        }
-                    }
-                    # Nếu không tìm thấy ổ đĩa mới hoặc không thể chọn, chọn ổ đĩa đầu tiên
-                    if ($driveListBox.SelectedIndex -lt 0 -and $driveListBox.Items.Count -gt 0) {
-                        $driveListBox.SelectedIndex = 0
-                    }
-
-                    Add-ShrinkStatus "Drive list updated successfully."
+                    # Refresh drive list using the existing function
+                    $driveCount = Update-DriveList
+                    Add-Status "Drive list updated successfully. Found $driveCount drives."
                 }
                 else {
-                    Add-ShrinkStatus "Error: The operation failed with exit code $($batchProcess.ExitCode)"
-                    Add-ShrinkStatus "Please check the command prompt window for more details."
+                    Add-Status "Operation completed with warnings. Check the log above for details."
+                    Add-Status "If the partition was created but without label, you can rename it manually."
                 }
+
+                # Clean up batch file
+                Remove-Item $batchFilePath -Force -ErrorAction SilentlyContinue
             }
             catch {
-                Add-ShrinkStatus "Error: $_"
-            }
-            finally {
-                # Clean up temp file
-                if (Test-Path $batchFilePath) {
-                    Remove-Item $batchFilePath -Force -ErrorAction SilentlyContinue
-                }
+                Add-Status "Error running batch operation: $_"
+                Add-Status "Make sure you have administrator privileges."
+
+                # Clean up batch file
+                Remove-Item $batchFilePath -Force -ErrorAction SilentlyContinue
             }
         }
-        $shrinkForm.Controls.Add($shrinkButton)
+        $contentPanel.Controls.Add($shrinkButton)
 
         # Cancel button
-        $cancelButton = New-DynamicButton -text "Cancel" -x 320 -y 450 -width 200 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
-            $shrinkForm.Close()
+        $cancelButton = New-DynamicButton -text "Cancel" -x 485 -y 210 -width 200 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
+            $contentPanel.Controls.Clear()
         }
-        $shrinkForm.Controls.Add($cancelButton)
+        $contentPanel.Controls.Add($cancelButton)
 
-        # Show the form
-        Add-Status "Opening Shrink Volume dialog..."
-        $shrinkForm.ShowDialog()
+        # Update drive letter from selected drive IMMEDIATELY after controls are added
+        if ($driveListBox.SelectedItem) {
+            $selectedDrive = $driveListBox.SelectedItem.ToString()
+            $driveLetter = $selectedDrive.Substring(0, 1)
+            $script:selectedDriveTextBox.Text = $driveLetter
+            Add-Status "Selected drive initialized to: $driveLetter"
+        }
+
+        Add-Status "Ready to shrink volume. Select a drive from the list, choose partition size, then click Shrink."
     }
     $volumeForm.Controls.Add($btnShrinkVolume)
 
@@ -1390,22 +1161,7 @@ list volume
             Add-Status $message
         }
 
-        # Update selected drive when drive is selected
-        $driveListBox.Add_SelectedIndexChanged({
-                if ($driveListBox.SelectedItem) {
-                    $selectedDrive = $driveListBox.SelectedItem.ToString()
-                    $driveLetter = $selectedDrive.Substring(0, 1)
-
-                    # If source drive is empty, fill it
-                    if ($sourceDriveTextBox.Text -eq "") {
-                        $sourceDriveTextBox.Text = $driveLetter
-                    }
-                    # Otherwise, if target drive is empty and different from source, fill it
-                    elseif ($targetDriveTextBox.Text -eq "" -and $driveLetter -ne $sourceDriveTextBox.Text) {
-                        $targetDriveTextBox.Text = $driveLetter
-                    }
-                }
-            })
+        # Note: The driveListBox.SelectedIndexChanged event is now handled at the form level
 
         # Merge button
         $mergeButton = New-DynamicButton -text "Merge and Extend Volume" -x 150 -y 140 -width 250 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
@@ -1488,9 +1244,8 @@ list volume
                 if ($null -eq $sourceDiskNumber -or $null -eq $targetDiskNumber) {
                     Add-MergeStatus "Trying Method 2 (CIM)..."
                     try {
-                        # Lấy thông tin ổ đĩa logic
-                        $sourceLogicalDisk = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='$($sourceDrive):'"
-                        $targetLogicalDisk = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='$($targetDrive):'"
+                        # Lấy thông tin ổ đĩa logic (không cần lưu biến vì chúng ta chỉ cần thông tin partition)
+                        # Truy vấn trực tiếp thông tin partition từ ổ đĩa logic
 
                         # Lấy thông tin partition
                         $sourcePartitions = Get-CimInstance -Query "ASSOCIATORS OF {Win32_LogicalDisk.DeviceID='$($sourceDrive):'} WHERE ResultClass=Win32_DiskPartition"
@@ -2207,32 +1962,7 @@ extend
             Add-Status $message
         }
 
-        # Update selected drive when drive is selected in the main drive list
-        $driveListBox.Add_SelectedIndexChanged({
-            if ($driveListBox.SelectedItem) {
-                # Only update if the rename panel is visible (has controls)
-                if ($contentPanel.Controls.Count -gt 0 -and $contentPanel.Controls[0].Text -eq "Rename Volume") {
-                    $selectedDrive = $driveListBox.SelectedItem.ToString()
-                    $driveLetter = $selectedDrive.Substring(0, 1)
-                    $driveLetterTextBox.Text = $driveLetter
-
-                    # Get current volume name
-                    $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } },
-                    @{Name = 'VolumeName'; Expression = { $_.VolumeName } }
-
-                    $currentVolumeName = ""
-                    foreach ($drive in $drives) {
-                        if ($drive.Name -eq "$($driveLetter):") {
-                            $currentVolumeName = $drive.VolumeName
-                            break
-                        }
-                    }
-
-                    # Set current volume name as default text
-                    $newLabelTextBox.Text = $currentVolumeName
-                }
-            }
-        })
+        # Note: The driveListBox.SelectedIndexChanged event is now handled at the form level
 
         # Hàm để lấy thông tin ổ đĩa
         function Get-DriveInfo {

@@ -1335,7 +1335,6 @@ assign letter=$newLetter
                 # Check if successful
                 if ($process.ExitCode -eq 0) {
                     Add-ChangeStatus "Successfully changed drive letter from $oldLetter to $newLetter."
-                    Add-Status "Changed drive letter from $oldLetter to $newLetter."
 
                     # Refresh drive list
                     $driveListBox.Items.Clear()
