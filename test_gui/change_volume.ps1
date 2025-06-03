@@ -367,27 +367,10 @@ $buttonChangeVolume = New-DynamicButton -text "[4] Change / Edit Volume" -x 30 -
             if ($contentPanel.Controls.Count -gt 0 -and $contentPanel.Controls[0].Text -eq "Rename Volume") {
                 # Find the drive letter textbox
                 $driveLetterTextBox = $contentPanel.Controls | Where-Object { $_ -is [System.Windows.Forms.TextBox] -and $_.Location.X -eq 310 -and $_.Location.Y -eq 50 }
-                $newLabelTextBox = $contentPanel.Controls | Where-Object { $_ -is [System.Windows.Forms.TextBox] -and $_.Location.X -eq 310 -and $_.Location.Y -eq 80 }
 
                 if ($driveLetterTextBox) {
                     $driveLetterTextBox.Text = $driveLetter
-
-                    # Get current volume name
-                    $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } }, `
-                    @{Name = 'VolumeName'; Expression = { $_.VolumeName } }
-
-                    $currentVolumeName = ""
-                    foreach ($drive in $drives) {
-                        if ($drive.Name -eq "$($driveLetter):") {
-                            $currentVolumeName = $drive.VolumeName
-                            break
-                        }
-                    }
-
-                    # Set current volume name as default text
-                    if ($newLabelTextBox) {
-                        $newLabelTextBox.Text = $currentVolumeName
-                    }
+                    # Don't auto-fill the new label textbox - let user type what they want
                 }
             }
         }
@@ -523,21 +506,9 @@ assign letter=$newLetter
                 if ($process.ExitCode -eq 0) {
                     Add-Status "Successfully changed drive letter from $oldLetter to $newLetter."
 
-                    # Refresh drive list
-                    $driveListBox.Items.Clear()
-                    $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } }, `
-                    @{Name = 'VolumeName'; Expression = { $_.VolumeName } }, `
-                    @{Name = 'Size (GB)'; Expression = { [math]::round($_.Size / 1GB, 0) } }, `
-                    @{Name = 'FreeSpace (GB)'; Expression = { [math]::round($_.FreeSpace / 1GB, 0) } }
-
-                    foreach ($drive in $drives) {
-                        $driveInfo = "$($drive.Name) - $($drive.VolumeName) - Size: $($drive.'Size (GB)') GB - Free: $($drive.'FreeSpace (GB)') GB"
-                        $driveListBox.Items.Add($driveInfo)
-                    }
-
-                    if ($driveListBox.Items.Count -gt 0) {
-                        $driveListBox.SelectedIndex = 0
-                    }
+                    # Update drive list
+                    $driveCount = Update-DriveList
+                    Add-Status "Drive list updated. Found $driveCount drives."
 
                     # Clear textboxes
                     $script:oldLetterTextBox.Text = ""
@@ -701,19 +672,19 @@ assign letter=$newLetter
         $contentPanel.Controls.Add($newLabelLabel)
 
         # New partition label textbox
-        $newLabelTextBox = New-Object System.Windows.Forms.TextBox
-        $newLabelTextBox.Location = New-Object System.Drawing.Point(450, 50)
-        $newLabelTextBox.Size = New-Object System.Drawing.Size(250, 25)
-        $newLabelTextBox.BackColor = [System.Drawing.Color]::Black
-        $newLabelTextBox.ForeColor = [System.Drawing.Color]::Lime
-        $newLabelTextBox.Font = New-Object System.Drawing.Font("Consolas", 11)
-        $newLabelTextBox.Text = "GAME"
-        $contentPanel.Controls.Add($newLabelTextBox)
+        $script:newLabelTextBox = New-Object System.Windows.Forms.TextBox
+        $script:newLabelTextBox.Location = New-Object System.Drawing.Point(450, 50)
+        $script:newLabelTextBox.Size = New-Object System.Drawing.Size(250, 25)
+        $script:newLabelTextBox.BackColor = [System.Drawing.Color]::Black
+        $script:newLabelTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $script:newLabelTextBox.Font = New-Object System.Drawing.Font("Consolas", 11)
+        $script:newLabelTextBox.Text = "GAME"
+        $contentPanel.Controls.Add($script:newLabelTextBox)
 
         # Shrink button
         $shrinkButton = New-DynamicButton -text "Shrink" -x 275 -y 210 -width 200 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
             $driveLetter = $script:selectedDriveTextBox.Text.Trim().ToUpper()
-            $newLabel = $newLabelTextBox.Text.Trim()
+            $newLabel = $script:newLabelTextBox.Text.Trim()
 
             # Validate input
             if ($driveLetter -eq "") {
@@ -919,10 +890,8 @@ echo Operation completed successfully. >> shrink_status.txt
                     Start-Sleep -Seconds 2
                     Add-Status "Scanning for new drives..."
 
-                    # Lấy danh sách ổ đĩa hiện tại
+                    # Find newly created drive
                     $currentDrives = Get-WmiObject Win32_LogicalDisk | Select-Object DeviceID, VolumeName
-
-                    # Tìm ổ đĩa có tên "New Volume" hoặc ổ đĩa trống
                     foreach ($drive in $currentDrives) {
                         if ($drive.DeviceID -ne "$($driveLetter):" -and
                             ($drive.VolumeName -eq "New Volume" -or $drive.VolumeName -eq "")) {
@@ -933,109 +902,44 @@ echo Operation completed successfully. >> shrink_status.txt
                         }
                     }
 
-
-
-                    # Nếu tìm thấy ổ đĩa mới, đổi tên nó (fix scope issue)
+                    # Rename the new drive if found
                     if ($newDriveFound) {
-                        # Debug: Check what we have for label
-                        Add-Status "Debug: newLabel variable = '$newLabel'"
-                        Add-Status "Debug: newLabelTextBox.Text = '$($newLabelTextBox.Text)'"
-
-                        # Try to get label from textbox directly first
-                        try {
-                            $actualNewLabel = $newLabelTextBox.Text.Trim()
-                            if ([string]::IsNullOrEmpty($actualNewLabel)) {
-                                $actualNewLabel = $newLabel
-                            }
-                            if ([string]::IsNullOrEmpty($actualNewLabel)) {
-                                $actualNewLabel = "GAME"  # Fallback default
-                            }
-                        }
-                        catch {
-                            $actualNewLabel = if (-not [string]::IsNullOrEmpty($newLabel)) { $newLabel } else { "GAME" }
-                        }
-
-                        Add-Status "Debug: Final actualNewLabel = '$actualNewLabel'"
+                        $actualNewLabel = if (-not [string]::IsNullOrEmpty($newLabel)) { $newLabel } else { "GAME" }
                         Add-Status "Renaming new drive $newDriveLetter to $actualNewLabel..."
 
-                        # Use existing rename functions instead of duplicate code
-                        $renameSuccess = $false
-
-                        # Try WMI method first (from existing Rename-DriveWithWMI function)
+                        # Rename using the most reliable method (Set-Volume)
                         try {
-                            $volume = Get-WmiObject -Query "SELECT * FROM Win32_Volume WHERE DriveLetter='$newDriveLetter`:'"
-                            if ($volume) {
-                                $volume.Label = $actualNewLabel.Trim()
-                                $result = $volume.Put()
-                                if ($result.ReturnValue -eq 0) {
-                                    Add-Status "Successfully renamed drive $newDriveLetter to $actualNewLabel using WMI."
-                                    $renameSuccess = $true
-                                }
-                            }
+                            Set-Volume -DriveLetter $newDriveLetter -NewFileSystemLabel $actualNewLabel -ErrorAction Stop
+                            Add-Status "Successfully renamed drive $newDriveLetter to $actualNewLabel."
                         }
                         catch {
-                            # Continue to next method
-                        }
-
-                        # Try PowerShell Set-Volume if WMI fails
-                        if (-not $renameSuccess) {
+                            # Fallback to label command
                             try {
-                                if (Get-Command Set-Volume -ErrorAction SilentlyContinue) {
-                                    Set-Volume -DriveLetter $newDriveLetter -NewFileSystemLabel $actualNewLabel -ErrorAction Stop
-                                    Add-Status "Successfully renamed drive $newDriveLetter to $actualNewLabel using Set-Volume."
-                                    $renameSuccess = $true
-                                }
+                                Start-Process -FilePath "cmd.exe" -ArgumentList "/c label $newDriveLetter`:$actualNewLabel" -WindowStyle Hidden -Wait
+                                Add-Status "Successfully renamed drive $newDriveLetter to $actualNewLabel."
                             }
                             catch {
-                                # Continue to next method
+                                Add-Status "Failed to rename drive $newDriveLetter. Please rename manually to '$actualNewLabel'."
                             }
                         }
-
-                        # Try label command if previous methods fail
-                        if (-not $renameSuccess) {
-                            try {
-                                $labelProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c label $newDriveLetter`:$actualNewLabel" -WindowStyle Hidden -PassThru -Wait
-                                if ($labelProcess.ExitCode -eq 0) {
-                                    Add-Status "Successfully renamed drive $newDriveLetter to $actualNewLabel using label command."
-                                    $renameSuccess = $true
-                                }
-                            }
-                            catch {
-                                # All methods failed
-                            }
-                        }
-
-                        if (-not $renameSuccess) {
-                            Add-Status "Failed to rename drive $newDriveLetter automatically. Please rename it manually to '$actualNewLabel'."
-                        }
-
-                        # Wait for rename to complete
-                        Start-Sleep -Seconds 1
                     }
                     else {
                         Add-Status "Could not find the newly created drive. Please rename it manually."
                     }
 
-                    # Cập nhật giao diện
-                    Add-Status "Updating drive list..."
-
-                    # Refresh drive list using the existing function
+                    # Update drive list
                     $driveCount = Update-DriveList
-                    Add-Status "Drive list updated successfully. Found $driveCount drives."
+                    Add-Status "Operation completed. Found $driveCount drives."
                 }
                 else {
-                    Add-Status "Operation completed with warnings. Check the log above for details."
-                    Add-Status "If the partition was created but without label, you can rename it manually."
+                    Add-Status "Operation completed with warnings. Check the log above."
                 }
 
-                # Clean up batch file
                 Remove-Item $batchFilePath -Force -ErrorAction SilentlyContinue
             }
             catch {
-                Add-Status "Error running batch operation: $_"
+                Add-Status "Error: $_"
                 Add-Status "Make sure you have administrator privileges."
-
-                # Clean up batch file
                 Remove-Item $batchFilePath -Force -ErrorAction SilentlyContinue
             }
         }
@@ -1143,193 +1047,54 @@ echo Operation completed successfully. >> shrink_status.txt
         $warningLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter # Căn giữa văn bản
         $contentPanel.Controls.Add($warningLabel)
 
-
-        # Function to add status message to the main status box for merge operations
-        function Add-MergeStatus {
-            param(
-                [Parameter(Mandatory=$true)]
-                [string]$message,
-
-                [Parameter(Mandatory=$false)]
-                [switch]$NoNewLine,
-
-                [Parameter(Mandatory=$false)]
-                [switch]$ClearLine
-            )
-
-            # Use the main status box
-            Add-Status $message
-        }
-
-        # Note: The driveListBox.SelectedIndexChanged event is now handled at the form level
-
         # Merge button
         $mergeButton = New-DynamicButton -text "Merge and Extend Volume" -x 150 -y 140 -width 250 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
-            # Lấy và kiểm tra đầu vào
+            # Input validation
             $sourceDrive = $sourceDriveTextBox.Text.Trim().ToUpper()
             $targetDrive = $targetDriveTextBox.Text.Trim().ToUpper()
 
-            # Hiển thị thông tin đầu vào
-            Add-Status "Extend Volume: Source drive entered: '$sourceDrive'"
-            Add-Status "Extend Volume: Target drive entered: '$targetDrive'"
-
-            # Kiểm tra đầu vào chi tiết
+            # Basic validation
             if ([string]::IsNullOrEmpty($sourceDrive)) {
-                Add-MergeStatus "Error: Please enter a source drive letter."
+                Add-Status "Error: Please enter a source drive letter."
                 return
             }
-
             if ([string]::IsNullOrEmpty($targetDrive)) {
-                Add-MergeStatus "Error: Please enter a target drive letter."
+                Add-Status "Error: Please enter a target drive letter."
                 return
             }
-
-            # Kiểm tra xem có phải chữ cái hợp lệ không
-            if (-not ($sourceDrive -match '^[A-Z]$')) {
-                Add-MergeStatus "Error: Source drive must be a single letter (A-Z)."
+            if (-not ($sourceDrive -match '^[A-Z]$') -or -not ($targetDrive -match '^[A-Z]$')) {
+                Add-Status "Error: Drive letters must be single letters (A-Z)."
                 return
             }
-
-            if (-not ($targetDrive -match '^[A-Z]$')) {
-                Add-MergeStatus "Error: Target drive must be a single letter (A-Z)."
-                return
-            }
-
             if ($sourceDrive -eq $targetDrive) {
-                Add-MergeStatus "Error: Source and target drives cannot be the same."
+                Add-Status "Error: Source and target drives cannot be the same."
                 return
             }
 
-            # Kiểm tra xem ổ đĩa có tồn tại không
+            # Check if drives exist
             $existingDrives = Get-CimInstance -ClassName Win32_LogicalDisk | Select-Object -ExpandProperty DeviceID | ForEach-Object { $_.Substring(0, 1) }
-
             if ($existingDrives -notcontains $sourceDrive) {
-                Add-MergeStatus "Error: Source drive $sourceDrive does not exist."
+                Add-Status "Error: Source drive $sourceDrive does not exist."
                 return
             }
-
             if ($existingDrives -notcontains $targetDrive) {
-                Add-MergeStatus "Error: Target drive $targetDrive does not exist."
+                Add-Status "Error: Target drive $targetDrive does not exist."
                 return
             }
 
-            Add-MergeStatus "Both drives exist. Proceeding with validation..."
-
-            # Kiểm tra xem hai ổ đĩa có nằm trên cùng một đĩa vật lý không - phương pháp tối ưu
+            # Check if drives are on same physical disk (simplified)
             try {
-                Add-MergeStatus "Checking if drives are on the same physical disk..."
+                $sourcePartition = Get-Partition -DriveLetter $sourceDrive -ErrorAction Stop
+                $targetPartition = Get-Partition -DriveLetter $targetDrive -ErrorAction Stop
 
-                # Hiển thị thông tin chi tiết về ổ đĩa để debug
-                Add-MergeStatus "Getting detailed disk information..."
-
-                # Phương pháp 1: Sử dụng Get-Partition
-                try {
-                    $sourcePartition = Get-Partition -DriveLetter $sourceDrive -ErrorAction Stop
-                    $targetPartition = Get-Partition -DriveLetter $targetDrive -ErrorAction Stop
-
-                    $sourceDiskNumber = $sourcePartition.DiskNumber
-                    $targetDiskNumber = $targetPartition.DiskNumber
-
-                    Add-MergeStatus "Method 1 (Get-Partition):"
-                    Add-MergeStatus "Source drive $sourceDrive is on disk number: $sourceDiskNumber"
-                    Add-MergeStatus "Target drive $targetDrive is on disk number: $targetDiskNumber"
+                if ($sourcePartition.DiskNumber -ne $targetPartition.DiskNumber) {
+                    Add-Status "Error: Drives are not on the same physical disk. Operation aborted for safety."
+                    return
                 }
-                catch {
-                    Add-MergeStatus "Method 1 failed: $_"
-                    $sourceDiskNumber = $null
-                    $targetDiskNumber = $null
-                }
-
-                # Phương pháp 2: Sử dụng Get-CimInstance nếu phương pháp 1 thất bại
-                if ($null -eq $sourceDiskNumber -or $null -eq $targetDiskNumber) {
-                    Add-MergeStatus "Trying Method 2 (CIM)..."
-                    try {
-                        # Lấy thông tin ổ đĩa logic (không cần lưu biến vì chúng ta chỉ cần thông tin partition)
-                        # Truy vấn trực tiếp thông tin partition từ ổ đĩa logic
-
-                        # Lấy thông tin partition
-                        $sourcePartitions = Get-CimInstance -Query "ASSOCIATORS OF {Win32_LogicalDisk.DeviceID='$($sourceDrive):'} WHERE ResultClass=Win32_DiskPartition"
-                        $targetPartitions = Get-CimInstance -Query "ASSOCIATORS OF {Win32_LogicalDisk.DeviceID='$($targetDrive):'} WHERE ResultClass=Win32_DiskPartition"
-
-                        if ($sourcePartitions) {
-                            $sourceDiskNumber = $sourcePartitions[0].DiskIndex
-                            Add-MergeStatus "Method 2: Source drive $sourceDrive is on disk number: $sourceDiskNumber"
-                        }
-                        if ($targetPartitions) {
-                            $targetDiskNumber = $targetPartitions[0].DiskIndex
-                            Add-MergeStatus "Method 2: Target drive $targetDrive is on disk number: $targetDiskNumber"
-                        }
-                    }
-                    catch {
-                        Add-MergeStatus "Method 2 failed: $_"
-                    }
-                }
-
-                # Phương pháp 3: Sử dụng diskpart để lấy thông tin
-                if ($null -eq $sourceDiskNumber -or $null -eq $targetDiskNumber) {
-                    Add-MergeStatus "Trying Method 3 (diskpart)..."
-                    try {
-                        # Tạo script diskpart để lấy thông tin
-                        $diskpartScript = @"
-list volume
-"@
-                        Set-Content -Path "get_disk_info.txt" -Value $diskpartScript
-
-                        # Chạy diskpart
-                        $diskpartOutput = & diskpart /s get_disk_info.txt
-
-                        # Phân tích output
-                        $volumeInfo = $diskpartOutput | Where-Object { $_ -match "Volume\s+\d+" }
-
-                        foreach ($line in $volumeInfo) {
-                            if ($line -match "\s+$sourceDrive\s+") {
-                                if ($line -match "Disk\s+(\d+)") {
-                                    $sourceDiskNumber = $matches[1]
-                                    Add-MergeStatus "Method 3: Source drive $sourceDrive is on disk number: $sourceDiskNumber"
-                                }
-                            }
-                            if ($line -match "\s+$targetDrive\s+") {
-                                if ($line -match "Disk\s+(\d+)") {
-                                    $targetDiskNumber = $matches[1]
-                                    Add-MergeStatus "Method 3: Target drive $targetDrive is on disk number: $targetDiskNumber"
-                                }
-                            }
-                        }
-
-                        # Xóa file tạm
-                        Remove-Item "get_disk_info.txt" -ErrorAction SilentlyContinue
-                    }
-                    catch {
-                        Add-MergeStatus "Method 3 failed: $_"
-                    }
-                }
-
-                # Hiển thị thông tin
-                if ($null -ne $sourceDiskNumber) {
-                    Add-MergeStatus "Source drive $sourceDrive is on disk number: $sourceDiskNumber"
-                }
-                if ($null -ne $targetDiskNumber) {
-                    Add-MergeStatus "Target drive $targetDrive is on disk number: $targetDiskNumber"
-                }
-
-                # Kiểm tra nếu cả hai đều có thông tin và so sánh
-                if ($null -ne $sourceDiskNumber -and $null -ne $targetDiskNumber) {
-                    if ($sourceDiskNumber -ne $targetDiskNumber) {
-                        Add-MergeStatus "Error: Source drive $sourceDrive (Disk $sourceDiskNumber) and target drive $targetDrive (Disk $targetDiskNumber) are not on the same physical disk."
-                        Add-MergeStatus "You can only extend a volume with space from the same physical disk."
-                        Add-MergeStatus "Operation aborted for safety."
-                        return
-                    }
-                    Add-MergeStatus "Confirmed: Source and target drives are on the same physical disk (Disk $sourceDiskNumber). Proceeding..."
-                } else {
-                    # Nếu không thể xác định, hiển thị cảnh báo nhưng vẫn tiếp tục
-                    Add-MergeStatus "Warning: Could not determine disk numbers for one or both drives. Will attempt to proceed anyway."
-                    Add-MergeStatus "Note: This operation may fail if drives are not on the same physical disk."
-                }
+                Add-Status "Drives are on the same physical disk. Proceeding..."
             }
             catch {
-                Add-MergeStatus "Warning: Could not verify if drives are on the same physical disk. Proceeding anyway..."
-                Add-MergeStatus "Error details: $_"
+                Add-Status "Warning: Could not verify disk compatibility. Proceeding anyway..."
             }
 
             # Confirm operation
@@ -1341,519 +1106,39 @@ list volume
             )
 
             if ($confirmResult -eq [System.Windows.Forms.DialogResult]::No) {
-                Add-MergeStatus "Operation cancelled by user."
+                Add-Status "Operation cancelled by user."
                 return
             }
 
-            # Create a batch file that will run diskpart
-            $batchFilePath = "merge_volumes.bat"
-
-            $batchContent = @"
-@echo off
-setlocal enabledelayedexpansion
-
-REM Tạo file log
-echo ============================================================ > merge_log.txt
-echo                  Merging Volumes >> merge_log.txt
-echo ============================================================ >> merge_log.txt
-echo. >> merge_log.txt
-
-REM Xóa ổ đĩa nguồn bằng PowerShell (nhanh hơn diskpart)
-echo Deleting source drive %sourceDrive%... >> merge_log.txt
-
-REM Sử dụng -WindowStyle Hidden để ẩn cửa sổ PowerShell
-powershell -WindowStyle Hidden -command "& { try { Remove-Partition -DriveLetter %sourceDrive% -Confirm:$false -ErrorAction Stop; Write-Output 'Successfully deleted source drive %sourceDrive%.' } catch { Write-Error $_.Exception.Message; exit 1 } }" > delete_output.txt 2>&1
-
-REM Chỉ ghi log, không hiển thị ra màn hình
-type delete_output.txt >> merge_log.txt
-
-REM Kiểm tra lỗi
-if errorlevel 1 (
-    echo PowerShell delete failed, trying diskpart... >> merge_log.txt
-
-    REM Sử dụng diskpart nếu PowerShell thất bại
-    (
-        echo select volume %sourceDrive%
-        echo delete volume override
-    ) > diskpart_delete.txt
-
-    REM Chạy diskpart ẩn
-    start /b /wait "" cmd /c "diskpart /s diskpart_delete.txt > diskpart_delete_output.txt 2>&1"
-
-    REM Chỉ ghi log, không hiển thị ra màn hình
-    type diskpart_delete_output.txt >> merge_log.txt
-
-    if errorlevel 1 (
-        echo ERROR: Failed to delete source drive %sourceDrive%. >> merge_log.txt
-        echo ERROR: Failed to delete source drive %sourceDrive%.
-        echo This could be because the volume is in use or is a system volume. >> merge_log.txt
-        echo This could be because the volume is in use or is a system volume.
-        del diskpart_delete.txt
-        del diskpart_delete_output.txt
-        del delete_output.txt
-        exit /b 1
-    )
-
-    del diskpart_delete.txt
-    del diskpart_delete_output.txt
-)
-
-del delete_output.txt
-
-REM Mở rộng ổ đĩa đích - sử dụng nhiều phương pháp
-echo Extending target drive %targetDrive%... >> merge_log.txt
-
-REM Đợi để hệ thống cập nhật
-echo Waiting for system to update... >> merge_log.txt
-timeout /t 2 /nobreak > nul
-
-REM Phương pháp 1: Sử dụng diskpart (đáng tin cậy nhất)
-echo Trying Method 1 (diskpart)... >> merge_log.txt
-
-REM Lấy thông tin về disk number
-echo Getting disk information... >> merge_log.txt
-(
-    echo list volume
-) > diskpart_info.txt
-
-REM Chạy diskpart ẩn
-start /b /wait "" cmd /c "diskpart /s diskpart_info.txt > diskpart_info_output.txt 2>&1"
-type diskpart_info_output.txt >> merge_log.txt
-
-REM Tìm disk number của target drive
-powershell -WindowStyle Hidden -command "& { $output = Get-Content -Path 'diskpart_info_output.txt'; $line = $output | Where-Object { $_ -match '%targetDrive%' }; if ($line -match 'Disk\s+(\d+)') { $matches[1] } else { 'Unknown' } }" > disk_number.txt
-set /p DISK_NUMBER=<disk_number.txt
-
-echo Target drive %targetDrive% is on disk %DISK_NUMBER% >> merge_log.txt
-
-REM Tạo script diskpart để mở rộng ổ đĩa
-(
-    echo select disk %DISK_NUMBER%
-    echo select volume %targetDrive%
-    echo extend
-) > diskpart_extend.txt
-
-REM Chạy diskpart ẩn
-start /b /wait "" cmd /c "diskpart /s diskpart_extend.txt > diskpart_extend_output.txt 2>&1"
-type diskpart_extend_output.txt >> merge_log.txt
-
-REM Kiểm tra lỗi
-if errorlevel 1 (
-    echo Method 1 failed, trying Method 2... >> merge_log.txt
-
-    REM Phương pháp 2: Sử dụng PowerShell
-    echo Trying Method 2 (PowerShell)... >> merge_log.txt
-
-    REM Chạy PowerShell ẩn
-    powershell -WindowStyle Hidden -command "& { try { $size = (Get-PartitionSupportedSize -DriveLetter %targetDrive%).SizeMax; Resize-Partition -DriveLetter %targetDrive% -Size $size -ErrorAction Stop; Write-Output 'Successfully extended partition using PowerShell.' } catch { Write-Error $_.Exception.Message; exit 1 } }" > extend_output.txt 2>&1
-
-    REM Chỉ ghi log, không hiển thị ra màn hình
-    type extend_output.txt >> merge_log.txt
-
-    if errorlevel 1 (
-        echo Method 2 failed, trying Method 3... >> merge_log.txt
-
-        REM Phương pháp 3: Sử dụng diskpart với cách khác
-        echo Trying Method 3 (alternative diskpart)... >> merge_log.txt
-
-        REM Tạo script diskpart mới
-        (
-            echo rescan
-            echo select volume %targetDrive%
-            echo extend
-        ) > diskpart_extend2.txt
-
-        REM Chạy diskpart ẩn
-        start /b /wait "" cmd /c "diskpart /s diskpart_extend2.txt > diskpart_extend2_output.txt 2>&1"
-
-        REM Chỉ ghi log, không hiển thị ra màn hình
-        type diskpart_extend2_output.txt >> merge_log.txt
-
-        if errorlevel 1 (
-            echo ERROR: Failed to extend target drive %targetDrive% using all methods. >> merge_log.txt
-            echo This could be because there is no unallocated space adjacent to the volume. >> merge_log.txt
-            del diskpart_info.txt
-            del diskpart_info_output.txt
-            del disk_number.txt
-            del diskpart_extend.txt
-            del diskpart_extend_output.txt
-            del extend_output.txt
-            del diskpart_extend2.txt
-            del diskpart_extend2_output.txt
-            exit /b 1
-        )
-
-        del diskpart_extend2.txt
-        del diskpart_extend2_output.txt
-        del extend_output.txt
-    } else {
-        echo Successfully extended partition using PowerShell. >> merge_log.txt
-        del extend_output.txt
-    }
-) else (
-    echo Successfully extended partition using diskpart. >> merge_log.txt
-)
-
-REM Xóa các file tạm
-del diskpart_info.txt
-del diskpart_info_output.txt
-del disk_number.txt
-del diskpart_extend.txt
-del diskpart_extend_output.txt
-
-del extend_output.txt
-
-REM Hiển thị thông tin ổ đĩa sau khi hoàn thành
-echo. >> merge_log.txt
-echo Merge completed successfully! >> merge_log.txt
-echo. >> merge_log.txt
-echo ============================================================ >> merge_log.txt
-echo                  Updated Drive List >> merge_log.txt
-echo ============================================================ >> merge_log.txt
-powershell -command "Get-CimInstance -ClassName Win32_LogicalDisk | Select-Object DeviceID, VolumeName, @{Name='Size (GB)';Expression={[math]::round(`$_.Size/1GB, 0)}}, @{Name='FreeSpace (GB)';Expression={[math]::round(`$_.FreeSpace/1GB, 0)}} | Format-Table -AutoSize" >> merge_log.txt
-echo ============================================================ >> merge_log.txt
-
-echo.
-echo Merge completed successfully!
-echo.
-echo ============================================================
-echo                  Updated Drive List
-echo ============================================================
-powershell -command "Get-CimInstance -ClassName Win32_LogicalDisk | Select-Object DeviceID, VolumeName, @{Name='Size (GB)';Expression={[math]::round(`$_.Size/1GB, 0)}}, @{Name='FreeSpace (GB)';Expression={[math]::round(`$_.FreeSpace/1GB, 0)}} | Format-Table -AutoSize"
-echo ============================================================
-echo.
-echo Operation completed. You can close this window.
-exit /b 0
-"@
-            Set-Content -Path $batchFilePath -Value $batchContent -Force -Encoding ASCII
-
-            Add-MergeStatus "Merging volumes: deleting drive $sourceDrive and extending drive $targetDrive..."
-            Add-MergeStatus "A command prompt window will open to complete the operation."
-            Add-MergeStatus "Please follow the instructions in the command prompt window."
+            # Perform merge operation using PowerShell
+            Add-Status "Merging volumes: deleting drive $sourceDrive and extending drive $targetDrive..."
 
             try {
-                # Hiển thị thông báo
-                Add-MergeStatus "Merging volumes: deleting drive $sourceDrive and extending drive $targetDrive..."
-                Add-MergeStatus "Please wait while the operation completes..."
+                # Delete source drive
+                Add-Status "Removing source drive $sourceDrive..."
+                Remove-Partition -DriveLetter $sourceDrive -Confirm:$false -ErrorAction Stop
+                Add-Status "Source drive removed successfully."
 
-                # Tạo và lưu batch file
-                Set-Content -Path $batchFilePath -Value $batchContent -Force -Encoding ASCII
+                # Wait for system to update
+                Start-Sleep -Seconds 2
 
-                # Hiển thị nội dung batch file để debug
-                Add-MergeStatus "Batch file content:"
-                Add-MergeStatus "-------------------"
-                Add-MergeStatus (Get-Content -Path $batchFilePath -Raw)
-                Add-MergeStatus "-------------------"
+                # Extend target drive
+                Add-Status "Extending target drive $targetDrive..."
+                $maxSize = (Get-PartitionSupportedSize -DriveLetter $targetDrive).SizeMax
+                Resize-Partition -DriveLetter $targetDrive -Size $maxSize -ErrorAction Stop
+                Add-Status "Target drive extended successfully."
 
-                # Chạy batch file với quyền admin và ẩn cửa sổ cmd
-                $psi = New-Object System.Diagnostics.ProcessStartInfo
-                $psi.FileName = "cmd.exe"
-                $psi.Arguments = "/c `"$batchFilePath`""
-                $psi.UseShellExecute = $true
-                $psi.Verb = "runas"
-                $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+                # Update drive list
+                $driveCount = Update-DriveList
+                Add-Status "Operation completed successfully. Found $driveCount drives."
 
-                # Chạy process
-                try {
-                    Add-MergeStatus "Starting batch process..."
-                    $batchProcess = [System.Diagnostics.Process]::Start($psi)
-
-                    # Hiển thị thông báo đang xử lý với thông tin chi tiết hơn
-                    $progressCounter = 0
-                    $progressChars = @('|', '/', '-', '\')
-                    $progressSteps = @(
-                        "Initializing operation...",
-                        "Checking disk information...",
-                        "Preparing to delete source drive...",
-                        "Deleting source drive...",
-                        "Waiting for system to update...",
-                        "Preparing to extend target drive...",
-                        "Extending target drive...",
-                        "Finalizing operation..."
-                    )
-                    $currentStep = 0
-                    $stepDuration = 0
-                    $maxStepDuration = 8  # Số lần hiển thị mỗi bước trước khi chuyển sang bước tiếp theo
-
-                    Add-MergeStatus "Starting volume merge operation..."
-
-                    while (!$batchProcess.HasExited) {
-                        # Cập nhật biểu tượng tiến trình
-                        $progressChar = $progressChars[$progressCounter % 4]
-
-                        # Cập nhật bước tiến trình
-                        $stepDuration++
-                        if ($stepDuration -ge $maxStepDuration) {
-                            $currentStep = ($currentStep + 1) % $progressSteps.Count
-                            $stepDuration = 0
-                        }
-
-                        # Hiển thị thông báo tiến trình
-                        $currentMessage = $progressSteps[$currentStep]
-                        Add-MergeStatus "$currentMessage $progressChar" -NoNewLine -ClearLine
-
-                        # Cập nhật bộ đếm và đợi
-                        $progressCounter++
-                        [System.Windows.Forms.Application]::DoEvents()
-                        Start-Sleep -Milliseconds 250
-                    }
-
-                    # Kiểm tra kết quả
-                    if ($batchProcess.ExitCode -eq 0) {
-                        Add-MergeStatus "Operation completed successfully!"
-                    } else {
-                        Add-MergeStatus "Batch process completed with exit code: $($batchProcess.ExitCode)"
-                    }
-                }
-                catch {
-                    Add-MergeStatus "Error starting batch process: $_"
-                    return
-                }
-
-                # Đọc file log nếu có
-                $logFilePath = "merge_log.txt"
-                if (Test-Path $logFilePath) {
-                    $logContent = Get-Content $logFilePath -Raw
-                    Add-MergeStatus "---- Operation Log ----"
-                    Add-MergeStatus $logContent
-                    Add-MergeStatus "---- End of Log ----"
-                    Remove-Item $logFilePath -Force -ErrorAction SilentlyContinue
-                }
-
-                # Check if successful
-                if ($batchProcess.ExitCode -eq 0) {
-                    Add-MergeStatus "Operation completed successfully."
-                    Add-Status "Merged volumes: deleted drive $sourceDrive and extended drive $targetDrive."
-
-                    # Refresh drive list
-                    Add-MergeStatus "Refreshing drive list..."
-                    Start-Sleep -Seconds 2
-
-                    # Get updated list of drives
-                    $updatedDrives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } },
-                    @{Name = 'VolumeName'; Expression = { $_.VolumeName } },
-                    @{Name = 'Size (GB)'; Expression = { [math]::round($_.Size / 1GB, 0) } },
-                    @{Name = 'FreeSpace (GB)'; Expression = { [math]::round($_.FreeSpace / 1GB, 0) } }
-
-                    # Display updated drive list
-                    $driveListBox.Items.Clear()
-                    foreach ($drive in $updatedDrives) {
-                        $driveInfo = "$($drive.Name) - $($drive.VolumeName) - Size: $($drive.'Size (GB)') GB - Free: $($drive.'FreeSpace (GB)') GB"
-                        $driveListBox.Items.Add($driveInfo)
-                    }
-
-                    if ($driveListBox.Items.Count -gt 0) {
-                        $driveListBox.SelectedIndex = 0
-                    }
-
-                    # Clear the textboxes
-                    $sourceDriveTextBox.Text = ""
-                    $targetDriveTextBox.Text = ""
-                }
-                else {
-                    # Thử thực hiện trực tiếp bằng PowerShell (phương pháp tối ưu)
-                    Add-MergeStatus "Batch file failed with exit code $($batchProcess.ExitCode). Trying direct PowerShell method..."
-
-                    # Tạo một hàm để xử lý việc mở rộng ổ đĩa
-                    function Expand-Volume {
-                        param (
-                            [string]$SourceDrive,
-                            [string]$TargetDrive
-                        )
-
-                        # Lấy thông tin về disk number
-                        Add-MergeStatus "Getting disk information..."
-                        $sourceDiskNumber = $null
-                        $targetDiskNumber = $null
-
-                        # Phương pháp 1: Sử dụng Get-Partition
-                        try {
-                            $sourcePartition = Get-Partition -DriveLetter $SourceDrive -ErrorAction Stop
-                            $targetPartition = Get-Partition -DriveLetter $TargetDrive -ErrorAction Stop
-
-                            $sourceDiskNumber = $sourcePartition.DiskNumber
-                            $targetDiskNumber = $targetPartition.DiskNumber
-
-                            Add-MergeStatus "Source drive $SourceDrive is on disk number: $sourceDiskNumber"
-                            Add-MergeStatus "Target drive $TargetDrive is on disk number: $targetDiskNumber"
-                        }
-                        catch {
-                            Add-MergeStatus "Error getting disk information: $_"
-                        }
-
-                        # Kiểm tra xem hai ổ đĩa có nằm trên cùng một đĩa vật lý không
-                        if ($null -eq $sourceDiskNumber -or $null -eq $targetDiskNumber) {
-                            Add-MergeStatus "Warning: Could not determine disk numbers for one or both drives. Will attempt to proceed anyway."
-                        }
-                        elseif ($sourceDiskNumber -ne $targetDiskNumber) {
-                            Add-MergeStatus "Error: Source drive $SourceDrive (Disk $sourceDiskNumber) and target drive $TargetDrive (Disk $targetDiskNumber) are not on the same physical disk."
-                            Add-MergeStatus "Volumes must be on the same physical disk to merge them."
-                            Add-MergeStatus "Operation aborted for safety."
-                            return $false
-                        }
-                        else {
-                            Add-MergeStatus "Confirmed: Source and target drives are on the same physical disk (Disk $sourceDiskNumber)."
-                        }
-
-                        # Xóa ổ đĩa nguồn
-                        Add-MergeStatus "Removing source drive $SourceDrive..."
-                        try {
-                            # Phương pháp 1: Sử dụng Remove-Partition
-                            try {
-                                # Lấy partition của ổ đĩa nguồn
-                                $sourcePartition = Get-Partition -DriveLetter $SourceDrive -ErrorAction Stop
-                                # Xóa partition
-                                $sourcePartition | Remove-Partition -Confirm:$false -ErrorAction Stop
-                                Add-MergeStatus "Source drive removed successfully using PowerShell."
-                            }
-                            catch {
-                                Add-MergeStatus "PowerShell remove failed: $_"
-                                Add-MergeStatus "Trying diskpart to remove source drive..."
-
-                                # Phương pháp 2: Sử dụng diskpart
-                                $diskpartScript = @"
-select volume $SourceDrive
-delete volume override
-"@
-                                Set-Content -Path "delete_volume.txt" -Value $diskpartScript
-
-                                # Chạy diskpart ẩn và lấy output
-                                $pInfo = New-Object System.Diagnostics.ProcessStartInfo
-                                $pInfo.FileName = "diskpart.exe"
-                                $pInfo.Arguments = "/s delete_volume.txt"
-                                $pInfo.UseShellExecute = $false
-                                $pInfo.RedirectStandardOutput = $true
-                                $pInfo.CreateNoWindow = $true
-
-                                $process = New-Object System.Diagnostics.Process
-                                $process.StartInfo = $pInfo
-                                $process.Start() | Out-Null
-                                $diskpartOutput = $process.StandardOutput.ReadToEnd()
-                                $process.WaitForExit()
-
-                                Add-MergeStatus "Diskpart output: $diskpartOutput"
-
-                                # Xóa file tạm
-                                Remove-Item "delete_volume.txt" -ErrorAction SilentlyContinue
-
-                                # Kiểm tra xem ổ đĩa đã bị xóa chưa
-                                if (Get-Partition -DriveLetter $SourceDrive -ErrorAction SilentlyContinue) {
-                                    Add-MergeStatus "Error: Failed to remove source drive using both methods."
-                                    return $false
-                                }
-
-                                Add-MergeStatus "Source drive removed successfully using diskpart."
-                            }
-                        }
-                        catch {
-                            Add-MergeStatus "Error removing source drive: $_"
-                            return $false
-                        }
-
-                        # Đợi một chút để hệ thống cập nhật
-                        Add-MergeStatus "Waiting for system to update..."
-                        Start-Sleep -Seconds 2
-
-                        # Mở rộng ổ đĩa đích
-                        Add-MergeStatus "Extending target drive $TargetDrive..."
-
-                        # Phương pháp 1: Sử dụng Resize-Partition
-                        try {
-                            # Lấy kích thước tối đa có thể
-                            $maxSize = (Get-PartitionSupportedSize -DriveLetter $TargetDrive).SizeMax
-
-                            # Mở rộng partition
-                            Resize-Partition -DriveLetter $TargetDrive -Size $maxSize -ErrorAction Stop
-                            Add-MergeStatus "Target drive extended successfully using PowerShell."
-                            return $true
-                        }
-                        catch {
-                            Add-MergeStatus "PowerShell extend failed: $_"
-                            Add-MergeStatus "Trying diskpart to extend target drive..."
-
-                            # Phương pháp 2: Sử dụng diskpart
-                            try {
-                                $diskpartScript = @"
-select volume $TargetDrive
-extend
-"@
-                                Set-Content -Path "extend_volume.txt" -Value $diskpartScript
-
-                                # Chạy diskpart ẩn và lấy output
-                                $pInfo = New-Object System.Diagnostics.ProcessStartInfo
-                                $pInfo.FileName = "diskpart.exe"
-                                $pInfo.Arguments = "/s extend_volume.txt"
-                                $pInfo.UseShellExecute = $false
-                                $pInfo.RedirectStandardOutput = $true
-                                $pInfo.CreateNoWindow = $true
-
-                                $process = New-Object System.Diagnostics.Process
-                                $process.StartInfo = $pInfo
-                                $process.Start() | Out-Null
-                                $diskpartOutput = $process.StandardOutput.ReadToEnd()
-                                $process.WaitForExit()
-
-                                Add-MergeStatus "Diskpart output: $diskpartOutput"
-
-                                # Xóa file tạm
-                                Remove-Item "extend_volume.txt" -ErrorAction SilentlyContinue
-
-                                # Kiểm tra xem ổ đĩa đã được mở rộng chưa
-                                Add-MergeStatus "Target drive extended successfully using diskpart."
-                                return $true
-                            }
-                            catch {
-                                Add-MergeStatus "Diskpart extend failed: $_"
-                                Add-MergeStatus "Error extending target drive using both methods."
-                                return $false
-                            }
-                        }
-                    }
-
-                    # Gọi hàm mở rộng ổ đĩa
-                    $success = Expand-Volume -SourceDrive $sourceDrive -TargetDrive $targetDrive
-
-                    if ($success) {
-                        Add-Status "Merged volumes: deleted drive $sourceDrive and extended drive $targetDrive."
-
-                        # Refresh drive list
-                        Add-MergeStatus "Refreshing drive list..."
-                        Start-Sleep -Seconds 1
-
-                        # Sử dụng Get-CimInstance thay vì Get-WmiObject để cải thiện hiệu suất
-                        $updatedDrives = Get-CimInstance -ClassName Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } },
-                        @{Name = 'VolumeName'; Expression = { $_.VolumeName } },
-                        @{Name = 'Size (GB)'; Expression = { [math]::round($_.Size / 1GB, 0) } },
-                        @{Name = 'FreeSpace (GB)'; Expression = { [math]::round($_.FreeSpace / 1GB, 0) } }
-
-                        # Cập nhật danh sách ổ đĩa
-                        $driveListBox.Items.Clear()
-                        foreach ($drive in $updatedDrives) {
-                            $driveInfo = "$($drive.Name) - $($drive.VolumeName) - Size: $($drive.'Size (GB)') GB - Free: $($drive.'FreeSpace (GB)') GB"
-                            $driveListBox.Items.Add($driveInfo)
-                        }
-
-                        if ($driveListBox.Items.Count -gt 0) {
-                            $driveListBox.SelectedIndex = 0
-                        }
-
-                        # Xóa nội dung textbox
-                        $sourceDriveTextBox.Text = ""
-                        $targetDriveTextBox.Text = ""
-                    }
-                    else {
-                        Add-MergeStatus "The operation failed. Please try using Disk Management instead."
-                    }
-                }
+                # Clear textboxes
+                $sourceDriveTextBox.Text = ""
+                $targetDriveTextBox.Text = ""
             }
             catch {
-                Add-MergeStatus "Error: $_"
-            }
-            finally {
-                # Clean up temp file
-                if (Test-Path $batchFilePath) {
-                    Remove-Item $batchFilePath -Force -ErrorAction SilentlyContinue
-                }
+                Add-Status "Error: $_"
+                Add-Status "Operation failed. Please try using Disk Management instead."
             }
         }
         $contentPanel.Controls.Add($mergeButton)
@@ -1865,7 +1150,6 @@ extend
         $contentPanel.Controls.Add($cancelButton)
 
         Add-Status "Ready to extend volume. Select source and target drives, then click Merge and Extend Volume."
-
     }
     $volumeForm.Controls.Add($btnExtendVolume)
 
@@ -1913,18 +1197,6 @@ extend
             $selectedDrive = $driveListBox.SelectedItem.ToString()
             $driveLetter = $selectedDrive.Substring(0, 1)
             $driveLetterTextBox.Text = $driveLetter
-
-            # Get current volume name
-            $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } },
-            @{Name = 'VolumeName'; Expression = { $_.VolumeName } }
-
-            $currentVolumeName = ""
-            foreach ($drive in $drives) {
-                if ($drive.Name -eq "$($driveLetter):") {
-                    $currentVolumeName = $drive.VolumeName
-                    break
-                }
-            }
         }
 
         # New label label
@@ -1936,352 +1208,94 @@ extend
         $newLabelLabel.Font = New-Object System.Drawing.Font("Arial", 10)
         $contentPanel.Controls.Add($newLabelLabel)
 
-        # New label textbox
-        $newLabelTextBox = New-Object System.Windows.Forms.TextBox
-        $newLabelTextBox.Location = New-Object System.Drawing.Point(310, 80)
-        $newLabelTextBox.Size = New-Object System.Drawing.Size(250, 20)
-        $newLabelTextBox.BackColor = [System.Drawing.Color]::White
-        $newLabelTextBox.ForeColor = [System.Drawing.Color]::Black
-        $newLabelTextBox.Font = New-Object System.Drawing.Font("Consolas", 10)
-        $newLabelTextBox.Text = $currentVolumeName
+        # New label textbox - use script scope
+        $script:newLabelTextBox = New-Object System.Windows.Forms.TextBox
+        $script:newLabelTextBox.Location = New-Object System.Drawing.Point(310, 80)
+        $script:newLabelTextBox.Size = New-Object System.Drawing.Size(250, 20)
+        $script:newLabelTextBox.BackColor = [System.Drawing.Color]::White
+        $script:newLabelTextBox.ForeColor = [System.Drawing.Color]::Black
+        $script:newLabelTextBox.Font = New-Object System.Drawing.Font("Consolas", 10)
+        # Let user type the new label they want
+        $script:newLabelTextBox.Text = ""
+        $script:newLabelTextBox.PlaceholderText = "Enter new volume label"
 
         # Add event handler for Enter key
-        $newLabelTextBox.Add_KeyDown({
+        $script:newLabelTextBox.Add_KeyDown({
             if ($_.KeyCode -eq [System.Windows.Forms.Keys]::Enter) {
                 $_.SuppressKeyPress = $true  # Prevent beep sound
                 $renameButton.PerformClick()  # Activate Rename button
             }
         })
 
-        $contentPanel.Controls.Add($newLabelTextBox)
-
-        # Function to add status message to the main status box for rename operations
-        function Add-RenameStatus {
-            param([string]$message)
-            # Use the main status box
-            Add-Status $message
-        }
-
-        # Note: The driveListBox.SelectedIndexChanged event is now handled at the form level
-
-        # Hàm để lấy thông tin ổ đĩa
-        function Get-DriveInfo {
-            return Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } },
-            @{Name = 'VolumeName'; Expression = { $_.VolumeName } },
-            @{Name = 'Size (GB)'; Expression = { [math]::round($_.Size / 1GB, 0) } },
-            @{Name = 'FreeSpace (GB)'; Expression = { [math]::round($_.FreeSpace / 1GB, 0) } }
-        }
-
-        # Hàm để cập nhật danh sách ổ đĩa trong giao diện
-        function Update-DriveList {
-            param (
-                [Parameter(Mandatory = $true)]
-                [array]$Drives,
-
-                [Parameter(Mandatory = $false)]
-                [string]$SelectDriveLetter = ""
-            )
-
-            # Xóa danh sách hiện tại
-            $driveListBox.Items.Clear()
-
-            # Thêm các ổ đĩa vào danh sách
-            foreach ($drive in $Drives) {
-                $driveInfo = "$($drive.Name) - $($drive.VolumeName) - Size: $($drive.'Size (GB)') GB - Free: $($drive.'FreeSpace (GB)') GB"
-                $driveListBox.Items.Add($driveInfo)
-            }
-
-            # Chọn ổ đĩa trong danh sách
-            if ($SelectDriveLetter -ne "") {
-                # Tìm ổ đĩa cần chọn
-                $selectedIndex = -1
-                for ($i = 0; $i -lt $driveListBox.Items.Count; $i++) {
-                    $item = $driveListBox.Items[$i].ToString()
-                    if ($item.StartsWith("$($SelectDriveLetter):")) {
-                        $selectedIndex = $i
-                        break
-                    }
-                }
-
-                # Chọn ổ đĩa
-                if ($selectedIndex -ge 0) {
-                    $driveListBox.SelectedIndex = $selectedIndex
-                } elseif ($driveListBox.Items.Count -gt 0) {
-                    $driveListBox.SelectedIndex = 0
-                }
-            } elseif ($driveListBox.Items.Count -gt 0) {
-                $driveListBox.SelectedIndex = 0
-            }
-
-            # Cập nhật biến toàn cục
-            $script:drives = $Drives
-        }
-
-        # Hàm đổi tên ổ đĩa bằng WMI
-        function Rename-DriveWithWMI {
-            param (
-                [Parameter(Mandatory = $true)]
-                [string]$DriveLetter,
-
-                [Parameter(Mandatory = $true)]
-                [string]$NewLabel
-            )
-
-            # Phương pháp 1: Sử dụng Win32_Volume
-            $volume = Get-WmiObject -Query "SELECT * FROM Win32_Volume WHERE DriveLetter='$DriveLetter`:'"
-            if ($volume) {
-                # Đặt tên nhãn trực tiếp, đảm bảo không có khoảng trắng ở đầu và cuối
-                $volume.Label = $NewLabel.Trim()
-                $result = $volume.Put()
-                if ($result.ReturnValue -eq 0) {
-                    return $true
-                }
-            }
-
-            # Phương pháp 2: Sử dụng Win32_LogicalDisk
-            $logicalDisk = Get-WmiObject -Query "SELECT * FROM Win32_LogicalDisk WHERE DeviceID='$DriveLetter`:'"
-            if ($logicalDisk) {
-                # Đặt tên nhãn trực tiếp, đảm bảo không có khoảng trắng ở đầu và cuối
-                $logicalDisk.VolumeName = $NewLabel.Trim()
-                $result = $logicalDisk.Put()
-                if ($result.ReturnValue -eq 0) {
-                    return $true
-                }
-            }
-
-            return $false
-        }
-
-        # Hàm đổi tên ổ đĩa bằng lệnh label
-        function Rename-DriveWithLabel {
-            param (
-                [Parameter(Mandatory = $true)]
-                [string]$DriveLetter,
-
-                [Parameter(Mandatory = $true)]
-                [string]$NewLabel
-            )
-
-            # Sử dụng PowerShell trực tiếp để đổi tên ổ đĩa
-            # Đảm bảo không có khoảng trắng ở đầu và cuối tên nhãn
-            $trimmedLabel = $NewLabel.Trim()
-
-            # Tạo script PowerShell để đổi tên ổ đĩa
-            $psScript = @"
-            `$volume = Get-WmiObject -Query "SELECT * FROM Win32_Volume WHERE DriveLetter='$DriveLetter`:'"
-            if (`$volume) {
-                `$volume.Label = '$trimmedLabel'
-                `$result = `$volume.Put()
-                exit `$result.ReturnValue
-            } else {
-                `$logicalDisk = Get-WmiObject -Query "SELECT * FROM Win32_LogicalDisk WHERE DeviceID='$DriveLetter`:'"
-                if (`$logicalDisk) {
-                    `$logicalDisk.VolumeName = '$trimmedLabel'
-                    `$result = `$logicalDisk.Put()
-                    exit `$result.ReturnValue
-                } else {
-                    exit 1
-                }
-            }
-"@
-
-            # Lưu script vào file tạm
-            $tempScriptPath = [System.IO.Path]::GetTempFileName() + ".ps1"
-            Set-Content -Path $tempScriptPath -Value $psScript -Force
-
-            # Chạy script với quyền admin
-            $labelProcess = Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -File `"$tempScriptPath`"" -WindowStyle Hidden -PassThru -Wait
-
-            # Xóa file tạm
-            if (Test-Path $tempScriptPath) {
-                Remove-Item $tempScriptPath -Force -ErrorAction SilentlyContinue
-            }
-
-            return ($labelProcess.ExitCode -eq 0)
-        }
-
-        # Hàm tạo batch file để đổi tên ổ đĩa
-        function New-RenameBatchFile {
-            param (
-                [Parameter(Mandatory = $true)]
-                [string]$DriveLetter,
-
-                [Parameter(Mandatory = $true)]
-                [string]$NewLabel
-            )
-
-            # Đảm bảo không có khoảng trắng ở đầu và cuối tên nhãn
-            $NewLabel = $NewLabel.Trim()
-
-            $batchFilePath = [System.IO.Path]::GetTempFileName() + ".bat"
-
-            $batchContent = @"
-                @echo off
-                echo ============================================================
-                echo                  Renaming Volume $DriveLetter
-                echo ============================================================
-                echo.
-
-                echo Checking if drive exists...
-                powershell -command "(Get-WmiObject Win32_LogicalDisk).DeviceID -contains '$DriveLetter`:'" >nul 2>&1
-                if errorlevel 1 (
-                    echo ERROR: Drive $DriveLetter`: does not exist. Exiting...
-                    pause
-                    exit /b 1
-                )
-
-                echo Setting label for drive $DriveLetter`: to $NewLabel...
-                @REM Sử dụng PowerShell trực tiếp để đổi tên ổ đĩa
-                powershell -Command "& {
-                    `$volume = Get-WmiObject -Query \"SELECT * FROM Win32_Volume WHERE DriveLetter='$DriveLetter`:'\"
-                    if (`$volume) {
-                        `$volume.Label = '$NewLabel'
-                        `$result = `$volume.Put()
-                        if (`$result.ReturnValue -eq 0) { exit 0 } else { exit 1 }
-                    } else {
-                        `$logicalDisk = Get-WmiObject -Query \"SELECT * FROM Win32_LogicalDisk WHERE DeviceID='$DriveLetter`:'\"
-                        if (`$logicalDisk) {
-                            `$logicalDisk.VolumeName = '$NewLabel'
-                            `$result = `$logicalDisk.Put()
-                            if (`$result.ReturnValue -eq 0) { exit 0 } else { exit 1 }
-                        } else {
-                            exit 1
-                        }
-                    }
-                }"
-                if errorlevel 1 (
-                    echo ERROR: Failed to rename the drive. Check the drive letter and try again.
-                    pause
-                    exit /b 1
-                ) else (
-                    echo Drive $DriveLetter`: successfully renamed to $NewLabel.
-                )
-
-                echo.
-                echo ============================================================
-                echo                  Updated Drive List
-                echo ============================================================
-                powershell -command "Get-WmiObject Win32_LogicalDisk | Select-Object @{Name='Name';Expression={`$_.DeviceID}}, @{Name='VolumeName';Expression={`$_.VolumeName}}, @{Name='Size (GB)';Expression={[math]::round(`$_.Size/1GB, 0)}}, @{Name='FreeSpace (GB)';Expression={[math]::round(`$_.FreeSpace/1GB, 0)}} | Format-Table -AutoSize"
-                echo ============================================================
-                echo.
-                pause
-"@
-            Set-Content -Path $batchFilePath -Value $batchContent -Force -Encoding ASCII
-
-            return $batchFilePath
-        }
+        $contentPanel.Controls.Add($script:newLabelTextBox)
 
         # Rename button
         $renameButton = New-DynamicButton -text "Rename Volume" -x 150 -y 140 -width 200 -height 30 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
-            # Lấy thông tin từ form
-            $driveLetter = $driveLetterTextBox.Text.Trim().ToUpper()
-            # Đảm bảo không có khoảng trắng ở đầu và cuối tên nhãn
-            $newLabel = $newLabelTextBox.Text.Trim()
-
-            # Kiểm tra đầu vào
-            if ($driveLetter -eq "") {
-                Add-Status "Rename Volume: Error: Please select a drive."
+            # Get drive letter from selected item directly
+            if (-not $driveListBox.SelectedItem) {
+                Add-Status "Error: Please select a drive from the list first."
                 return
             }
+
+            $selectedDrive = $driveListBox.SelectedItem.ToString()
+            $driveLetter = $selectedDrive.Substring(0, 1).ToUpper()
+            $newLabel = $script:newLabelTextBox.Text.Trim()
 
             if ($newLabel -eq "") {
-                Add-Status "Rename Volume: Error: Please enter a new label."
+                Add-Status "Error: Please enter a new label."
                 return
             }
 
-            # Thông báo bắt đầu đổi tên
-            Add-Status "Rename Volume: Renaming drive $driveLetter to $newLabel..."
+            # Rename volume using multiple methods
+            Add-Status "Renaming drive $driveLetter to $newLabel..."
 
-            # Biến để lưu trạng thái thành công
-            $success = $false
-            $batchFilePath = $null
-
+            # Try Set-Volume first (Windows 8+)
             try {
-                # Thử đổi tên trực tiếp trước
-                Add-RenameStatus "Attempting to rename directly..."
-
-                # Thử đổi tên bằng WMI
-                if (Rename-DriveWithWMI -DriveLetter $driveLetter -NewLabel $newLabel) {
-                    Add-RenameStatus "Successfully renamed drive $driveLetter to $newLabel using WMI."
-                    $success = $true
-                }
-                # Thử đổi tên bằng lệnh label
-                elseif (Rename-DriveWithLabel -DriveLetter $driveLetter -NewLabel $newLabel) {
-                    Add-RenameStatus "Successfully renamed drive $driveLetter to $newLabel using label command."
-                    $success = $true
-                }
-                # Nếu không thành công, tạo và chạy batch file
-                else {
-                    Add-RenameStatus "Direct rename failed. Trying with batch file..."
-
-                    # Tạo batch file
-                    $batchFilePath = New-RenameBatchFile -DriveLetter $driveLetter -NewLabel $newLabel
-
-                    # Thông báo
-                    Add-RenameStatus "A command prompt window will open to complete the operation."
-                    Add-RenameStatus "Please follow the instructions in the command prompt window."
-
-                    # Chạy batch file với quyền admin
-                    $batchProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$batchFilePath`"" -Verb RunAs -PassThru -Wait
-
-                    # Kiểm tra kết quả
-                    if ($batchProcess.ExitCode -eq 0) {
-                        Add-RenameStatus "Operation completed successfully."
-                        Add-Status "Renamed drive $driveLetter to $newLabel."
-                        $success = $true
-                    }
-                    else {
-                        Add-RenameStatus "Error: The operation failed with exit code $($batchProcess.ExitCode)"
-                        Add-RenameStatus "Please check the command prompt window for more details."
-                    }
-                }
-
-                # Nếu thành công, cập nhật danh sách ổ đĩa
-                if ($success) {
-                    # Cập nhật danh sách ổ đĩa
-                    Add-RenameStatus "Refreshing drive list..."
-                    Start-Sleep -Seconds 1
-
-                    # Thử lấy thông tin ổ đĩa nhiều lần để đảm bảo cập nhật
-                    $maxRetries = 3
-                    $retryCount = 0
-                    $updatedDrives = $null
-                    $driveUpdated = $false
-
-                    while ($retryCount -lt $maxRetries -and -not $driveUpdated) {
-                        # Lấy danh sách ổ đĩa mới
-                        $updatedDrives = Get-DriveInfo
-
-                        # Kiểm tra xem tên ổ đĩa đã được cập nhật chưa
-                        foreach ($drive in $updatedDrives) {
-                            # Kiểm tra chính xác tên ổ đĩa và tên nhãn
-                            if ($drive.Name -eq "$($driveLetter):" -and $drive.VolumeName -eq $newLabel) {
-                                $driveUpdated = $true
-                                break
-                            }
-                        }
-
-                        if (-not $driveUpdated) {
-                            Add-RenameStatus "Waiting for drive information to update..."
-                            Start-Sleep -Seconds 1
-                            $retryCount++
-                        }
-                    }
-
-                    # Cập nhật giao diện
-                    Update-DriveList -Drives $updatedDrives -SelectDriveLetter $driveLetter
-                    Add-RenameStatus "Drive list updated successfully."
+                if (Get-Command Set-Volume -ErrorAction SilentlyContinue) {
+                    Set-Volume -DriveLetter $driveLetter -NewFileSystemLabel $newLabel -ErrorAction Stop
+                    Add-Status "Successfully renamed drive $driveLetter to $newLabel using Set-Volume."
+                    
+                    # Update drive list
+                    $driveCount = Update-DriveList
+                    Add-Status "Drive list updated. Found $driveCount drives."
+                    
+                    # Clear textbox
+                    $script:newLabelTextBox.Text = ""
+                    return
                 }
             }
             catch {
-                Add-RenameStatus "Error: $_"
+                Add-Status "Set-Volume failed, trying alternative methods..."
             }
-            finally {
-                # Xóa file tạm nếu có
-                if ($batchFilePath -and (Test-Path $batchFilePath)) {
-                    Remove-Item $batchFilePath -Force -ErrorAction SilentlyContinue
-                }
+
+            # Try WMI method
+            if (Rename-DriveWithWMI -DriveLetter $driveLetter -NewLabel $newLabel) {
+                Add-Status "Successfully renamed drive $driveLetter to $newLabel using WMI."
+                
+                # Update drive list
+                $driveCount = Update-DriveList
+                Add-Status "Drive list updated. Found $driveCount drives."
+                
+                # Clear textbox
+                $script:newLabelTextBox.Text = ""
+                return
             }
+
+            # Try label command as last resort
+            if (Rename-DriveWithLabel -DriveLetter $driveLetter -NewLabel $newLabel) {
+                Add-Status "Successfully renamed drive $driveLetter to $newLabel using label command."
+                
+                # Update drive list
+                $driveCount = Update-DriveList
+                Add-Status "Drive list updated. Found $driveCount drives."
+                
+                # Clear textbox
+                $script:newLabelTextBox.Text = ""
+                return
+            }
+
+            # If all methods fail
+            Add-Status "Failed to rename drive $driveLetter. Please try renaming manually to '$newLabel'."
         }
         $contentPanel.Controls.Add($renameButton)
 
@@ -2319,6 +1333,89 @@ function Hide-MainMenu {
 function Show-MainMenu {
     $script:form.Show()
     $script:form.BringToFront()
+}
+
+# Hàm đổi tên ổ đĩa bằng WMI
+function Rename-DriveWithWMI {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$DriveLetter,
+
+        [Parameter(Mandatory = $true)]
+        [string]$NewLabel
+    )
+
+    # Phương pháp 1: Sử dụng Win32_Volume
+    $volume = Get-WmiObject -Query "SELECT * FROM Win32_Volume WHERE DriveLetter='$DriveLetter`:'"
+    if ($volume) {
+        # Đặt tên nhãn trực tiếp, đảm bảo không có khoảng trắng ở đầu và cuối
+        $volume.Label = $NewLabel.Trim()
+        $result = $volume.Put()
+        if ($result.ReturnValue -eq 0) {
+            return $true
+        }
+    }
+
+    # Phương pháp 2: Sử dụng Win32_LogicalDisk
+    $logicalDisk = Get-WmiObject -Query "SELECT * FROM Win32_LogicalDisk WHERE DeviceID='$DriveLetter`:'"
+    if ($logicalDisk) {
+        # Đặt tên nhãn trực tiếp, đảm bảo không có khoảng trắng ở đầu và cuối
+        $logicalDisk.VolumeName = $NewLabel.Trim()
+        $result = $logicalDisk.Put()
+        if ($result.ReturnValue -eq 0) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+# Hàm đổi tên ổ đĩa bằng lệnh label
+function Rename-DriveWithLabel {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$DriveLetter,
+
+        [Parameter(Mandatory = $true)]
+        [string]$NewLabel
+    )
+
+    # Sử dụng PowerShell trực tiếp để đổi tên ổ đĩa
+    # Đảm bảo không có khoảng trắng ở đầu và cuối tên nhãn
+    $trimmedLabel = $NewLabel.Trim()
+
+    # Tạo script PowerShell để đổi tên ổ đĩa
+    $psScript = @"
+    `$volume = Get-WmiObject -Query "SELECT * FROM Win32_Volume WHERE DriveLetter='$DriveLetter`:'"
+    if (`$volume) {
+        `$volume.Label = '$trimmedLabel'
+        `$result = `$volume.Put()
+        exit `$result.ReturnValue
+    } else {
+        `$logicalDisk = Get-WmiObject -Query "SELECT * FROM Win32_LogicalDisk WHERE DeviceID='$DriveLetter`:'"
+        if (`$logicalDisk) {
+            `$logicalDisk.VolumeName = '$trimmedLabel'
+            `$result = `$logicalDisk.Put()
+            exit `$result.ReturnValue
+        } else {
+            exit 1
+        }
+    }
+"@
+
+    # Lưu script vào file tạm
+    $tempScriptPath = [System.IO.Path]::GetTempFileName() + ".ps1"
+    Set-Content -Path $tempScriptPath -Value $psScript -Force
+
+    # Chạy script với quyền admin
+    $labelProcess = Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -File `"$tempScriptPath`"" -WindowStyle Hidden -PassThru -Wait
+
+    # Xóa file tạm
+    if (Test-Path $tempScriptPath) {
+        Remove-Item $tempScriptPath -Force -ErrorAction SilentlyContinue
+    }
+
+    return ($labelProcess.ExitCode -eq 0)
 }
 
 # Add buttons to form
