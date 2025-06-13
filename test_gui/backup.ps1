@@ -214,52 +214,66 @@ $buttonRunAll = New-DynamicButton -text "[1] Run All" -x 30 -y 100 -width 380 -h
 
 }
 
-# SECTION 2: INSTALL SOFTWARE DIALOG FUNCTIONS (DEFINED BEFORE USE)
-# Function to show Install Software dialog
-function Show-InstallSoftwareDialog {
+# [2] Install Software
+$buttonInstallSoftware = New-DynamicButton -text "[2] Install All Software" -x 30 -y 180 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
     # Hide the main menu
     Hide-MainMenu
     # Create device type selection form
     $deviceTypeForm = New-Object System.Windows.Forms.Form
     $deviceTypeForm.Text = "Select Device Type"
-    $deviceTypeForm.Size = New-Object System.Drawing.Size(485, 480)
+    $deviceTypeForm.Size = New-Object System.Drawing.Size(500, 400)
     $deviceTypeForm.StartPosition = "CenterScreen"
     $deviceTypeForm.BackColor = [System.Drawing.Color]::Black
     $deviceTypeForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
     $deviceTypeForm.MaximizeBox = $false
     $deviceTypeForm.MinimizeBox = $false
 
-    # Add gradient background
+    # Add a gradient background
     $deviceTypeForm.Paint = {
         $graphics = $_.Graphics
         $rect = New-Object System.Drawing.Rectangle(0, 0, $deviceTypeForm.Width, $deviceTypeForm.Height)
         $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
             $rect,
-            [System.Drawing.Color]::FromArgb(0, 0, 0),
-            [System.Drawing.Color]::FromArgb(0, 40, 0),
+            [System.Drawing.Color]::FromArgb(0, 0, 0), # Black at top
+            [System.Drawing.Color]::FromArgb(0, 40, 0), # Dark green at bottom
             [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
         )
         $graphics.FillRectangle($brush, $rect)
         $brush.Dispose()
     }
 
-    # Title label
+    # Title label with animation
     $titleLabel = New-Object System.Windows.Forms.Label
     $titleLabel.Text = "SELECT DEVICE TYPE"
-    $titleLabel.Location = New-Object System.Drawing.Point(110, 20)
-    $titleLabel.Size = New-Object System.Drawing.Size(250, 40)
+    $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
+    $titleLabel.Size = New-Object System.Drawing.Size(500, 40)
     $titleLabel.ForeColor = [System.Drawing.Color]::Lime
     $titleLabel.Font = New-Object System.Drawing.Font("Arial", 16, [System.Drawing.FontStyle]::Bold)
     $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
     $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+    $titleLabel.Padding = New-Object System.Windows.Forms.Padding(5)
+
+    # Add animation to the title
+    $titleTimer = New-Object System.Windows.Forms.Timer
+    $titleTimer.Interval = 500
+    $titleTimer.Add_Tick({
+            if ($titleLabel.ForeColor -eq [System.Drawing.Color]::Lime) {
+                $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 220, 0)
+            }
+            else {
+                $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+            }
+        })
+    $titleTimer.Start()
+
     $deviceTypeForm.Controls.Add($titleLabel)
 
     # Status text box
     $statusTextBox = New-Object System.Windows.Forms.TextBox
     $statusTextBox.Multiline = $true
     $statusTextBox.ScrollBars = "Vertical"
-    $statusTextBox.Location = New-Object System.Drawing.Point(10, 130)
-    $statusTextBox.Size = New-Object System.Drawing.Size(450, 300)
+    $statusTextBox.Location = New-Object System.Drawing.Point(50, 250)
+    $statusTextBox.Size = New-Object System.Drawing.Size(400, 100)
     $statusTextBox.BackColor = [System.Drawing.Color]::Black
     $statusTextBox.ForeColor = [System.Drawing.Color]::Lime
     $statusTextBox.Font = New-Object System.Drawing.Font("Consolas", 9)
@@ -268,56 +282,125 @@ function Show-InstallSoftwareDialog {
     $statusTextBox.Text = "Please select a device type..."
     $deviceTypeForm.Controls.Add($statusTextBox)
 
-    # Function to add status message (DEFINED INSIDE THE DIALOG FUNCTION)
+    # Function to add status message
     function Add-Status {
         param([string]$message)
 
+        # Clear placeholder text on first message
         if ($statusTextBox.Text -eq "Please select a device type...") {
             $statusTextBox.Clear()
         }
 
+        # Add timestamp to message
         $timestamp = Get-Date -Format "HH:mm:ss"
         $statusTextBox.AppendText("[$timestamp] $message`r`n")
         $statusTextBox.ScrollToCaret()
         [System.Windows.Forms.Application]::DoEvents()
     }
 
-    # Copy-SoftwareFiles function (DEFINED INSIDE THE DIALOG FUNCTION)
-    function Copy-SoftwareFiles {
-        param ([string]$deviceType)
+    # Desktop button
+    $btnDesktop = New-DynamicButton -text "DESKTOP" -x 100 -y 80 -width 300 -height 70 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+        Add-Status "Starting desktop software installation process..."
 
-        try {       
+        # First copy all necessary files
+        Add-Status "Step 1: Copying required files..."
+        $copyResult = Copy-SoftwareFiles -deviceType "Desktop"
+
+        if ($copyResult) {
+            # Then install the software
+            Add-Status "Step 2: Installing software..."
+            $installResult = Install-Software -deviceType "Desktop"
+
+            if ($installResult) {
+                Add-Status "Desktop software installation completed successfully!"
+            }
+            else {
+                Add-Status "Warning: Some software installations may have failed. Check the log for details."
+            }
+        }
+        else {
+            Add-Status "Error: Failed to copy required files. Installation aborted."
+        }
+    }
+    $deviceTypeForm.Controls.Add($btnDesktop)
+
+    # Laptop button
+    $btnLaptop = New-DynamicButton -text "LAPTOP" -x 100 -y 170 -width 300 -height 70 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+        Add-Status "Starting laptop software installation process..."
+
+        # First copy all necessary files
+        Add-Status "Step 1: Copying required files..."
+        $copyResult = Copy-SoftwareFiles -deviceType "Laptop"
+
+        if ($copyResult) {
+            # Then install the software
+            Add-Status "Step 2: Installing software..."
+            $installResult = Install-Software -deviceType "Laptop"
+
+            if ($installResult) {
+                Add-Status "Laptop software installation completed successfully!"
+            }
+            else {
+                Add-Status "Warning: Some software installations may have failed. Check the log for details."
+            }
+        }
+        else {
+            Add-Status "Error: Failed to copy required files. Installation aborted."
+        }
+    }
+    $deviceTypeForm.Controls.Add($btnLaptop)
+
+    # Enhanced Copy-SoftwareFiles function based on install.bat functionality
+    function Copy-SoftwareFiles {
+        param (
+            [string]$deviceType # "Desktop" or "Laptop"
+        )
+
+        try {
+            Add-Status "DEBUG: Starting Copy-SoftwareFiles for $deviceType"
+            
+            # Create temp directory (like in install.bat)
             $tempDir = "$env:USERPROFILE\Downloads\SETUP"
-             
+            Add-Status "DEBUG: Temp directory path: $tempDir"
+            
             if (-not (Test-Path $tempDir)) {
                 Add-Status "Creating temporary folder..."
                 New-Item -Path $tempDir -ItemType Directory -Force | Out-Null
                 Add-Status "Temporary folder created successfully!"
             }
             else {
-                Add-Status "Temporary folder already exists. Skipping..."
+                Add-Status "Temporary folder already exists.    Skipping..."
             }
 
-            # Check D: drive
+            # Check if D:\ drive exists first
             if (-not (Test-Path "D:\")) {
-                Add-Status "WARNING: D drive not found. Creating mock installation..."
+                Add-Status "WARNING: D:\ drive not found. Files may not exist on this system."
+                Add-Status "Creating mock installation for testing purposes..."
                 
+                # Create minimal directories for testing
                 if (-not (Test-Path "$tempDir\Software")) {
                     New-Item -Path "$tempDir\Software" -ItemType Directory -Force | Out-Null
-                    Add-Status "Created mock Software directory"
+                    Add-Status "Created mock Software directory for testing"
                 }
-                 
+                
                 if (-not (Test-Path "$tempDir\Office2019")) {
                     New-Item -Path "$tempDir\Office2019" -ItemType Directory -Force | Out-Null
-                    Add-Status "Created mock Office2019 directory"
+                    Add-Status "Created mock Office2019 directory for testing"
                 }
-                 
-                Add-Status "Copy-SoftwareFiles completed (mock mode)"
+                
+                Add-Status "Mock file structure created successfully for testing."
+                Add-Status "Note: Actual software installation will require proper source files."
+                Add-Status "DEBUG: Copy-SoftwareFiles completed successfully (mock mode)"
                 return $true
             }
-             
-            # Copy SETUP folder from D:\SOFTWARE\PAYOO\SETUP
+            else {
+                Add-Status "DEBUG: D:\ drive found, checking source folders..."
+            }
+
+            # Continue with real copy operations if D:\ exists
+            # Copy setup files from PAYOO folder
             if (-not (Test-Path "$tempDir\Software")) {
+                Add-Status "Checking for setup files at D:\SOFTWARE\PAYOO\SETUP..."
                 $setupSource = "D:\SOFTWARE\PAYOO\SETUP"
                 if (Test-Path $setupSource) {
                     Add-Status "Copying setup files from $setupSource..."
@@ -334,187 +417,148 @@ function Show-InstallSoftwareDialog {
                 }
             }
             else {
-                Add-Status "SetupFiles    is already copied. Skipping..."
+                Add-Status "SetupFiles    is already copied.    Skipping..."
             }
 
             # Copy Office 2019
             if (-not (Test-Path "$tempDir\Office2019")) {
+                Add-Status "Copying Office 2019 files..."
                 $officeSource = "D:\SOFTWARE\OFFICE\Office 2019"
                 if (Test-Path $officeSource) {
-                    Add-Status "Copying Office 2019 files from $officeSource..."
-                    try {
-                        New-Item -Path "$tempDir\Office2019" -ItemType Directory -Force | Out-Null
-                        Copy-Item -Path "$officeSource\*" -Destination "$tempDir\Office2019" -Recurse -Force -ErrorAction Stop
-                        Add-Status "Office 2019   has been copied successfully!"
-                    }
-                    catch {
-                        Add-Status "Error copying Office 2019: $_"
-                    }
+                    New-Item -Path "$tempDir\Office2019" -ItemType Directory -Force | Out-Null
+                    Copy-Item -Path "$officeSource\*" -Destination "$tempDir\Office2019" -Recurse -Force
+                    Add-Status "Office 2019   has been copied successfully!"
                 }
                 else {
                     Add-Status "Warning: Office source folder not found at $officeSource"
                 }
             }
             else {
-                Add-Status "Office 2019   is already copied. Skipping..."
+                Add-Status "Office 2019   is already copied.    Skipping..."
             }
 
-            # Copy Unikey to C:\ drive
+            # Copy Unikey to C:\ drive (like in install.bat)
             if (-not (Test-Path "C:\unikey46RC2-230919-win64")) {
+                Add-Status "Copying Unikey files to C:\ drive..."
                 $unikeySource = "D:\SOFTWARE\PAYOO\unikey46RC2-230919-win64"
                 if (Test-Path $unikeySource) {
-                    Add-Status "Copying Unikey files to C:\ drive..."
-                    try {
-                        Copy-Item -Path $unikeySource -Destination "C:\unikey46RC2-230919-win64" -Recurse -Force -ErrorAction Stop
-                        Add-Status "Unikey        has been copied successfully!"
-                    }
-                    catch {
-                        Add-Status "Error copying Unikey: $_"
-                    }
+                    Copy-Item -Path $unikeySource -Destination "C:\unikey46RC2-230919-win64" -Recurse -Force
+                    Add-Status "Unikey        has been copied successfully!"
                 }
                 else {
                     Add-Status "Warning: Unikey source folder not found at $unikeySource"
                 }
             }
             else {
-                Add-Status "Unikey        is already copied. Skipping..."
+                Add-Status "Unikey        is already copied.    Skipping..."
             }
 
-            # Copy MSTeamsSetup to C:\ drive
+            # Copy MSTeamsSetup to C:\ drive (like in install.bat)
             if (-not (Test-Path "C:\MSTeamsSetup.exe")) {
+                Add-Status "Copying MSTeamsSetup file to C:\ drive..."
                 $teamsSource = "D:\SOFTWARE\PAYOO\MSTeamsSetup.exe"
                 if (Test-Path $teamsSource) {
-                    Add-Status "Copying MSTeamsSetup file to C:\ drive..."
-                    try {
-                        Copy-Item -Path $teamsSource -Destination "C:\MSTeamsSetup.exe" -Force -ErrorAction Stop
-                        Add-Status "MSTeamsSetup  has been copied successfully!"
-                    }
-                    catch {
-                        Add-Status "Error copying MSTeamsSetup: $_"
-                    }
+                    Copy-Item -Path $teamsSource -Destination "C:\MSTeamsSetup.exe" -Force
+                    Add-Status "MSTeamsSetup  has been copied successfully!"
                 }
                 else {
                     Add-Status "Warning: MSTeamsSetup source file not found at $teamsSource"
                 }
             }
             else {
-                Add-Status "MSTeamsSetup  is already copied. Skipping..."
+                Add-Status "MSTeamsSetup  is already copied.    Skipping..."
             }
 
-            # Copy ForceScout
+            # Copy ForceScout (like in install.bat)
             $forceScoutDest = "$env:USERPROFILE\Downloads\SC-wKgXWicTb0XhUSNethaFN0vkhji53AY5mektJ7O_RSOdc8bEUVIEAAH_OewU.exe"
             if (-not (Test-Path $forceScoutDest)) {
+                Add-Status "Copying ForceScout file..."
                 $forceScoutSource = "D:\SOFTWARE\PAYOO\SC-wKgXWicTb0XhUSNethaFN0vkhji53AY5mektJ7O_RSOdc8bEUVIEAAH_OewU.exe"
                 if (Test-Path $forceScoutSource) {
-                    Add-Status "Copying ForceScout file..."
-                    try {
-                        Copy-Item -Path $forceScoutSource -Destination $forceScoutDest -Force -ErrorAction Stop
-                        Add-Status "ForceScout    has been copied successfully!"
-                    }
-                    catch {
-                        Add-Status "Error copying ForceScout: $_"
-                    }
+                    Copy-Item -Path $forceScoutSource -Destination $forceScoutDest -Force
+                    Add-Status "ForceScout    has been copied successfully!"
                 }
                 else {
                     Add-Status "Warning: ForceScout source file not found at $forceScoutSource"
                 }
             }
             else {
-                Add-Status "ForceScout    is already copied. Skipping..."
+                Add-Status "ForceScout    is already copied.    Skipping..."
             }
 
-            # Copy FalconSensor folder
-            $falconDest = "$env:USERPROFILE\Downloads\FalconSensor_Windows_installer (All AV)"
+            # Copy FalconSensor (like in install.bat)
+            $falconDest = "$env:USERPROFILE\Downloads\FalconSensor_Windows_installer (All AV).exe"
             if (-not (Test-Path $falconDest)) {
-                $falconSource = "D:\SOFTWARE\PAYOO\FalconSensor_Windows_installer (All AV)"
+                Add-Status "Copying FalconSensor file..."
+                $falconSource = "D:\SOFTWARE\PAYOO\FalconSensor_Windows_installer (All AV).exe"
                 if (Test-Path $falconSource) {
-                    Add-Status "Copying FalconSensor folder..."
-                    try {
-                        Copy-Item -Path $falconSource -Destination $falconDest -Recurse -Force -ErrorAction Stop
-                        Add-Status "FalconSensor  has been copied successfully!"
-                    }
-                    catch {
-                        Add-Status "Error copying FalconSensor: $_"
-                    }
+                    Copy-Item -Path $falconSource -Destination $falconDest -Force
+                    Add-Status "FalconSensor  has been copied successfully!"
                 }
                 else {
-                    Add-Status "Warning: FalconSensor source folder not found at $falconSource"
+                    Add-Status "Warning: FalconSensor source file not found at $falconSource"
                 }
             }
             else {
-                Add-Status "FalconSensor  is already copied. Skipping..."
+                Add-Status "FalconSensor  is already copied.    Skipping..."
             }
 
-            # Copy device-specific agent
+            # Copy device-specific agent (like in install.bat)
             if ($deviceType -eq "Desktop") {
                 $agentDest = "$env:USERPROFILE\Downloads\Desktop Agent.exe"
                 if (-not (Test-Path $agentDest)) {
+                    Add-Status "Copying Desktop Agent file..."
                     $agentSource = "D:\SOFTWARE\PAYOO\Desktop Agent.exe"
                     if (Test-Path $agentSource) {
-                        Add-Status "Copying Desktop Agent file..."
-                        try {
-                            Copy-Item -Path $agentSource -Destination $agentDest -Force -ErrorAction Stop
-                            Add-Status "Desktop Agent has been copied successfully!"
-                        }
-                        catch {
-                            Add-Status "Error copying Desktop Agent: $_"
-                        }
+                        Copy-Item -Path $agentSource -Destination $agentDest -Force
+                        Add-Status "Desktop Agent has been copied successfully!"
                     }
                     else {
                         Add-Status "Warning: Desktop Agent source file not found at $agentSource"
                     }
                 }
                 else {
-                    Add-Status "Desktop Agent is already copied. Skipping..."
+                    Add-Status "Desktop Agent is already copied.    Skipping..."
                 }
             }
             elseif ($deviceType -eq "Laptop") {
                 # Copy Laptop Agent
                 $agentDest = "$env:USERPROFILE\Downloads\Laptop Agent.exe"
                 if (-not (Test-Path $agentDest)) {
+                    Add-Status "Copying Laptop Agent file..."
                     $agentSource = "D:\SOFTWARE\PAYOO\Laptop Agent.exe"
                     if (Test-Path $agentSource) {
-                        Add-Status "Copying Laptop Agent file..."
-                        try {
-                            Copy-Item -Path $agentSource -Destination $agentDest -Force -ErrorAction Stop
-                            Add-Status "Laptop Agent  has been copied successfully!"
-                        }
-                        catch {
-                            Add-Status "Error copying Laptop Agent: $_"
-                        }
+                        Copy-Item -Path $agentSource -Destination $agentDest -Force
+                        Add-Status "Laptop Agent  has been copied successfully!"
                     }
                     else {
                         Add-Status "Warning: Laptop Agent source file not found at $agentSource"
                     }
                 }
                 else {
-                    Add-Status "Laptop Agent  is already copied. Skipping..."
+                    Add-Status "Laptop Agent  is already copied.    Skipping..."
                 }
 
-                # Copy MDM for laptops
+                # Copy MDM for laptops (like in install.bat)
                 $mdmDest = "$env:USERPROFILE\Downloads\ManageEngine_MDMLaptopEnrollment"
                 if (-not (Test-Path $mdmDest)) {
+                    Add-Status "Copying MDM files..."
                     $mdmSource = "D:\SOFTWARE\PAYOO\ManageEngine_MDMLaptopEnrollment"
                     if (Test-Path $mdmSource) {
-                        Add-Status "Copying MDM files..."
-                        try {
-                            Copy-Item -Path $mdmSource -Destination $mdmDest -Recurse -Force -ErrorAction Stop
-                            Add-Status "MDM           has been copied successfully!"
-                        }
-                        catch {
-                            Add-Status "Error copying MDM: $_"
-                        }
+                        Copy-Item -Path $mdmSource -Destination $mdmDest -Recurse -Force
+                        Add-Status "MDM           has been copied successfully!"
                     }
                     else {
                         Add-Status "Warning: MDM source folder not found at $mdmSource"
                     }
                 }
                 else {
-                    Add-Status "MDM           is already copied. Skipping..."
+                    Add-Status "MDM           is already copied.    Skipping..."
                 }
             }
-            
+
             Add-Status "All files have been copied successfully."
+            Add-Status "DEBUG: Copy-SoftwareFiles completed successfully"
             return $true
         }
         catch {
@@ -524,292 +568,157 @@ function Show-InstallSoftwareDialog {
         }
     }
 
-    # Install-Software function (DEFINED INSIDE THE DIALOG FUNCTION)
+    # Enhanced Install-Software function based on install.bat functionality
     function Install-Software {
-        param ([string]$deviceType)
+        param (
+            [string]$deviceType # "Desktop" or "Laptop"
+        )
 
         try {
             $tempDir = "$env:USERPROFILE\Downloads\SETUP"
-            $setupDir = "$tempDir\Software"
-            $office2019Dir = "$tempDir\Office2019"
-            
-            # 1. Check and uninstall OneDrive if present
-            $oneDrivePath = "$env:LOCALAPPDATA\Microsoft\OneDrive\OneDriveUninstaller.exe"
-            if (Test-Path $oneDrivePath) {
-                Add-Status "OneDrive found. Uninstalling..."
+
+            # First, uninstall Microsoft OneDrive if present (like in install.bat)
+            if (Test-Path "$env:UserProfile\OneDrive") {
+                Add-Status "Uninstalling Microsoft OneDrive..."
                 try {
-                    Start-Process -FilePath $oneDrivePath -ArgumentList "/uninstall" -Wait -NoNewWindow
+                    Start-Process -FilePath "$env:SystemRoot\System32\OneDriveSetup.exe" -ArgumentList "/uninstall" -Wait -NoNewWindow
                     Add-Status "OneDrive uninstalled successfully!"
                 }
                 catch {
-                    Add-Status "Warning: OneDrive uninstall failed: $_"
+                    Add-Status "Warning: Could not uninstall OneDrive. Error: $_"
                 }
             }
             else {
-                Add-Status "OneDrive:     Has Not installed. Skipping..."
+                Add-Status "OneDrive is not installed or already removed. Skipping..."
             }
-            
-            # 2. Install 7-Zip
-            if (-not (Test-Path "C:\Program Files\7-Zip\7z.exe")) {
-                $sevenZipInstaller = "$setupDir\7z2201-x64.msi"
-                if (Test-Path $sevenZipInstaller) {
-                    Add-Status "Installing 7-Zip..."
-                    try {
-                        Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$sevenZipInstaller`" /quiet" -Wait
-                        Add-Status "7-Zip installed successfully!"
-                    }
-                    catch {
-                        Add-Status "ERROR: 7-Zip installation failed: $_"
-                    }
+
+            # 1. Install 7-Zip
+            if (-not (Test-Path "$env:ProgramFiles\7-Zip\7zFM.exe")) {
+                Add-Status "Installing 7-Zip..."
+                $zipSetup = "$tempDir\Software\7z2408-x64.exe"
+                if (Test-Path $zipSetup) {
+                    Start-Process -FilePath $zipSetup -ArgumentList "/S" -Wait -NoNewWindow
+                    Add-Status "7-Zip         installed successfully!"
                 }
                 else {
-                    Add-Status "ERROR: 7-Zip installer not found at $sevenZipInstaller"
+                    Add-Status "Warning: 7-Zip setup file not found at $zipSetup"
                 }
             }
             else {
-                Add-Status "7-Zip:        Already installed. Skipping..."
+                Add-Status "7-Zip         is already installed. Skipping..."
             }
-            
-            # 3. Install Chrome
-            $chromeCheck = @(
-                "C:\Program Files\Google\Chrome\Application\chrome.exe",
-                "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
-            )
-            $chromeInstalled = $false
-            foreach ($path in $chromeCheck) {
-                if (Test-Path $path) {
-                    $chromeInstalled = $true
-                    break
-                }
-            }
-            
-            if (-not $chromeInstalled) {
-                $chromeInstaller = "$setupDir\ChromeSetup.exe"
-                if (Test-Path $chromeInstaller) {
-                    Add-Status "Installing Chrome..."
-                    try {
-                        Start-Process -FilePath $chromeInstaller -ArgumentList "/silent /install" -Wait
-                        Add-Status "Chrome installed successfully!"
-                    }
-                    catch {
-                        Add-Status "ERROR: Chrome installation failed: $_"
-                    }
+
+            # 2. Install Google Chrome
+            if (-not (Test-Path "$env:ProgramFiles\Google\Chrome\Application\chrome.exe")) {
+                Add-Status "Installing Google Chrome..."
+                $chromeSetup = "$tempDir\Software\ChromeSetup.exe"
+                if (Test-Path $chromeSetup) {
+                    Start-Process -FilePath $chromeSetup -ArgumentList "/silent /install" -Wait -NoNewWindow
+                    Add-Status "Google Chrome installed successfully!"
                 }
                 else {
-                    Add-Status "ERROR: Chrome installer not found at $chromeInstaller"
+                    Add-Status "Warning: Chrome setup file not found at $chromeSetup"
                 }
             }
             else {
-                Add-Status "Chrome:       Already installed. Skipping..."
+                Add-Status "Google Chrome is already installed. Skipping..."
             }
-            
-            # 4. Install LAPS
-            if (-not (Test-Path "C:\Program Files\LAPS\CSE\AdmPwd.dll")) {
-                $lapsInstaller = "$setupDir\LAPS.x64.msi"
-                if (Test-Path $lapsInstaller) {
-                    Add-Status "Installing LAPS..."
-                    try {
-                        Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$lapsInstaller`" /quiet" -Wait
-                        Add-Status "LAPS installed successfully!"
-                    }
-                    catch {
-                        Add-Status "ERROR: LAPS installation failed: $_"
-                    }
+
+            # 3. Install LAPS_x64
+            if (-not (Test-Path "$env:ProgramFiles\LAPS\CSE\AdmPwd.dll")) {
+                Add-Status "Installing LAPS_x64..."
+                $lapsSetup = "$tempDir\Software\LAPS_x64.msi"
+                if (Test-Path $lapsSetup) {
+                    Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$lapsSetup`" /quiet" -Wait -NoNewWindow
+                    Add-Status "LAPS_x64      installed successfully!"
                 }
                 else {
-                    Add-Status "ERROR: LAPS installer not found at $lapsInstaller"
+                    Add-Status "Warning: LAPS setup file not found at $lapsSetup"
                 }
             }
             else {
-                Add-Status "LAPS:         Already installed. Skipping..."
+                Add-Status "LAPS_x64      is already installed. Skipping..."
             }
-            
-            # 5. Install Foxit Reader
-            $foxitCheck = @(
-                "C:\Program Files (x86)\Foxit Software\Foxit PDF Reader\FoxitPDFReader.exe",
-                "C:\Program Files\Foxit Software\Foxit PDF Reader\FoxitPDFReader.exe"
-            )
-            $foxitInstalled = $false
-            foreach ($path in $foxitCheck) {
-                if (Test-Path $path) {
-                    $foxitInstalled = $true
-                    break
-                }
-            }
-            
-            if (-not $foxitInstalled) {
-                $foxitInstaller = "$setupDir\FoxitPDFReader*.exe"
-                $foxitFiles = Get-ChildItem -Path $setupDir -Name "FoxitPDFReader*.exe" -ErrorAction SilentlyContinue
-                if ($foxitFiles.Count -gt 0) {
-                    $foxitPath = "$setupDir\$($foxitFiles[0])"
-                    Add-Status "Installing Foxit Reader..."
-                    try {
-                        Start-Process -FilePath $foxitPath -ArgumentList "/verysilent" -Wait
-                        Add-Status "Foxit Reader installed successfully!"
-                    }
-                    catch {
-                        Add-Status "ERROR: Foxit Reader installation failed: $_"
-                    }
+
+            # 4. Install Foxit Reader
+            if (-not (Test-Path "${env:ProgramFiles(x86)}\Foxit Software\Foxit PDF Reader\FoxitPDFReader.exe")) {
+                Add-Status "Installing Foxit Reader..."
+                $foxitSetup = "$tempDir\Software\FoxitPDFReader20243_enu_Setup_Prom.exe"
+                if (Test-Path $foxitSetup) {
+                    Start-Process -FilePath $foxitSetup -ArgumentList "/silent /install" -Wait -NoNewWindow
+                    Add-Status "Foxit Reader  installed successfully!"
                 }
                 else {
-                    Add-Status "ERROR: Foxit Reader installer not found in $setupDir"
+                    Add-Status "Warning: Foxit Reader setup file not found at $foxitSetup"
                 }
             }
             else {
-                Add-Status "Foxit Reader: Already installed. Skipping..."
+                Add-Status "Foxit Reader  is already installed. Skipping..."
             }
-            
-            # 6. Install Office 2019
-            if (-not (Test-Path "C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE")) {
-                $officeSetup = "$office2019Dir\setup.exe"
-                if (Test-Path $officeSetup) {
-                    Add-Status "Installing Office 2019..."
-                    try {
-                        Start-Process -FilePath $officeSetup -ArgumentList "/configure `"$office2019Dir\configuration.xml`"" -Wait
-                        Add-Status "Office 2019 installed successfully!"
-                    }
-                    catch {
-                        Add-Status "ERROR: Office 2019 installation failed: $_"
-                    }
+
+            # 5. Install Microsoft Office 2019 (64-bit)
+            if (-not (Test-Path "$env:ProgramFiles\Microsoft Office\root\Office16\WINWORD.EXE")) {
+                Add-Status "Installing Microsoft Office 2019..."
+                $officeSetup = "$tempDir\Office2019\setup.exe"
+                $officeConfig = "$tempDir\Office2019\configuration.xml"
+                if ((Test-Path $officeSetup) -and (Test-Path $officeConfig)) {
+                    $currentLocation = Get-Location
+                    Set-Location -Path "$tempDir\Office2019"
+                    Start-Process -FilePath $officeSetup -ArgumentList "/configure configuration.xml" -Wait -NoNewWindow
+                    Set-Location -Path $currentLocation
+                    Add-Status "MSOffice 2019 installed successfully!"
                 }
                 else {
-                    Add-Status "ERROR: Office 2019 setup not found at $officeSetup"
+                    Add-Status "Warning: Office setup files not found at $tempDir\Office2019"
                 }
             }
             else {
-                Add-Status "Office 2019:  Already installed. Skipping..."
+                Add-Status "MSOffice 2019 is already installed. Skipping..."
             }
-            
-            # 7. Install Zoom
+
+            # Install laptop-specific software (like in install.bat)
             if ($deviceType -eq "Laptop") {
-                $zoomCheck = @(
-                    "$env:USERPROFILE\AppData\Roaming\Zoom\bin\Zoom.exe",
-                    "C:\Program Files\Zoom\bin\Zoom.exe",
-                    "C:\Program Files (x86)\Zoom\bin\Zoom.exe"
-                )
-                $zoomInstalled = $false
-                foreach ($path in $zoomCheck) {
-                    if (Test-Path $path) {
-                        $zoomInstalled = $true
-                        break
-                    }
-                }
-                if (-not $zoomInstalled) {
-                    $zoomInstaller = "$setupDir\ZoomInstallerFull.exe"
-                    if (Test-Path $zoomInstaller) {
-                        Add-Status "Installing Zoom..."
-                        try {
-                            Start-Process -FilePath $zoomInstaller -ArgumentList "/silent" -Wait
-                            Add-Status "Zoom installed successfully!"
-                        }
-                        catch {
-                            Add-Status "ERROR: Zoom installation failed: $_"
-                        }
+                # 6. Install Zoom
+                if (-not (Test-Path "$env:USERPROFILE\AppData\Roaming\Zoom\bin\Zoom.exe")) {
+                    Add-Status "Installing Zoom..."
+                    $zoomSetup = "$tempDir\Software\ZoomInstallerFull.exe"
+                    if (Test-Path $zoomSetup) {
+                        Start-Process -FilePath $zoomSetup -ArgumentList "/silent /install" -Wait -NoNewWindow
+                        Add-Status "Zoom          installed successfully!"
                     }
                     else {
-                        Add-Status "ERROR: Zoom installer not found at $zoomInstaller"
+                        Add-Status "Warning: Zoom setup file not found at $zoomSetup"
                     }
                 }
                 else {
-                    Add-Status "Zoom:         Already installed. Skipping..."
+                    Add-Status "Zoom          is already installed. Skipping..."
                 }
-                
-                # 8. Install CheckPointVPN
-                if (-not (Test-Path "C:\Program Files (x86)\CheckPoint\Endpoint Connect\trac.exe")) {
-                    $vpnInstaller = "$setupDir\CheckPointVPN.msi"
-                    if (Test-Path $vpnInstaller) {
-                        Add-Status "Installing CheckPointVPN..."
-                        try {
-                            Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$vpnInstaller`" /quiet" -Wait
-                            Add-Status "CheckPointVPN installed successfully!"
-                        }
-                        catch {
-                            Add-Status "ERROR: CheckPointVPN installation failed: $_"
-                        }
+
+                # 7. Install CheckPointVPN
+                if (-not (Test-Path "${env:ProgramFiles(x86)}\CheckPoint\Endpoint Connect\TrGUI.exe")) {
+                    Add-Status "Installing CheckPointVPN..."
+                    $vpnSetup = "$tempDir\Software\CheckPointVPN.msi"
+                    if (Test-Path $vpnSetup) {
+                        Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$vpnSetup`" /quiet" -Wait -NoNewWindow
+                        Add-Status "CheckPointVPN installed successfully!"
                     }
                     else {
-                        Add-Status "ERROR: CheckPointVPN installer not found at $vpnInstaller"
+                        Add-Status "Warning: CheckPointVPN setup file not found at $vpnSetup"
                     }
                 }
                 else {
-                    Add-Status "CheckPointVPN:Already installed. Skipping..."
+                    Add-Status "CheckPointVPN is already installed. Skipping..."
                 }
             }
+
+            Add-Status "All installations completed successfully!"
             return $true
         }
         catch {
-            Add-Status "CRITICAL ERROR in Install-Software: $_"
-            Add-Status "Error details: $($_.Exception.Message)"
+            Add-Status "Error during software installation: $_"
             return $false
         }
     }
-
-    # Desktop button
-    $btnDesktop = New-DynamicButton -text "DESKTOP" -x 10 -y 60 -width 200 -height 50 -clickAction {
-        Add-Status "STEP 1: Copying required files for Desktop..."
-        $copyResult = Copy-SoftwareFiles -deviceType "Desktop"
-
-        if ($copyResult) {
-            Add-Status "STEP 2: Installing software for Desktop..."
-            $installResult = Install-Software -deviceType "Desktop"
-
-            if ($installResult) {
-                Add-Status "All software installation completed successfully!"
-            }
-            else {
-                Add-Status "Warning: Some installations may have failed."
-            }
-        }
-        else {
-            Add-Status "Error: Failed to copy required files. Installation aborted."
-        }
-    }
-    $deviceTypeForm.Controls.Add($btnDesktop)
-
-    # Laptop button
-    $btnLaptop = New-DynamicButton -text "LAPTOP" -x 260 -y 60 -width 200 -height 50 -clickAction {
-        Add-Status "STEP 1: Copying required files for Laptop..."
-        $copyResult = Copy-SoftwareFiles -deviceType "Laptop"
-
-        if ($copyResult) {
-            Add-Status "STEP 2: Installing software for Laptop..."
-            $installResult = Install-Software -deviceType "Laptop"
-
-            if ($installResult) {
-                Add-Status "All software installation completed successfully!"
-            }
-            else {
-                Add-Status "Warning: Some installations may have failed."
-            }
-        }
-        else {
-            Add-Status "Error: Failed to copy required files. Installation aborted."
-        }
-    }
-    $deviceTypeForm.Controls.Add($btnLaptop)
-
-    # Add KeyDown event handler for Esc key
-    $deviceTypeForm.Add_KeyDown({
-        param($sender, $e)
-        if ($e.KeyCode -eq [System.Windows.Forms.Keys]::Escape) {
-            $deviceTypeForm.Close()
-        }
-    })
-
-    # Enable key events
-    $deviceTypeForm.KeyPreview = $true
-
-    # When form closes, show main menu
-    $deviceTypeForm.Add_FormClosed({
-        Show-MainMenu
-    })
-
-    # Show the dialog
-    $deviceTypeForm.ShowDialog()
-}
-# [2] Install Software Button
-$buttonInstallSoftware = New-DynamicButton -text "[2] Install All Software" -x 30 -y 180 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
-    Show-InstallSoftwareDialog
 }
 
 # [3] Power Options
@@ -1043,103 +952,7 @@ $buttonPowerOptions = New-DynamicButton -text "[3] Power Options" -x 30 -y 260 -
     $powerForm.ShowDialog()
 }
 
-# SECTION [4.3]: RENAME VOLUME FUNCTIONS (DEFINED BEFORE USE)
-# Hàm tạo title cho form rename volume
-function New-RenameVolumeTitle {
-    param([System.Windows.Forms.Panel]$parentPanel)
-    $titleLabel = New-Object System.Windows.Forms.Label
-    $titleLabel.Text = "Rename Volume"
-    $titleLabel.Location = New-Object System.Drawing.Point(0, 10)
-    $titleLabel.Size = New-Object System.Drawing.Size(760, 30)
-    $titleLabel.ForeColor = [System.Drawing.Color]::Lime
-    $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
-    $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
-    $titleLabel.BackColor = [System.Drawing.Color]::Transparent
-    $parentPanel.Controls.Add($titleLabel)
-}
-
-# Hàm tạo groupbox cho form rename volume
-function New-RenameVolumeGroupBox {
-    param([System.Windows.Forms.Panel]$parentPanel, [System.Windows.Forms.ListBox]$driveListBox)
-    $groupBox = New-Object System.Windows.Forms.GroupBox
-    $groupBox.Text = "Volume Rename Configuration"
-    $groupBox.Location = New-Object System.Drawing.Point(180, 60)
-    $groupBox.Size = New-Object System.Drawing.Size(400, 120)
-    $groupBox.ForeColor = [System.Drawing.Color]::Lime
-    $groupBox.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
-    $parentPanel.Controls.Add($groupBox)
-
-    # Drive letter label
-    $driveLetterLabel = New-Object System.Windows.Forms.Label
-    $driveLetterLabel.Text = "Drive Letter:"
-    $driveLetterLabel.Location = New-Object System.Drawing.Point(30, 30)
-    $driveLetterLabel.Size = New-Object System.Drawing.Size(100, 20)
-    $driveLetterLabel.ForeColor = [System.Drawing.Color]::White
-    $driveLetterLabel.Font = New-Object System.Drawing.Font("Arial", 10)
-    $groupBox.Controls.Add($driveLetterLabel)
-
-    # Drive letter textbox
-    $driveLetterTextBox = New-Object System.Windows.Forms.TextBox
-    $driveLetterTextBox.Location = New-Object System.Drawing.Point(130, 30)
-    $driveLetterTextBox.Size = New-Object System.Drawing.Size(50, 20)
-    $driveLetterTextBox.BackColor = [System.Drawing.Color]::Black
-    $driveLetterTextBox.ForeColor = [System.Drawing.Color]::Lime
-    $driveLetterTextBox.Font = New-Object System.Drawing.Font("Consolas", 11, [System.Drawing.FontStyle]::Bold)
-    $driveLetterTextBox.MaxLength = 1
-    $driveLetterTextBox.ReadOnly = $true
-    $driveLetterTextBox.TextAlign = [System.Windows.Forms.HorizontalAlignment]::Center
-    $groupBox.Controls.Add($driveLetterTextBox)
-
-    # New label label
-    $newLabelLabel = New-Object System.Windows.Forms.Label
-    $newLabelLabel.Text = "New Label:"
-    $newLabelLabel.Location = New-Object System.Drawing.Point(30, 60)
-    $newLabelLabel.Size = New-Object System.Drawing.Size(100, 20)
-    $newLabelLabel.ForeColor = [System.Drawing.Color]::White
-    $newLabelLabel.Font = New-Object System.Drawing.Font("Arial", 10)
-    $groupBox.Controls.Add($newLabelLabel)
-
-    # New label textbox
-    $newLabelTextBox = New-Object System.Windows.Forms.TextBox
-    $newLabelTextBox.Location = New-Object System.Drawing.Point(130, 60)
-    $newLabelTextBox.Size = New-Object System.Drawing.Size(200, 20)
-    $newLabelTextBox.BackColor = [System.Drawing.Color]::Black
-    $newLabelTextBox.ForeColor = [System.Drawing.Color]::Lime
-    $newLabelTextBox.Font = New-Object System.Drawing.Font("Consolas", 11)
-    $groupBox.Controls.Add($newLabelTextBox)
-
-    return @{
-        GroupBox = $groupBox
-        DriveLetterTextBox = $driveLetterTextBox
-        NewLabelTextBox = $newLabelTextBox
-    }
-}
-
-# Hàm tạo nút rename cho form rename volume
-function New-RenameActionButton {
-    param([System.Windows.Forms.GroupBox]$groupBox, [System.Windows.Forms.ListBox]$driveListBox)
-    $renameButton = New-DynamicButton -text "Rename" -x 100 -y 90 -width 200 -height 30 -clickAction {
-        $driveLetter = $groupBox.Controls | Where-Object { $_ -is [System.Windows.Forms.TextBox] } | Where-Object { $_.Location.X -eq 130 -and $_.Location.Y -eq 30 }
-        $newLabel = $groupBox.Controls | Where-Object { $_ -is [System.Windows.Forms.TextBox] } | Where-Object { $_.Location.X -eq 130 -and $_.Location.Y -eq 60 }
-        if ($driveLetter -and $newLabel) {
-            $dl = $driveLetter.Text.Trim().ToUpper()
-            $nl = $newLabel.Text.Trim()
-            if ($dl -and $nl) {
-                try {
-                    Set-Volume -DriveLetter $dl -NewFileSystemLabel $nl -ErrorAction Stop
-                    Add-Status "Renamed drive $dl to $nl successfully."
-                } catch {
-                    Add-Status "Error renaming drive: $_"
-                }
-            } else {
-                Add-Status "Please enter both drive letter and new label."
-            }
-        }
-    }
-    $groupBox.Controls.Add($renameButton)
-}
-
-# SECTION [4.4]: EXTEND VOLUME FUNCTIONS - Các hàm mở rộng ổ đĩa
+# SECTION 4.3: EXTEND VOLUME FUNCTIONS - Các hàm mở rộng ổ đĩa
 # Tạo tiêu đề cho Extend Volume
 function New-ExtendVolumeTitle {
     param([System.Windows.Forms.Panel]$parentPanel)
@@ -1531,7 +1344,7 @@ $buttonChangeVolume = New-DynamicButton -text "[4] Change / Edit Volume" -x 30 -
     # Create volume management form
     $volumeForm = New-Object System.Windows.Forms.Form
     $volumeForm.Text = "Volume Management"
-    $volumeForm.Size = New-Object System.Drawing.Size(820, 650) # Increase the size of the form
+    $volumeForm.Size = New-Object System.Drawing.Size(820, 600) # Increase the size of the form
     $volumeForm.StartPosition = "CenterScreen"
     $volumeForm.BackColor = [System.Drawing.Color]::Black
     $volumeForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -1600,7 +1413,7 @@ $buttonChangeVolume = New-DynamicButton -text "[4] Change / Edit Volume" -x 30 -
     $statusTextBox.Multiline = $true
     $statusTextBox.ScrollBars = "Vertical"
     $statusTextBox.Location = New-Object System.Drawing.Point(20, 470) # Move the status text box down
-    $statusTextBox.Size = New-Object System.Drawing.Size(760, 140) # Increase the size of the status text box
+    $statusTextBox.Size = New-Object System.Drawing.Size(760, 90) # Increase the size of the status text box
     $statusTextBox.BackColor = [System.Drawing.Color]::Black
     $statusTextBox.ForeColor = [System.Drawing.Color]::Lime
     $statusTextBox.Font = New-Object System.Drawing.Font("Consolas", 9)
@@ -1707,7 +1520,7 @@ $buttonChangeVolume = New-DynamicButton -text "[4] Change / Edit Volume" -x 30 -
         }
     })
 
-    # [4.1] Change Drive Letter button
+    # Change Drive Letter button
     $btnChangeDriveLetter = New-DynamicButton -text "Change Letter" -x 20 -y 150 -width 150 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
         # Clear the content panel
         $contentPanel.Controls.Clear()
@@ -1867,7 +1680,7 @@ assign letter=$newLetter
     }
     $volumeForm.Controls.Add($btnChangeDriveLetter)
 
-    # [4.2] Shrink Volume button
+    # Shrink Volume button
     $btnShrinkVolume = New-DynamicButton -text "Shrink Volume" -x 180 -y 150 -width 150 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
         # Clear the content panel
         $contentPanel.Controls.Clear()
@@ -2273,7 +2086,7 @@ echo Operation completed successfully. >> shrink_status.txt
     }
     $volumeForm.Controls.Add($btnShrinkVolume)
 
-    # [4.3] Rename Volume button
+    # Rename Volume button
     $btnRenameVolume = New-DynamicButton -text "Rename Volume" -x 340 -y 150 -width 150 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
         # Clear the content panel
         $contentPanel.Controls.Clear()
@@ -2298,7 +2111,7 @@ echo Operation completed successfully. >> shrink_status.txt
     }
     $volumeForm.Controls.Add($btnRenameVolume)
 
-    # [4.4] Extend Volume button
+    # Extend Volume button
     $btnExtendVolume = New-DynamicButton -text "Extend Volume" -x 500 -y 150 -width 150 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
         # Clear the content panel
         $contentPanel.Controls.Clear()
@@ -2323,7 +2136,7 @@ echo Operation completed successfully. >> shrink_status.txt
     }
     $volumeForm.Controls.Add($btnExtendVolume)
 
-    # [4.0] Return to Main Menu button
+    # Return to Main Menu button
     $btnReturn = New-DynamicButton -text "Return" -x 660 -y 150 -width 120 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
         $volumeForm.Close()
     }
@@ -2333,22 +2146,9 @@ echo Operation completed successfully. >> shrink_status.txt
     $volumeForm.Add_FormClosed({
         Show-MainMenu
     })
-
-    # Add KeyDown event handler for Esc key in volume form
-    $volumeForm.Add_KeyDown({
-        param($sender, $e)
-        if ($e.KeyCode -eq [System.Windows.Forms.Keys]::Escape) {
-            $volumeForm.Close()
-        }
-    })
-
-    # Enable key events in volume form
-    $volumeForm.KeyPreview = $true
-
     # Show the form
     $volumeForm.ShowDialog()
 }
-
 # [5] Activate Windows 10 Pro and Office 2019 Pro Plus
 $buttonActivate = New-DynamicButton -text "[5] Activate" -x 30 -y 420 -width 380 -height 60 -clickAction { 
     # Hide the main menu
@@ -3246,6 +3046,7 @@ $buttonRenameDevice = New-DynamicButton -text "[7] Rename Device" -x 430 -y 180 
 }
 
 # SECTION 8: SET PASSWORD FUNCTIONS - Các hàm đặt mật khẩu
+
 # [8] Set Password
 $buttonSetPassword = New-DynamicButton -text "[8] Set Password" -x 430 -y 260 -width 380 -height 60 -clickAction {
     # Hide the main menu
@@ -4065,17 +3866,6 @@ $buttonExit = New-DynamicButton -text "[0] Exit" -x 430 -y 420 -width 380 -heigh
     $script:form.Close()
 }
 
-# Add KeyDown event handler for Esc key
-$script:form.Add_KeyDown({
-    param($sender, $e)
-    if ($e.KeyCode -eq [System.Windows.Forms.Keys]::Escape) {
-        $script:form.Close()
-    }
-})
-
-# Enable key events
-$script:form.KeyPreview = $true
-
 # Add buttons to form
 $script:form.Controls.Add($buttonRunAll)
 $script:form.Controls.Add($buttonInstallSoftware)
@@ -4087,5 +3877,6 @@ $script:form.Controls.Add($buttonRenameDevice)
 $script:form.Controls.Add($buttonSetPassword)
 $script:form.Controls.Add($buttonJoinDomain)
 $script:form.Controls.Add($buttonExit)
+
 # Display form
 $script:form.ShowDialog()
