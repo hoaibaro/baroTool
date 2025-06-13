@@ -3,8 +3,6 @@
 # ==============================================================================
 
 # SECTION 1: ADMIN PRIVILEGES CHECK & INITIALIZATION
-# Check for admin privileges
-if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
     Write-Warning "This script requires administrative privileges. Attempting to restart with elevation..."
     Start-Sleep -Seconds 1
 
@@ -1688,6 +1686,89 @@ echo Operation completed successfully. >> shrink_status.txt
     # Show the form
     $volumeForm.ShowDialog()
 }
+# Activate
+$buttonActivate = New-DynamicButton -text "[5] Activate" -x 30 -y 420 -width 380 -height 60 -clickAction { }
+# Turn On Features
+$buttonTurnOnFeatures = New-DynamicButton -text "[6] Turn On Features" -x 430 -y 100 -width 380 -height 60 -clickAction { }
+# Rename Device
+$buttonRenameDevice = New-DynamicButton -text "[7] Rename Device" -x 430 -y 180 -width 380 -height 60 -clickAction { }
+# Set Password
+$buttonSetPassword = New-DynamicButton -text "[8] Set Password" -x 430 -y 260 -width 380 -height 60 -clickAction {
+    # Hide the main menu
+    Hide-MainMenu
+    # Create password form
+    $passwordForm = New-Object System.Windows.Forms.Form
+    $passwordForm.Text = "Password Management"
+    $passwordForm.Size = New-Object System.Drawing.Size(500, 450)
+    $passwordForm.StartPosition = "CenterScreen"
+ }
+# Join Domain
+$buttonJoinDomain = New-DynamicButton -text "[9] Join Domain" -x 430 -y 340 -width 380 -height 60 -clickAction {
+    # Hide the main menu
+    Hide-MainMenu
+    # Create domain/workgroup join form
+    $joinForm = New-Object System.Windows.Forms.Form
+    $joinForm.Text = "Domain Management"
+    $joinForm.Size = New-Object System.Drawing.Size(500, 450)
+    $joinForm.StartPosition = "CenterScreen"
+    $joinForm.BackColor = [System.Drawing.Color]::Black
+    $joinForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+    $joinForm.MaximizeBox = $false
+    $joinForm.MinimizeBox = $false
+
+    # Create title label
+    $titleLabel = New-Object System.Windows.Forms.Label
+    $titleLabel.Text = "Domain Management"
+    $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
+    $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 0)
+    $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $titleLabel.Size = New-Object System.Drawing.Size(480, 40)
+    $titleLabel.Location = New-Object System.Drawing.Point(10, 20)
+    $joinForm.Controls.Add($titleLabel)
+
+    # Get current computer information
+    $currentName = $env:COMPUTERNAME
+    try {
+        $computerSystem = Get-WmiObject -Class Win32_ComputerSystem
+        $currentWorkgroup = $computerSystem.Domain
+        $isDomain = $computerSystem.PartOfDomain
+    }
+    catch {
+        $currentWorkgroup = "Unknown"
+        $isDomain = $false
+    }
+
+    # Current computer info label
+    $currentLabel = New-Object System.Windows.Forms.Label
+    $currentLabel.Text = "Current Computer Name: $currentName"
+    $currentLabel.Font = New-Object System.Drawing.Font("Arial", 12)
+    $currentLabel.ForeColor = [System.Drawing.Color]::White
+    $currentLabel.Size = New-Object System.Drawing.Size(480, 30)
+    $currentLabel.Location = New-Object System.Drawing.Point(20, 70)
+    $joinForm.Controls.Add($currentLabel)
+
+    # Current domain/workgroup info
+    $domainLabel = New-Object System.Windows.Forms.Label
+    if ($isDomain) {
+        $domainLabel.Text = "Currently joined to DOMAIN: $currentWorkgroup"
+    }
+    else {
+        $domainLabel.Text = "Currently joined to WORKGROUP: $currentWorkgroup"
+    }
+    $domainLabel.Font = New-Object System.Drawing.Font("Arial", 12)
+    $domainLabel.ForeColor = [System.Drawing.Color]::White
+    $domainLabel.Size = New-Object System.Drawing.Size(480, 30)
+    $domainLabel.Location = New-Object System.Drawing.Point(20, 100)
+    $joinForm.Controls.Add($domainLabel)
+
+    # Create radio buttons for domain/workgroup selection
+    $groupBox = New-Object System.Windows.Forms.GroupBox
+    $groupBox.Text = "Select Option"
+    $groupBox.Font = New-Object System.Drawing.Font("Arial", 10)
+    $groupBox.ForeColor = [System.Drawing.Color]::White
+    $groupBox.Size = New-Object System.Drawing.Size(460, 80)
+    $groupBox.Location = New-Object System.Drawing.Point(20, 140)
+    $groupBox.BackColor = [System.Drawing.Color]::Black
 
 # Create other main menu buttons
 $buttonActivate = New-DynamicButton -text "[5] Activate" -x 430 -y 100 -width 380 -height 60 -clickAction { }
