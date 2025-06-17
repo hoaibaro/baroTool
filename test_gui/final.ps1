@@ -2,7 +2,7 @@
 # BAROPROVIP - VOLUME MANAGEMENT TOOL (FULLY ORGANIZED VERSION)
 # ==============================================================================
 
-# SECTION 1: ADMIN PRIVILEGES CHECK & INITIALIZATION
+# SECTION I: ADMIN PRIVILEGES CHECK & INITIALIZATION
 if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
     Write-Warning "This script requires administrative privileges. Attempting to restart with elevation..."
     Start-Sleep -Seconds 1
@@ -30,7 +30,7 @@ $consolePtr = [Console.Window]::GetConsoleWindow()
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# SECTION 2: UTILITY FUNCTIONS - Các hàm tiện ích chung
+# SECTION II: UTILITY FUNCTIONS - Các hàm tiện ích chung
 # Functions to hide/show the main menu
 function Hide-MainMenu {
     $script:form.Hide()
@@ -41,7 +41,7 @@ function Show-MainMenu {
     $script:form.BringToFront()
 }
 
-# SECTION 3: UI CREATION FUNCTIONS - Các hàm tạo giao diện
+# SECTION III: UI CREATION FUNCTIONS - Các hàm tạo giao diện
 # Function to create a button with green background
 function New-GreenButton {
     param (
@@ -161,11 +161,11 @@ function New-DynamicButton {
     return $button
 }
 
-# SECTION 8: MAIN APPLICATION - Ứng dụng chính
+# SECTION IV: MAIN APPLICATION - Ứng dụng chính
 # Create main form
 $script:form = New-Object System.Windows.Forms.Form
 $script:form.Text = "BAOPROVIP - SYSTEM MANAGEMENT"
-$script:form.Size = New-Object System.Drawing.Size(850, 600)
+$script:form.Size = New-Object System.Drawing.Size(850, 550)
 $script:form.StartPosition = "CenterScreen"
 $script:form.BackColor = [System.Drawing.Color]::Black
 $script:form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -209,11 +209,16 @@ $titleTimer.Add_Tick({
     })
 $titleTimer.Start()
 
-# [1] Run All Functions
-$buttonRunAll = New-DynamicButton -text "[1] Run All" -x 30 -y 100 -width 380 -height 60 -clickAction {
+#================================================
+# SECTION 1: RUN ALL OPERATIONS FUNCTIONS - Các hàm thực hiện tất cả các thao tác
+# Function to handle Run All operations
 
+# [1] Run All button
+$buttonRunAll = New-DynamicButton -text "[1] Run All" -x 30 -y 100 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 250, 0)) -clickAction {
+    Invoke-RunAllOperations -mainForm $script:form
 }
 
+#================================================
 # SECTION 2: INSTALL SOFTWARE DIALOG FUNCTIONS (DEFINED BEFORE USE)
 # Function to show Install Software dialog
 function Show-InstallSoftwareDialog {
@@ -402,9 +407,9 @@ function Show-InstallSoftwareDialog {
             }
 
             # Copy ForceScout
-            $forceScoutDest = "$env:USERPROFILE\Downloads\SC-wKgXWicTb0XhUSNethaFN0vkhji53AY5mektJ7O_RSOdc8bEUVIEAAH_OewU.exe"
+            $forceScoutDest = "$env:USERPROFILE\Downloads\ForceScout.exe"
             if (-not (Test-Path $forceScoutDest)) {
-                $forceScoutSource = "D:\SOFTWARE\PAYOO\SC-wKgXWicTb0XhUSNethaFN0vkhji53AY5mektJ7O_RSOdc8bEUVIEAAH_OewU.exe"
+                $forceScoutSource = "D:\SOFTWARE\PAYOO\ForceScout.exe"
                 if (Test-Path $forceScoutSource) {
                     Add-Status "Copying ForceScout file..."
                     try {
@@ -807,11 +812,13 @@ function Show-InstallSoftwareDialog {
     # Show the dialog
     $deviceTypeForm.ShowDialog()
 }
+
 # [2] Install Software Button
 $buttonInstallSoftware = New-DynamicButton -text "[2] Install All Software" -x 30 -y 180 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
     Show-InstallSoftwareDialog
 }
 
+#================================================
 # [3] Power Options
 $buttonPowerOptions = New-DynamicButton -text "[3] Power Options" -x 30 -y 260 -width 380 -height 60 -clickAction {
     # Hide the main menu
@@ -1064,7 +1071,7 @@ function New-RenameVolumeGroupBox {
     $groupBox = New-Object System.Windows.Forms.GroupBox
     $groupBox.Text = "Volume Rename Configuration"
     $groupBox.Location = New-Object System.Drawing.Point(180, 60)
-    $groupBox.Size = New-Object System.Drawing.Size(400, 120)
+    $groupBox.Size = New-Object System.Drawing.Size(400, 150)
     $groupBox.ForeColor = [System.Drawing.Color]::Lime
     $groupBox.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
     $parentPanel.Controls.Add($groupBox)
@@ -1078,17 +1085,17 @@ function New-RenameVolumeGroupBox {
     $driveLetterLabel.Font = New-Object System.Drawing.Font("Arial", 10)
     $groupBox.Controls.Add($driveLetterLabel)
 
-    # Drive letter textbox
-    $driveLetterTextBox = New-Object System.Windows.Forms.TextBox
-    $driveLetterTextBox.Location = New-Object System.Drawing.Point(130, 30)
-    $driveLetterTextBox.Size = New-Object System.Drawing.Size(50, 20)
-    $driveLetterTextBox.BackColor = [System.Drawing.Color]::Black
-    $driveLetterTextBox.ForeColor = [System.Drawing.Color]::Lime
-    $driveLetterTextBox.Font = New-Object System.Drawing.Font("Consolas", 11, [System.Drawing.FontStyle]::Bold)
-    $driveLetterTextBox.MaxLength = 1
-    $driveLetterTextBox.ReadOnly = $true
-    $driveLetterTextBox.TextAlign = [System.Windows.Forms.HorizontalAlignment]::Center
-    $groupBox.Controls.Add($driveLetterTextBox)
+    # Drive letter textbox - use script scope
+    $script:renameDriveLetterTextBox = New-Object System.Windows.Forms.TextBox
+    $script:renameDriveLetterTextBox.Location = New-Object System.Drawing.Point(130, 30)
+    $script:renameDriveLetterTextBox.Size = New-Object System.Drawing.Size(50, 20)
+    $script:renameDriveLetterTextBox.BackColor = [System.Drawing.Color]::Black
+    $script:renameDriveLetterTextBox.ForeColor = [System.Drawing.Color]::Lime
+    $script:renameDriveLetterTextBox.Font = New-Object System.Drawing.Font("Consolas", 11, [System.Drawing.FontStyle]::Bold)
+    $script:renameDriveLetterTextBox.MaxLength = 1
+    $script:renameDriveLetterTextBox.ReadOnly = $true
+    $script:renameDriveLetterTextBox.TextAlign = [System.Windows.Forms.HorizontalAlignment]::Center
+    $groupBox.Controls.Add($script:renameDriveLetterTextBox)
 
     # New label label
     $newLabelLabel = New-Object System.Windows.Forms.Label
@@ -1099,31 +1106,29 @@ function New-RenameVolumeGroupBox {
     $newLabelLabel.Font = New-Object System.Drawing.Font("Arial", 10)
     $groupBox.Controls.Add($newLabelLabel)
 
-    # New label textbox
-    $newLabelTextBox = New-Object System.Windows.Forms.TextBox
-    $newLabelTextBox.Location = New-Object System.Drawing.Point(130, 60)
-    $newLabelTextBox.Size = New-Object System.Drawing.Size(200, 20)
-    $newLabelTextBox.BackColor = [System.Drawing.Color]::Black
-    $newLabelTextBox.ForeColor = [System.Drawing.Color]::Lime
-    $newLabelTextBox.Font = New-Object System.Drawing.Font("Consolas", 11)
-    $groupBox.Controls.Add($newLabelTextBox)
+    # New label textbox - use script scope
+    $script:renameNewLabelTextBox = New-Object System.Windows.Forms.TextBox
+    $script:renameNewLabelTextBox.Location = New-Object System.Drawing.Point(130, 60)
+    $script:renameNewLabelTextBox.Size = New-Object System.Drawing.Size(200, 20)
+    $script:renameNewLabelTextBox.BackColor = [System.Drawing.Color]::Black
+    $script:renameNewLabelTextBox.ForeColor = [System.Drawing.Color]::Lime
+    $script:renameNewLabelTextBox.Font = New-Object System.Drawing.Font("Consolas", 11)
+    $groupBox.Controls.Add($script:renameNewLabelTextBox)
 
     return @{
         GroupBox = $groupBox
-        DriveLetterTextBox = $driveLetterTextBox
-        NewLabelTextBox = $newLabelTextBox
+        DriveLetterTextBox = $script:renameDriveLetterTextBox
+        NewLabelTextBox = $script:renameNewLabelTextBox
     }
 }
 
 # Hàm tạo nút rename cho form rename volume
 function New-RenameActionButton {
     param([System.Windows.Forms.GroupBox]$groupBox, [System.Windows.Forms.ListBox]$driveListBox)
-    $renameButton = New-DynamicButton -text "Rename" -x 100 -y 90 -width 200 -height 30 -clickAction {
-        $driveLetter = $groupBox.Controls | Where-Object { $_ -is [System.Windows.Forms.TextBox] } | Where-Object { $_.Location.X -eq 130 -and $_.Location.Y -eq 30 }
-        $newLabel = $groupBox.Controls | Where-Object { $_ -is [System.Windows.Forms.TextBox] } | Where-Object { $_.Location.X -eq 130 -and $_.Location.Y -eq 60 }
-        if ($driveLetter -and $newLabel) {
-            $dl = $driveLetter.Text.Trim().ToUpper()
-            $nl = $newLabel.Text.Trim()
+    $renameButton = New-DynamicButton -text "Rename" -x 100 -y 100 -width 200 -height 40 -clickAction {
+        if ($script:renameDriveLetterTextBox -and $script:renameNewLabelTextBox) {
+            $dl = $script:renameDriveLetterTextBox.Text.Trim().ToUpper()
+            $nl = $script:renameNewLabelTextBox.Text.Trim()
             if ($dl -and $nl) {
                 try {
                     Set-Volume -DriveLetter $dl -NewFileSystemLabel $nl -ErrorAction Stop
@@ -1686,22 +1691,8 @@ $buttonChangeVolume = New-DynamicButton -text "[4] Change / Edit Volume" -x 30 -
 
             # Update for Rename Volume button
             if ($contentPanel.Controls.Count -gt 0 -and $contentPanel.Controls[0].Text -eq "Rename Volume") {
-                # Method 1: Find the GroupBox by Text property
-                $renameGroupBox = $contentPanel.Controls | Where-Object { $_ -is [System.Windows.Forms.GroupBox] -and $_.Text -eq "Volume Rename Configuration" }
-                
-                # Method 2: Fallback - find any GroupBox in the rename panel (if Method 1 fails)
-                if (-not $renameGroupBox) {
-                    $renameGroupBox = $contentPanel.Controls | Where-Object { $_ -is [System.Windows.Forms.GroupBox] }
-                }
-                
-                if ($renameGroupBox) {
-                    # Find the drive letter textbox inside the GroupBox
-                    $driveLetterTextBox = $renameGroupBox.Controls | Where-Object { $_ -is [System.Windows.Forms.TextBox] -and $_.Location.X -eq 230 -and $_.Location.Y -eq 30 }
-
-                    if ($driveLetterTextBox) {
-                        $driveLetterTextBox.Text = $driveLetter
-                        # Don't auto-fill the new label textbox - let user type what they want
-                    }
+                if ($script:renameDriveLetterTextBox) {
+                    $script:renameDriveLetterTextBox.Text = $driveLetter
                 }
             }
         }
@@ -2861,6 +2852,7 @@ $buttonTurnOnFeatures = New-DynamicButton -text "[6] Turn On Features" -x 430 -y
     $featuresForm.ShowDialog()
 }
 
+#================================================
 # SECTION 7: RENAME DEVICE FUNCTIONS - Các hàm đổi tên máy tính
 function Rename-DeviceWithBatch {
     <#
@@ -3078,6 +3070,7 @@ exit /b 0
         return $false
     }
 }
+
 # [7] Rename Device
 $buttonRenameDevice = New-DynamicButton -text "[7] Rename Device" -x 430 -y 180 -width 380 -height 60 -clickAction {
     # Hide the main menu
@@ -3245,6 +3238,7 @@ $buttonRenameDevice = New-DynamicButton -text "[7] Rename Device" -x 430 -y 180 
     $renameForm.ShowDialog()
 }
 
+#================================================
 # SECTION 8: SET PASSWORD FUNCTIONS - Các hàm đặt mật khẩu
 # [8] Set Password
 $buttonSetPassword = New-DynamicButton -text "[8] Set Password" -x 430 -y 260 -width 380 -height 60 -clickAction {
@@ -3401,6 +3395,7 @@ $buttonSetPassword = New-DynamicButton -text "[8] Set Password" -x 430 -y 260 -w
     $passwordForm.ShowDialog()
 }
 
+#================================================
 # SECTION 9: DOMAIN MANAGEMENT FUNCTIONS - Các hàm quản lý domain
 # Domain Management Configuration
 $script:DomainConfig = @{
@@ -4060,6 +4055,7 @@ $buttonJoinDomain = New-DynamicButton -text "[9] Join Domain" -x 430 -y 340 -wid
     Show-DomainManagementForm
 }
 
+#================================================
 # [0] Exit
 $buttonExit = New-DynamicButton -text "[0] Exit" -x 430 -y 420 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
     $script:form.Close()
