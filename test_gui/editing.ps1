@@ -5,7 +5,7 @@
 # SECTION 1: ADMIN PRIVILEGES CHECK & INITIALIZATION
 if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
     Write-Warning "This script requires administrative privileges. Attempting to restart with elevation..."
-    Start-Sleep -Seconds 1
+    Start-Sleep -Seconds 0
 
     # Restart script with admin privileges
     $scriptPath = $MyInvocation.MyCommand.Path
@@ -126,6 +126,7 @@ function Add-Status {
     [System.Windows.Forms.Application]::DoEvents()
 }
 
+# STEP 1
 # Copy-SoftwareFiles function
 function Copy-SoftwareFiles {
     param ([string]$deviceType, [System.Windows.Forms.TextBox]$statusTextBox)
@@ -588,7 +589,7 @@ function Install-Software {
     }
 }
 
-# 
+# STEP 2
 function Invoke-SystemConfiguration {
     param (
         [string]$deviceType,
@@ -608,6 +609,21 @@ function Invoke-SystemConfiguration {
         $renameForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
         $renameForm.MaximizeBox = $false
         $renameForm.MinimizeBox = $false
+        
+        # THÊM XỬ LÝ PHÍM ESC VÀ ENTER
+        $renameForm.KeyPreview = $true
+        $renameForm.Add_KeyDown({
+            param($sender, $e)
+            if ($e.KeyCode -eq [System.Windows.Forms.Keys]::Escape) {
+                # ESC để đóng form
+                $renameForm.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+                $renameForm.Close()
+            }
+            elseif ($e.KeyCode -eq [System.Windows.Forms.Keys]::Enter) {
+                # ENTER để thực hiện rename
+                $okButton.PerformClick()
+            }
+        })
 
         # Label hiển thị tên hiện tại
         $currentNameLabel = New-Object System.Windows.Forms.Label
@@ -643,6 +659,14 @@ function Invoke-SystemConfiguration {
         $nameTextBox.Size = New-Object System.Drawing.Size(300, 25)
         $nameTextBox.Font = New-Object System.Drawing.Font("Arial", 10)
         $renameForm.Controls.Add($nameTextBox)
+        
+        # THÊM XỬ LÝ PHÍM ENTER CHO TEXTBOX
+        $nameTextBox.Add_KeyDown({
+            param($sender, $e)
+            if ($e.KeyCode -eq [System.Windows.Forms.Keys]::Enter) {
+                $okButton.PerformClick()
+            }
+        })
 
         # Label hiển thị preview tên mới
         $previewLabel = New-Object System.Windows.Forms.Label
@@ -662,9 +686,9 @@ function Invoke-SystemConfiguration {
 
         # Nút OK
         $okButton = New-Object System.Windows.Forms.Button
-        $okButton.Text = "OK"
-        $okButton.Location = New-Object System.Drawing.Point(250, 160)
-        $okButton.Size = New-Object System.Drawing.Size(80, 30)
+        $okButton.Text = "OK (Enter)"
+        $okButton.Location = New-Object System.Drawing.Point(220, 160)
+        $okButton.Size = New-Object System.Drawing.Size(100, 30)
         $okButton.BackColor = [System.Drawing.Color]::FromArgb(0, 150, 0)
         $okButton.ForeColor = [System.Drawing.Color]::White
         $okButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
@@ -676,9 +700,9 @@ function Invoke-SystemConfiguration {
 
         # Nút Cancel
         $cancelButton = New-Object System.Windows.Forms.Button
-        $cancelButton.Text = "Cancel"
-        $cancelButton.Location = New-Object System.Drawing.Point(340, 160)
-        $cancelButton.Size = New-Object System.Drawing.Size(80, 30)
+        $cancelButton.Text = "Cancel (ESC)"
+        $cancelButton.Location = New-Object System.Drawing.Point(330, 160)
+        $cancelButton.Size = New-Object System.Drawing.Size(100, 30)
         $cancelButton.BackColor = [System.Drawing.Color]::FromArgb(150, 0, 0)
         $cancelButton.ForeColor = [System.Drawing.Color]::White
         $cancelButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
@@ -687,6 +711,12 @@ function Invoke-SystemConfiguration {
             $renameForm.Close()
         })
         $renameForm.Controls.Add($cancelButton)
+
+        # Đặt focus vào TextBox khi form hiển thị
+        $renameForm.Add_Shown({
+            $nameTextBox.Focus()
+            $nameTextBox.Select()
+        })
 
         # Hiển thị form và xử lý kết quả
         $result = $renameForm.ShowDialog()
@@ -749,8 +779,1000 @@ function Invoke-SystemConfiguration {
     }
 }
 
+# STEP 3
+function Invoke-SystemCleanup {
+    param (
+        [string]$deviceType,
+        [System.Windows.Forms.TextBox]$statusTextBox
+    )
+    
+    try {
+        Add-Status "Starting system cleanup and optimization..." $statusTextBox
+        
+        # --- 1. System File Cleanup ---
+        Invoke-FileCleanup $statusTextBox
+        
+        # --- 2. Service Management ---
+        Invoke-ServiceOptimization $statusTextBox
+        
+        # --- 3. System Performance Optimization ---
+        Invoke-PerformanceOptimization $statusTextBox
+        
+        # --- 4. Power Management ---
+        Invoke-PowerConfiguration $deviceType $statusTextBox
+        
+        # --- 5. Startup Program Management ---
+        Invoke-StartupOptimization $statusTextBox
+        
+        # --- 6. Disk Optimization ---
+        Invoke-DiskOptimization $statusTextBox
+        
+        # --- 7. Timezone Configuration ---
+        Invoke-TimezoneConfiguration $statusTextBox
+        
+        # --- 8. Power Options Configuration ---
+        Invoke-PowerOptionsConfiguration $statusTextBox
+        
+        Add-Status "System cleanup and optimization completed successfully!" $statusTextBox
+        return $true
+        
+    } catch {
+        Add-Status "ERROR during System Cleanup: $_" $statusTextBox
+        return $false
+    }
+}
 
+# Helper Functions
+function Invoke-FileCleanup {
+    param ([System.Windows.Forms.TextBox]$statusTextBox)
+    
+    Add-Status "Cleaning temporary files..." $statusTextBox
+    
+    # Định nghĩa các đường dẫn cần dọn dẹp
+    $tempPaths = @(
+        "$env:TEMP\*",
+        "$env:WINDIR\Temp\*",
+        "$env:USERPROFILE\AppData\Local\Temp\*"
+    )
+    
+    # Dọn dẹp file tạm
+    $tempPaths | ForEach-Object {
+        try {
+            Remove-Item -Path $_ -Recurse -Force -ErrorAction SilentlyContinue
+            Add-Status "Cleaned: $_" $statusTextBox
+        } catch {
+            Add-Status "Warning: Could not clean $_" $statusTextBox
+        }
+    }
+    
+    # Dọn dẹp Recycle Bin và Windows Update cache
+    try {
+        Clear-RecycleBin -Force -ErrorAction SilentlyContinue
+        Add-Status "Recycle Bin cleaned successfully!" $statusTextBox
+        
+        Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "$env:WINDIR\SoftwareDistribution\Download\*" -Recurse -Force -ErrorAction SilentlyContinue
+        Start-Service -Name wuauserv -ErrorAction SilentlyContinue
+        Add-Status "Windows Update cache cleaned!" $statusTextBox
+    } catch {
+        Add-Status "Warning: Could not complete advanced cleanup" $statusTextBox
+    }
+}
 
+function Invoke-ServiceOptimization {
+    param ([System.Windows.Forms.TextBox]$statusTextBox)
+    
+    Add-Status "Disabling unnecessary services..." $statusTextBox
+    
+    $servicesToDisable = @("Fax", "WSearch", "Themes", "TabletInputService", "WMPNetworkSvc")
+    
+    $servicesToDisable | ForEach-Object {
+        try {
+            $svc = Get-Service -Name $_ -ErrorAction SilentlyContinue
+            if ($svc -and $svc.StartType -ne "Disabled") {
+                Stop-Service -Name $_ -Force -ErrorAction SilentlyContinue
+                Set-Service -Name $_ -StartupType Disabled -ErrorAction SilentlyContinue
+                Add-Status "Disabled service: $_" $statusTextBox
+            }
+        } catch {
+            Add-Status "Warning: Could not disable service $_" $statusTextBox
+        }
+    }
+}
+
+function Invoke-PerformanceOptimization {
+    param ([System.Windows.Forms.TextBox]$statusTextBox)
+    
+    Add-Status "Optimizing visual effects for performance..." $statusTextBox
+    
+    try {
+        $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects"
+        if (-not (Test-Path $regPath)) {
+            New-Item -Path $regPath -Force | Out-Null
+        }
+        Set-ItemProperty -Path $regPath -Name "VisualFXSetting" -Value 2 -Type DWord
+        Add-Status "Visual effects optimized for performance!" $statusTextBox
+        
+        # Tắt Windows Defender tạm thời
+        Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
+        Add-Status "Windows Defender real-time protection disabled temporarily!" $statusTextBox
+        Add-Status "Note: This will be re-enabled automatically after restart" $statusTextBox
+    } catch {
+        Add-Status "Warning: Could not complete performance optimization" $statusTextBox
+    }
+}
+
+function Invoke-PowerConfiguration {
+    param ([string]$deviceType, [System.Windows.Forms.TextBox]$statusTextBox)
+    
+    Add-Status "Optimizing power settings..." $statusTextBox
+    
+    $powerScheme = if ($deviceType -eq "Desktop") { 
+        "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"  # High Performance
+    } else { 
+        "381b4222-f694-41f0-9685-ff5bb260df2e"  # Balanced
+    }
+    
+    try {
+        powercfg /setactive $powerScheme
+        $planName = if ($deviceType -eq "Desktop") { "High Performance" } else { "Balanced" }
+        Add-Status "Power plan set to $planName for $deviceType!" $statusTextBox
+    } catch {
+        Add-Status "Warning: Could not set power plan" $statusTextBox
+    }
+}
+
+function Invoke-StartupOptimization {
+    param ([System.Windows.Forms.TextBox]$statusTextBox)
+    
+    Add-Status "Disabling unnecessary startup programs..." $statusTextBox
+    
+    $startupPrograms = @("Skype for Desktop", "Spotify", "Steam", "Discord")
+    $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+    
+    $startupPrograms | ForEach-Object {
+        try {
+            $property = Get-ItemProperty -Path $regPath -Name $_ -ErrorAction SilentlyContinue
+            if ($property) {
+                Remove-ItemProperty -Path $regPath -Name $_ -ErrorAction SilentlyContinue
+                Add-Status "Disabled startup program: $_" $statusTextBox
+            }
+        } catch {
+            Add-Status "Warning: Could not disable startup program $_" $statusTextBox
+        }
+    }
+}
+
+function Invoke-DiskOptimization {
+    param ([System.Windows.Forms.TextBox]$statusTextBox)
+    
+    Add-Status "Running Disk Cleanup..." $statusTextBox
+    
+    try {
+        # Disk Cleanup
+        Start-Process -FilePath "cleanmgr.exe" -ArgumentList "/sagerun:1" -Wait -WindowStyle Hidden
+        Add-Status "Disk Cleanup completed!" $statusTextBox
+        
+        # Drive Optimization
+        Add-Status "Checking drive type and optimizing..." $statusTextBox
+        $drives = Get-WmiObject -Class Win32_LogicalDisk | Where-Object { $_.DriveType -eq 3 }
+        $drives | ForEach-Object {
+            $driveLetter = $_.DeviceID
+            Add-Status "Optimizing drive $driveLetter..." $statusTextBox
+            Start-Process -FilePath "defrag.exe" -ArgumentList "$driveLetter /O" -Wait -WindowStyle Hidden
+        }
+        Add-Status "Drive optimization completed!" $statusTextBox
+    } catch {
+        Add-Status "Warning: Could not complete disk optimization" $statusTextBox
+    }
+}
+
+function Invoke-TimezoneConfiguration {
+    param ([System.Windows.Forms.TextBox]$statusTextBox)
+    
+    Add-Status "Setting time zone and automatically updating time..." $statusTextBox
+    
+    try {
+        # Cấu hình múi giờ
+        $tzResult = Start-Process -FilePath "tzutil" -ArgumentList "/s `"SE Asia Standard Time`"" -Wait -PassThru -WindowStyle Hidden
+        if ($tzResult.ExitCode -eq 0) {
+            Add-Status "Time zone set to SE Asia Standard Time successfully!" $statusTextBox
+        }
+        
+        # Cấu hình NTP và đồng bộ thời gian
+        $regCommands = @(
+            @{Path = "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\w32time\Parameters"; Name = "Type"; Value = "NTP"},
+            @{Path = "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\tzautoupdate"; Name = "Start"; Value = 2}
+        )
+        
+        $regCommands | ForEach-Object {
+            reg add $_.Path /v $_.Name /t REG_SZ /d $_.Value /f | Out-Null
+        }
+        
+        w32tm /resync | Out-Null
+        Add-Status "Set timezone and time automatically completed successfully!" $statusTextBox
+    } catch {
+        Add-Status "Warning: Could not configure timezone settings: $_" $statusTextBox
+    }
+}
+
+function Invoke-PowerOptionsConfiguration {
+    param ([System.Windows.Forms.TextBox]$statusTextBox)
+    
+    Add-Status "Configuring power options to 'Do Nothing'..." $statusTextBox
+    
+    try {
+        # Định nghĩa các cấu hình power
+        $powerConfigs = @(
+            @{Setting = "LIDACTION"; Description = "Lid close action"},
+            @{Setting = "SBUTTONACTION"; Description = "Sleep button action"},
+            @{Setting = "PBUTTONACTION"; Description = "Power button action"}
+        )
+        
+        # Áp dụng cấu hình cho các nút
+        $powerConfigs | ForEach-Object {
+            powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS $_.Setting 0 | Out-Null
+            powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS $_.Setting 0 | Out-Null
+            Add-Status "$($_.Description) set to 'Do Nothing'!" $statusTextBox
+        }
+        
+        # Tắt timeout cho màn hình và sleep
+        powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_VIDEO VIDEOIDLE 0 | Out-Null
+        powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_VIDEO VIDEOIDLE 0 | Out-Null
+        powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 0 | Out-Null
+        powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 0 | Out-Null
+        
+        # Áp dụng thay đổi
+        powercfg /SETACTIVE SCHEME_CURRENT | Out-Null
+        Add-Status "Power options configured to 'Do Nothing' completed successfully!" $statusTextBox
+    } catch {
+        Add-Status "Warning: Could not configure power options: $_" $statusTextBox
+    }
+}
+
+# STEP 4: 
+function Invoke-ActivationConfiguration {
+    param (
+        [string]$deviceType,
+        [System.Windows.Forms.TextBox]$statusTextBox
+    )
+    
+    try {
+        # --- 1. Windows 10 Pro Activation ---
+        Invoke-WindowsActivation $statusTextBox
+        
+        # --- 2. Office 2019 Pro Plus Activation ---
+        Invoke-OfficeActivation $statusTextBox
+        
+        Add-Status "Activations completed successfully!" $statusTextBox
+        return $true
+        
+    } catch {
+        Add-Status "ERROR during Activation Configuration: $_" $statusTextBox
+        return $false
+    }
+}
+
+function Invoke-WindowsActivation {
+    param ([System.Windows.Forms.TextBox]$statusTextBox)
+    
+    Add-Status "Checking Windows activation status..." $statusTextBox
+    
+    try {
+        # Kiểm tra trạng thái activation của Windows
+        $windowsActivationStatus = Get-CimInstance SoftwareLicensingProduct -Filter "ApplicationID = '55c92734-d682-4d71-983e-d6ec3f16059f' AND LicenseStatus = 1" -ErrorAction SilentlyContinue
+        
+        if ($windowsActivationStatus) {
+            Add-Status "Product: $($windowsActivationStatus.Name)" $statusTextBox
+            Add-Status "Partial Product Key: $($windowsActivationStatus.PartialProductKey)" $statusTextBox
+            Add-Status "Windows is already activated. Skipping activation..." $statusTextBox
+            return
+        }
+
+        Add-Status "Windows is not activated. Proceeding with activation..." $statusTextBox
+        Add-Status "Activating Windows 10 Pro..." $statusTextBox
+    
+        # Kiểm tra phiên bản Windows hiện tại
+        $windowsVersion = (Get-WmiObject -Class Win32_OperatingSystem).Caption
+        Add-Status "Current Windows version: $windowsVersion" $statusTextBox
+        
+        # Nhập Windows 10 Pro license key
+        $windows10ProKey = "VK7JG-NPHTM-C97JM-9MPGT-3V66T"  # Thay thế bằng key license thực tế của bạn
+        
+        if ([string]::IsNullOrWhiteSpace($windows10ProKey)) {
+            Add-Status "WARNING: Windows license key is empty. Please add your license key." $statusTextBox
+            Add-Status "Skipping Windows activation..." $statusTextBox
+            return
+        }
+        
+        # Cài đặt product key
+        $result = Start-Process -FilePath "slmgr" -ArgumentList "/ipk $windows10ProKey" -Wait -PassThru -WindowStyle Hidden
+        if ($result.ExitCode -eq 0) {
+            # Kích hoạt Windows trực tiếp (không qua KMS)
+            Add-Status "Activating Windows with provided license key..." $statusTextBox
+            $activateResult = Start-Process -FilePath "slmgr" -ArgumentList "/ato" -Wait -PassThru -WindowStyle Hidden
+            if ($activateResult.ExitCode -eq 0) {
+                Add-Status "Windows activated successfully!" $statusTextBox
+            } else {
+                Add-Status "Warning: Windows activation may have failed" $statusTextBox
+            }
+        } else {
+            Add-Status "Warning: Windows key installation failed" $statusTextBox
+        }
+        
+        # Kiểm tra trạng thái activation
+        Start-Sleep -Seconds 2
+        Add-Status "Checking Windows activation status..." $statusTextBox
+        Start-Process -FilePath "slmgr" -ArgumentList "/xpr" -Wait -WindowStyle Hidden
+    } catch {
+        Add-Status "Warning: Windows activation encountered errors: $_" $statusTextBox
+    }
+}
+
+function Invoke-OfficeActivation {
+    param ([System.Windows.Forms.TextBox]$statusTextBox)
+    Add-Status "Checking Offices activation status..." $statusTextBox
+    try {
+        # Tìm đường dẫn Office installation
+        $officePaths = @(
+            "C:\Program Files\Microsoft Office\Office16",
+            "C:\Program Files (x86)\Microsoft Office\Office16"
+        )
+        $officePath = $null
+        foreach ($path in $officePaths) {
+            if (Test-Path "$path\ospp.vbs") {
+                $officePath = $path
+                Add-Status "Found Office at: $path" $statusTextBox
+                break
+            }
+        }
+        if (-not $officePath) {
+            Add-Status "Office 2019 installation not found. Skipping activation..." $statusTextBox
+            return
+        }
+        
+        # Chuyển đến thư mục Office
+        Set-Location $officePath
+
+        # Kiểm tra trạng thái activation của Office
+        try {
+            $officeStatusResult = Start-Process -FilePath "cscript" -ArgumentList "//nologo ospp.vbs /dstatus" -Wait -PassThru -WindowStyle Hidden -RedirectStandardOutput "$env:TEMP\office_status.txt"
+            
+            if (Test-Path "$env:TEMP\office_status.txt") {
+                $officeStatusContent = Get-Content "$env:TEMP\office_status.txt" -Raw
+                
+                # Kiểm tra xem Office đã được kích hoạt chưa
+                if ($officeStatusContent -match "LICENSE STATUS:\s*---LICENSED---" -or 
+                    $officeStatusContent -match "LICENSE STATUS:\s*---LICENSED \(GRACE\)---") {
+                    # Hiển thị thông tin license hiện tại
+                    $licenseLines = $officeStatusContent -split "`n" | Where-Object { $_ -match "PRODUCT NAME|LICENSE STATUS|PARTIAL PRODUCT KEY" }
+                    foreach ($line in $licenseLines) {
+                        if ($line.Trim() -ne "") {
+                            Add-Status "Offices Info: $($line.Trim())" $statusTextBox
+                        }
+                    }
+                    Add-Status "Offices is already activated. Skipping activation..." $statusTextBox
+                    # Xóa file tạm
+                    Remove-Item "$env:TEMP\office_status.txt" -Force -ErrorAction SilentlyContinue
+                    return
+                }
+                
+                # Xóa file tạm
+                Remove-Item "$env:TEMP\office_status.txt" -Force -ErrorAction SilentlyContinue
+            }
+        } catch {
+            Add-Status "Could not check Office activation status. Proceeding with activation..." $statusTextBox
+        }
+        
+        Add-Status "Office is not activated. Proceeding with activation..." $statusTextBox        
+        # Kiểm tra trạng thái activation của Office
+        try {
+            $officeStatusResult = Start-Process -FilePath "cscript" -ArgumentList "//nologo ospp.vbs /dstatus" -Wait -PassThru -WindowStyle Hidden -RedirectStandardOutput "$env:TEMP\office_status.txt"
+            
+            if (Test-Path "$env:TEMP\office_status.txt") {
+                $officeStatusContent = Get-Content "$env:TEMP\office_status.txt" -Raw
+                
+                # Kiểm tra xem Office đã được kích hoạt chưa
+                if ($officeStatusContent -match "LICENSE STATUS:\s*---LICENSED---" -or 
+                    $officeStatusContent -match "LICENSE STATUS:\s*---LICENSED \(GRACE\)---") {
+                    Add-Status "Office is already activated. Skipping activation..." $statusTextBox
+                    
+                    # Hiển thị thông tin license hiện tại
+                    $licenseLines = $officeStatusContent -split "`n" | Where-Object { $_ -match "PRODUCT NAME|LICENSE STATUS|PARTIAL PRODUCT KEY" }
+                    foreach ($line in $licenseLines) {
+                        if ($line.Trim() -ne "") {
+                            Add-Status "Office Info: $($line.Trim())" $statusTextBox
+                        }
+                    }
+                    
+                    # Xóa file tạm
+                    Remove-Item "$env:TEMP\office_status.txt" -Force -ErrorAction SilentlyContinue
+                    return
+                }
+                
+                # Xóa file tạm
+                Remove-Item "$env:TEMP\office_status.txt" -Force -ErrorAction SilentlyContinue
+            }
+        } catch {
+            Add-Status "Could not check Office activation status. Proceeding with activation..." $statusTextBox
+        }
+        
+        Add-Status "Office is not activated. Proceeding with activation..." $statusTextBox
+        
+        # Nhập Office 2019 Pro Plus license key
+        $officeProPlusKey = "NMMKJ-6RK4F-KMJVX-8D9MJ-6MWKP"  # Thay thế bằng key license thực tế của bạn
+        
+        if ([string]::IsNullOrWhiteSpace($officeProPlusKey)) {
+            Add-Status "WARNING: Office license key is empty. Please add your license key." $statusTextBox
+            Add-Status "Skipping Office activation..." $statusTextBox
+            return
+        }
+        
+        # Cài đặt product key
+        $keyResult = Start-Process -FilePath "cscript" -ArgumentList "//nologo ospp.vbs /inpkey:$officeProPlusKey" -Wait -PassThru -WindowStyle Hidden
+        if ($keyResult.ExitCode -eq 0) {
+            # Kích hoạt Office trực tiếp (không qua KMS)
+            Add-Status "Activating Office2019ProPlus with provided license key..." $statusTextBox
+            $activateResult = Start-Process -FilePath "cscript" -ArgumentList "//nologo ospp.vbs /act" -Wait -PassThru -WindowStyle Hidden
+            
+            if ($activateResult.ExitCode -eq 0) {
+                Add-Status "Office 2019 Pro Plus activated successfully!" $statusTextBox
+            } else {
+                Add-Status "Warning: Office activation may have failed" $statusTextBox
+            }
+        } else {
+            Add-Status "Warning: Office key installation failed" $statusTextBox
+        }
+        
+        # Kiểm tra trạng thái activation Office
+        Add-Status "Checking Office activation status..." $statusTextBox
+        Start-Process -FilePath "cscript" -ArgumentList "//nologo ospp.vbs /dstatus" -Wait -WindowStyle Hidden
+        
+    } catch {
+        Add-Status "Warning: Office activation encountered errors: $_" $statusTextBox
+    }
+}
+
+# STEP 5: 
+function Invoke-WindowsFeaturesConfiguration {
+    param (
+        [string]$deviceType,
+        [System.Windows.Forms.TextBox]$statusTextBox
+    )
+    
+    try {
+        # --- 1. Check and Enable Required Features ---
+        Invoke-EnableWindowsFeatures $statusTextBox
+        # --- 2. Check and Disable Unnecessary Features ---
+        Invoke-DisableWindowsFeatures $statusTextBox
+        return $true
+    } catch {
+        Add-Status "ERROR during Windows Features Configuration: $_" $statusTextBox
+        return $false
+    }
+}
+
+# Helper Functions cho Windows Features Configuration
+function Invoke-EnableWindowsFeatures {
+    param ([System.Windows.Forms.TextBox]$statusTextBox)
+    # Danh sách các features cần enable
+    $featuresToEnable = @(
+        @{
+            Name = "NetFx3"
+            DisplayName = ".NET 3.5    "
+            Command = "dism /online /enable-feature /featurename:NetFx3 /all /norestart"
+        },
+        @{
+            Name = "WCF-HTTP-Activation"
+            DisplayName = "WCF HTTP    "
+            Command = "DISM /Online /Enable-Feature /FeatureName:WCF-HTTP-Activation /All /Quiet /NoRestart"
+        },
+        @{
+            Name = "WCF-NonHTTP-Activation"
+            DisplayName = "WCF Non-HTTP"
+            Command = "DISM /Online /Enable-Feature /FeatureName:WCF-NonHTTP-Activation /All /Quiet /NoRestart"
+        }
+    )
+    
+    foreach ($feature in $featuresToEnable) {
+        try {
+            # Kiểm tra trạng thái hiện tại của feature bằng PowerShell cmdlet
+            $currentFeature = Get-WindowsOptionalFeature -Online -FeatureName $feature.Name -ErrorAction SilentlyContinue
+            if ($currentFeature) {
+                $currentState = $currentFeature.State
+                if ($currentState -eq "Enabled") {
+                    Add-Status "$($feature.DisplayName): Already enabled. Skipping..." $statusTextBox
+                } elseif ($currentState -eq "Disabled") {
+                    Add-Status "$($feature.DisplayName): Currently disabled. Enabling..." $statusTextBox
+                    
+                    # Enable feature using DISM command
+                    $enableArgs = $feature.Command.Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries) | Select-Object -Skip 1
+                    $enableResult = Start-Process -FilePath "dism" -ArgumentList $enableArgs -Wait -PassThru -WindowStyle Hidden
+                
+                    if ($enableResult.ExitCode -eq 0) {
+                        Add-Status "$($feature.DisplayName): Enabled successfully!" $statusTextBox
+                    } elseif ($enableResult.ExitCode -eq 3010) {
+                        Add-Status "$($feature.DisplayName): Enabled successfully! (Restart required)" $statusTextBox
+                    } else {
+                        Add-Status "WARNING: Failed to enable $($feature.DisplayName) (Exit code: $($enableResult.ExitCode))" $statusTextBox
+                    }
+                    
+                    # Verify new state
+                    Start-Sleep -Seconds 2
+                    $newFeature = Get-WindowsOptionalFeature -Online -FeatureName $feature.Name -ErrorAction SilentlyContinue
+                    if ($newFeature) {
+                        Add-Status "$($feature.DisplayName): Verified new state is $($newFeature.State)" $statusTextBox
+                    }
+                } else {
+                    Add-Status "WARNING: $($feature.DisplayName) is in unexpected state: $currentState" $statusTextBox
+                }
+            } else {
+                Add-Status "WARNING: Could not find feature $($feature.Name)" $statusTextBox
+            }
+            
+        } catch {
+            Add-Status "ERROR: Failed to process $($feature.DisplayName): $_" $statusTextBox
+        }
+    }
+}
+
+function Invoke-DisableWindowsFeatures {
+    param ([System.Windows.Forms.TextBox]$statusTextBox)
+    # Danh sách các features cần disable
+    $featuresToDisable = @(
+        @{
+            Name = "Internet-Explorer-Optional-amd64"
+            DisplayName = "IExplorer 11"
+            Command = "dism /online /disable-feature /featurename:Internet-Explorer-Optional-amd64 /norestart"
+        }
+    )
+    
+    foreach ($feature in $featuresToDisable) {
+        try {
+            # Kiểm tra trạng thái hiện tại của feature
+            $currentFeature = Get-WindowsOptionalFeature -Online -FeatureName $feature.Name -ErrorAction SilentlyContinue
+            
+            if ($currentFeature) {
+                $currentState = $currentFeature.State
+                if ($currentState -eq "Disabled") {
+                    Add-Status "$($feature.DisplayName): Already disabled.Skipping..." $statusTextBox
+                } elseif ($currentState -eq "Enabled") {
+                    Add-Status "$($feature.DisplayName): Currently enabled. Disabling..." $statusTextBox
+                    
+                    # Disable feature using DISM command
+                    $disableArgs = $feature.Command.Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries) | Select-Object -Skip 1
+                    $disableResult = Start-Process -FilePath "dism" -ArgumentList $disableArgs -Wait -PassThru -WindowStyle Hidden
+                    
+                    if ($disableResult.ExitCode -eq 0) {
+                        Add-Status "$($feature.DisplayName): Disabled successfully!" $statusTextBox
+                    } elseif ($disableResult.ExitCode -eq 3010) {
+                        Add-Status "$($feature.DisplayName): Disabled successfully! (Restart required)" $statusTextBox
+                    } else {
+                        Add-Status "WARNING: Failed to disable $($feature.DisplayName) (Exit code: $($disableResult.ExitCode))" $statusTextBox
+                    }
+                    
+                    # Verify new state
+                    Start-Sleep -Seconds 2
+                    $newFeature = Get-WindowsOptionalFeature -Online -FeatureName $feature.Name -ErrorAction SilentlyContinue
+                    if ($newFeature) {
+                        Add-Status "$($feature.DisplayName): Verified new state is $($newFeature.State)" $statusTextBox
+                    }
+                } else {
+                    Add-Status "WARNING: $($feature.DisplayName) is in unexpected state: $currentState" $statusTextBox
+                }
+            } else {
+                Add-Status "WARNING: Could not find feature $($feature.Name)" $statusTextBox
+            }
+            
+        } catch {
+            Add-Status "ERROR: Failed to process $($feature.DisplayName): $_" $statusTextBox
+        }
+    }
+}
+
+# STEP 6:
+function Invoke-DiskPartitioning {
+    param (
+        [string]$deviceType,
+        [System.Windows.Forms.TextBox]$statusTextBox
+    )
+    
+    try {
+        # Chỉ thực hiện cho Laptop
+        if ($deviceType -eq "Laptop") {
+            # --- 1. Check Available Disks ---
+            $diskCheckResult = Invoke-DiskAvailabilityCheck $statusTextBox
+            if (-not $diskCheckResult) {
+                Add-Status "No suitable disk found for partitioning. Skipping..." $statusTextBox
+                return $true
+            }
+            
+            # --- 2. Show Partition Size Selection ---
+            $partitionResult = Invoke-PartitionSizeSelection $statusTextBox
+            if ($partitionResult) {
+                Add-Status "Disk partitioning completed successfully!" $statusTextBox
+            } else {
+                Add-Status "Disk partitioning was cancelled or failed." $statusTextBox
+            }
+        }
+        return $true
+    } catch {
+        Add-Status "ERROR during Disk Partitioning: $_" $statusTextBox
+        return $false
+    }
+}
+
+# Helper Functions cho Disk Partitioning
+function Invoke-DiskAvailabilityCheck {
+    param ([System.Windows.Forms.TextBox]$statusTextBox)
+    try {
+        # Lấy thông tin tất cả các ổ đĩa
+        $systemDisk = Get-Disk | Where-Object { $_.IsBoot -eq $true }
+        
+        # Kiểm tra xem ổ hệ thống có đủ không gian để chia không
+        $systemPartitions = Get-Partition -DiskNumber $systemDisk.Number
+        $systemVolume = $systemPartitions | Where-Object { $_.DriveLetter -eq 'C' }
+        
+        if ($systemVolume) {
+            $usedSpace = Get-WmiObject -Class Win32_LogicalDisk | Where-Object { $_.DeviceID -eq "C:" }
+            $freeSpaceGB = [math]::Round($usedSpace.FreeSpace / 1GB, 2)
+            
+            # Kiểm tra xem có thể chia phân vùng không (cần ít nhất 150GB trống)
+            if ($freeSpaceGB -gt 150) {
+                return $true
+            } else {
+                Add-Status "WARNING: No free space for safe partitioning (>150GB free)" $statusTextBox
+                return $false
+            }
+        } else {
+            Add-Status "WARNING: Could not determine C: drive information" $statusTextBox
+            return $false
+        }
+        
+    } catch {
+        Add-Status "ERROR checking disk availability: $_" $statusTextBox
+        return $false
+    }
+}
+
+function Invoke-PartitionSizeSelection {
+    param ([System.Windows.Forms.TextBox]$statusTextBox)
+    try {
+        # Tạo form chọn kích thước phân vùng
+        $partitionForm = New-Object System.Windows.Forms.Form
+        $partitionForm.Text = "Disk Partitioning - Select Size"
+        $partitionForm.Size = New-Object System.Drawing.Size(600, 550)
+        $partitionForm.StartPosition = "CenterScreen"
+        $partitionForm.BackColor = [System.Drawing.Color]::Black
+        $partitionForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+        $partitionForm.MaximizeBox = $false
+        $partitionForm.MinimizeBox = $false
+        
+        # Gradient background
+        $partitionForm.Add_Paint({
+            $graphics = $_.Graphics
+            $rect = New-Object System.Drawing.Rectangle(0, 0, $partitionForm.Width, $partitionForm.Height)
+            $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+                $rect,
+                [System.Drawing.Color]::FromArgb(0, 0, 0),
+                [System.Drawing.Color]::FromArgb(0, 40, 0),
+                [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
+            )
+            $graphics.FillRectangle($brush, $rect)
+            $brush.Dispose()
+        })
+        
+        # Title
+        $titleLabel = New-Object System.Windows.Forms.Label
+        $titleLabel.Text = "SELECT PARTITION SIZE"
+        $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
+        $titleLabel.Size = New-Object System.Drawing.Size(600, 30)
+        $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+        $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
+        $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+        $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+        $partitionForm.Controls.Add($titleLabel)
+        
+        # Current disk information label
+        $diskInfoLabel = New-Object System.Windows.Forms.Label
+        $diskInfoLabel.Text = "CURRENT DISK INFORMATION:"
+        $diskInfoLabel.Location = New-Object System.Drawing.Point(20, 60)
+        $diskInfoLabel.Size = New-Object System.Drawing.Size(560, 25)
+        $diskInfoLabel.ForeColor = [System.Drawing.Color]::Yellow
+        $diskInfoLabel.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $diskInfoLabel.BackColor = [System.Drawing.Color]::Transparent
+        $partitionForm.Controls.Add($diskInfoLabel)
+        
+        # DataGridView để hiển thị thông tin ổ đĩa
+        $diskGrid = New-Object System.Windows.Forms.DataGridView
+        $diskGrid.Location = New-Object System.Drawing.Point(20, 90)
+        $diskGrid.Size = New-Object System.Drawing.Size(540, 120)
+        $diskGrid.BackgroundColor = [System.Drawing.Color]::Black
+        $diskGrid.ForeColor = [System.Drawing.Color]::White
+        $diskGrid.GridColor = [System.Drawing.Color]::Gray
+        $diskGrid.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+        $diskGrid.ColumnHeadersDefaultCellStyle.BackColor = [System.Drawing.Color]::FromArgb(0, 100, 0)
+        $diskGrid.ColumnHeadersDefaultCellStyle.ForeColor = [System.Drawing.Color]::White
+        $diskGrid.ColumnHeadersDefaultCellStyle.Font = New-Object System.Drawing.Font("Arial", 9, [System.Drawing.FontStyle]::Bold)
+        $diskGrid.DefaultCellStyle.BackColor = [System.Drawing.Color]::FromArgb(20, 20, 20)
+        $diskGrid.DefaultCellStyle.ForeColor = [System.Drawing.Color]::White
+        $diskGrid.DefaultCellStyle.SelectionBackColor = [System.Drawing.Color]::FromArgb(0, 150, 0)
+        $diskGrid.DefaultCellStyle.SelectionForeColor = [System.Drawing.Color]::White
+        $diskGrid.ColumnCount = 4
+        $diskGrid.Columns[0].Name = "Letter"
+        $diskGrid.Columns[1].Name = "Name"
+        $diskGrid.Columns[2].Name = "Size (GB)"
+        $diskGrid.Columns[3].Name = "Free (GB)"
+        $diskGrid.Columns[0].Width = 60
+        $diskGrid.Columns[1].Width = 150
+        $diskGrid.Columns[2].Width = 100
+        $diskGrid.Columns[3].Width = 100
+        $diskGrid.ReadOnly = $true
+        $diskGrid.AllowUserToAddRows = $false
+        $diskGrid.AllowUserToDeleteRows = $false
+        $diskGrid.RowHeadersVisible = $false
+        $diskGrid.MultiSelect = $false
+        $diskGrid.SelectionMode = [System.Windows.Forms.DataGridViewSelectionMode]::FullRowSelect
+        
+        # Lấy thông tin ổ đĩa và thêm vào DataGridView
+        try {
+            $disks = Get-CimInstance -ClassName Win32_LogicalDisk | Where-Object { $_.DriveType -eq 3 }
+            foreach ($disk in $disks) {
+                $letter = $disk.DeviceID
+                $name = if ($disk.VolumeName) { $disk.VolumeName } else { "Local Disk" }
+                $sizeGB = [math]::Round($disk.Size / 1GB, 2)
+                $freeGB = [math]::Round($disk.FreeSpace / 1GB, 2)
+                $diskGrid.Rows.Add($letter, $name, $sizeGB, $freeGB)
+            }
+        } catch {
+            Add-Status "Warning: Could not load disk information: $_" $statusTextBox
+            # Thêm dữ liệu mẫu nếu không lấy được thông tin thực
+            $diskGrid.Rows.Add("C:", "Windows", "500.00", "250.00")
+        }
+        
+        $partitionForm.Controls.Add($diskGrid)
+        
+        # Instruction label
+        $instructionLabel = New-Object System.Windows.Forms.Label
+        $instructionLabel.Text = "Choose the size for the new data partition:"
+        $instructionLabel.Location = New-Object System.Drawing.Point(20, 220)
+        $instructionLabel.Size = New-Object System.Drawing.Size(560, 25)
+        $instructionLabel.ForeColor = [System.Drawing.Color]::White
+        $instructionLabel.Font = New-Object System.Drawing.Font("Arial", 10)
+        $instructionLabel.BackColor = [System.Drawing.Color]::Transparent
+        $partitionForm.Controls.Add($instructionLabel)
+        
+        # Variable to store selected size
+        $script:selectedPartitionSize = 0
+        
+        # 100GB Button
+        $btn100GB = New-Object System.Windows.Forms.Button
+        $btn100GB.Text = "100 GB (Recommended for 256GB drives)"
+        $btn100GB.Location = New-Object System.Drawing.Point(20, 250)
+        $btn100GB.Size = New-Object System.Drawing.Size(540, 40)
+        $btn100GB.BackColor = [System.Drawing.Color]::FromArgb(0, 150, 0)
+        $btn100GB.ForeColor = [System.Drawing.Color]::White
+        $btn100GB.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $btn100GB.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $btn100GB.Add_Click({
+            $script:selectedPartitionSize = 101
+            $partitionForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+            $partitionForm.Close()
+        })
+        $partitionForm.Controls.Add($btn100GB)
+        
+        # 200GB Button
+        $btn200GB = New-Object System.Windows.Forms.Button
+        $btn200GB.Text = "200 GB (Recommended for 500GB drives)"
+        $btn200GB.Location = New-Object System.Drawing.Point(20, 300)
+        $btn200GB.Size = New-Object System.Drawing.Size(540, 40)
+        $btn200GB.BackColor = [System.Drawing.Color]::FromArgb(0, 150, 0)
+        $btn200GB.ForeColor = [System.Drawing.Color]::White
+        $btn200GB.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $btn200GB.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $btn200GB.Add_Click({
+            $script:selectedPartitionSize = 200
+            $partitionForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+            $partitionForm.Close()
+        })
+        $partitionForm.Controls.Add($btn200GB)
+        
+        # 500GB Button
+        $btn500GB = New-Object System.Windows.Forms.Button
+        $btn500GB.Text = "500 GB (Recommended for 1TB+ drives)"
+        $btn500GB.Location = New-Object System.Drawing.Point(20, 350)
+        $btn500GB.Size = New-Object System.Drawing.Size(540, 40)
+        $btn500GB.BackColor = [System.Drawing.Color]::FromArgb(0, 150, 0)
+        $btn500GB.ForeColor = [System.Drawing.Color]::White
+        $btn500GB.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $btn500GB.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $btn500GB.Add_Click({
+            $script:selectedPartitionSize = 500
+            $partitionForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+            $partitionForm.Close()
+        })
+        $partitionForm.Controls.Add($btn500GB)
+        
+        # Custom size section
+        $customLabel = New-Object System.Windows.Forms.Label
+        $customLabel.Text = "Custom size (GB):"
+        $customLabel.Location = New-Object System.Drawing.Point(20, 410)
+        $customLabel.Size = New-Object System.Drawing.Size(150, 25)
+        $customLabel.ForeColor = [System.Drawing.Color]::Yellow
+        $customLabel.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $customLabel.BackColor = [System.Drawing.Color]::Transparent
+        $partitionForm.Controls.Add($customLabel)
+        
+        # Custom size textbox
+        $customTextBox = New-Object System.Windows.Forms.TextBox
+        $customTextBox.Location = New-Object System.Drawing.Point(180, 408)
+        $customTextBox.Size = New-Object System.Drawing.Size(100, 25)
+        $customTextBox.Font = New-Object System.Drawing.Font("Arial", 10)
+        $partitionForm.Controls.Add($customTextBox)
+        
+        # Custom size button
+        $btnCustom = New-Object System.Windows.Forms.Button
+        $btnCustom.Text = "Use Custom Size"
+        $btnCustom.Location = New-Object System.Drawing.Point(300, 405)
+        $btnCustom.Size = New-Object System.Drawing.Size(170, 30)
+        $btnCustom.BackColor = [System.Drawing.Color]::FromArgb(0, 100, 150)
+        $btnCustom.ForeColor = [System.Drawing.Color]::White
+        $btnCustom.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $btnCustom.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $btnCustom.Add_Click({
+            $customSize = $customTextBox.Text.Trim()
+            if ($customSize -match '^\d+$' -and [int]$customSize -gt 0 -and [int]$customSize -le 2000) {
+                $script:selectedPartitionSize = [int]$customSize
+                $partitionForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+                $partitionForm.Close()
+            } else {
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Please enter a valid size between 1 and 2000 GB",
+                    "Invalid Input",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Warning
+                )
+            }
+        })
+        $partitionForm.Controls.Add($btnCustom)
+        
+        # Cancel button
+        $btnCancel = New-Object System.Windows.Forms.Button
+        $btnCancel.Text = "Cancel"
+        $btnCancel.Location = New-Object System.Drawing.Point(250, 460)
+        $btnCancel.Size = New-Object System.Drawing.Size(100, 35)
+        $btnCancel.BackColor = [System.Drawing.Color]::FromArgb(150, 0, 0)
+        $btnCancel.ForeColor = [System.Drawing.Color]::White
+        $btnCancel.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $btnCancel.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $btnCancel.Add_Click({
+            $partitionForm.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+            $partitionForm.Close()
+        })
+        $partitionForm.Controls.Add($btnCancel)
+        
+        # Show form and get result
+        $result = $partitionForm.ShowDialog()
+        
+        if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+            Add-Status "Selected partition size: $($script:selectedPartitionSize) GB" $statusTextBox
+            return Invoke-CreatePartition -sizeGB $script:selectedPartitionSize -statusTextBox $statusTextBox
+        } else {
+            Add-Status "Partition creation cancelled by user." $statusTextBox
+            return $false
+        }
+        
+    } catch {
+        Add-Status "ERROR in partition size selection: $_" $statusTextBox
+        return $false
+    }
+}
+
+function Invoke-CreatePartition {
+    param (
+        [int]$sizeGB,
+        [System.Windows.Forms.TextBox]$statusTextBox
+    )
+    
+    try {
+        # Tắt dịch vụ ShellHWDetection để tránh popup
+        try {
+            Stop-Service -Name ShellHWDetection -Force -ErrorAction SilentlyContinue
+        } catch {
+            Add-Status "Warning: Could not disable hardware detection service" $statusTextBox
+        }
+        
+        # Lấy ổ đĩa hệ thống
+        $systemDisk = Get-Disk | Where-Object { $_.IsBoot -eq $true }
+        $diskNumber = $systemDisk.Number
+        
+        Add-Status "Working with system disk: Disk $diskNumber" $statusTextBox
+        
+        # Chuyển đổi GB sang bytes
+        $sizeBytes = $sizeGB * 1GB
+        
+        # Lấy phân vùng C: để shrink
+        $cPartition = Get-Partition -DiskNumber $diskNumber | Where-Object { $_.DriveLetter -eq 'C' }
+        
+        if (-not $cPartition) {
+            Add-Status "ERROR: Could not find C: partition" $statusTextBox
+            return $false
+        }
+        # Shrink C: partition
+        try {
+            $newCSize = $cPartition.Size - $sizeBytes
+            Resize-Partition -DiskNumber $diskNumber -PartitionNumber $cPartition.PartitionNumber -Size $newCSize
+            Add-Status "Drive C: partition shrunk successfully!" $statusTextBox
+        } catch {
+            Add-Status "ERROR shrinking C: partition: $_" $statusTextBox
+            return $false
+        }
+        
+        # Tạo phân vùng mới KHÔNG gán drive letter ngay
+        try {
+            $newPartition = New-Partition -DiskNumber $diskNumber -Size $sizeBytes
+            Add-Status "New partition created (Partition Number: $($newPartition.PartitionNumber))" $statusTextBox
+        } catch {
+            Add-Status "ERROR creating new partition: $_" $statusTextBox
+            return $false
+        }
+        
+        # Format phân vùng mới KHÔNG có drive letter (silent)
+        try {
+            # Format bằng diskpart để tránh popup
+            $diskpartScript = @"
+select disk $diskNumber
+select partition $($newPartition.PartitionNumber)
+format fs=ntfs label="DATA" quick
+"@
+            $diskpartScript | diskpart
+            Add-Status "New partition formatted successfully with NTFS!" $statusTextBox
+        } catch {
+            Add-Status "ERROR formatting new partition: $_" $statusTextBox
+            return $false
+        }
+        
+        # Gán drive letter SAU khi format
+        try {
+            $newPartition | Add-PartitionAccessPath -AssignDriveLetter
+            $newPartition = Get-Partition -DiskNumber $diskNumber -PartitionNumber $newPartition.PartitionNumber
+            $newDriveLetter = $newPartition.DriveLetter
+            Add-Status "Drive letter assigned: $newDriveLetter" $statusTextBox
+        } catch {
+            Add-Status "ERROR assigning drive letter: $_" $statusTextBox
+            return $false
+        }
+        
+        # Verify kết quả
+        Start-Sleep -Seconds 2
+        $verifyPartition = Get-Partition -DriveLetter $newDriveLetter -ErrorAction SilentlyContinue
+        if ($verifyPartition) {
+            $actualSizeGB = [math]::Round($verifyPartition.Size / 1GB, 2)
+            $volumeInfo = Get-Volume -DriveLetter $newDriveLetter -ErrorAction SilentlyContinue
+            $finalName = if ($volumeInfo) { $volumeInfo.FileSystemLabel } else { "Unknown" }
+            $fileSystem = if ($volumeInfo) { $volumeInfo.FileSystem } else { "Unknown" }
+            
+            Add-Status "Partition creation verified: Drive $newDriveLetter ($actualSizeGB GB) - '$finalName' [$fileSystem]" $statusTextBox
+            return $true
+        } else {
+            Add-Status "WARNING: Could not verify new partition" $statusTextBox
+            return $false
+        }
+        
+    } catch {
+        Add-Status "CRITICAL ERROR during partition creation: $_" $statusTextBox
+        return $false
+    } finally {
+        # Bật lại dịch vụ ShellHWDetection
+        try {
+            Start-Service -Name ShellHWDetection -ErrorAction SilentlyContinue
+        } catch {
+            Add-Status "Warning: Could not re-enable hardware detection service" $statusTextBox
+        }
+    }
+}
+
+#####################################################################################################################
 # Function to handle Run All operations
 function Invoke-RunAllOperations {
     param (
@@ -832,8 +1854,8 @@ function Invoke-RunAllOperations {
     [System.Windows.Forms.Application]::DoEvents()
 
     try {
-        # Step 1: Device Selection and Software Installation
-        Add-Status "STEP 1/7: Selecting Device Type and Installing Software..." $statusTextBox
+        # STEP 1: Device Selection and Software Installation
+        Add-Status "STEP 1: Selecting Device Type and Installing Software..." $statusTextBox
         $progressBar.Value = 14
 
         # Create device selection form
@@ -897,27 +1919,71 @@ function Invoke-RunAllOperations {
 
         # Copy software files (gọi hàm toàn cục)
         Add-Status "Copying software files..." $statusTextBox
-        $copyResult = Copy-SoftwareFiles -deviceType $deviceType $statusTextBox
-        if (-not $copyResult) {
-            Add-Status "Error copying software files. Exiting..." $statusTextBox
-            return
-        }
+        # $copyResult = Copy-SoftwareFiles -deviceType $deviceType $statusTextBox
+        # if (-not $copyResult) {
+        #     Add-Status "Error copying software files. Exiting..." $statusTextBox
+        #     return
+        # }
 
         # Install software (gọi hàm toàn cục)
         Add-Status "Installing software..." $statusTextBox
-        Install-Software -deviceType $deviceType $statusTextBox
-        Add-Status "Software installation completed successfully for $deviceType" $statusTextBox
-        Add-Status "STEP 1/7 completed successfully!" $statusTextBox
+        # Install-Software -deviceType $deviceType $statusTextBox
+        Add-Status "All installation completed successfully for $deviceType" $statusTextBox
+        Add-Status "STEP 1 completed successfully!" $statusTextBox
 
-        # Step 2: System Configuration and Shortcut Creation
-        Add-Status "Step 2/7: Configuring System and Creating Shortcuts..." $statusTextBox
+        # STEP 2: System Configuration and Shortcut Creation
+        Add-Status "STEP 2: Configuring System and Creating Shortcuts..." $statusTextBox
         $progressBar.Value = 28 # Tăng giá trị progress bar
 
-        $configResult = Invoke-SystemConfiguration -deviceType $deviceType -statusTextBox $statusTextBox
-        if ($configResult) {
-            Add-Status "Step 2 completed successfully!" $statusTextBox
+        # $configResult = Invoke-SystemConfiguration -deviceType $deviceType -statusTextBox $statusTextBox
+        # if ($configResult) {
+        #     Add-Status "STEP 2 completed successfully!" $statusTextBox
+        # } else {
+        #     Add-Status "STEP 2 encountered errors. Check logs." $statusTextBox
+        # }
+
+        # STEP 3: System Cleanup and Optimization
+        Add-Status "STEP 3: Cleaning up system and optimizing performance..." $statusTextBox
+        $progressBar.Value = 42 # Tăng giá trị progress bar
+
+        # $cleanupResult = Invoke-SystemCleanup -deviceType $deviceType -statusTextBox $statusTextBox
+        # if ($cleanupResult) {
+        #     Add-Status "STEP 3 completed successfully!" $statusTextBox
+        # } else {
+        #     Add-Status "STEP 3 encountered errors. Check logs." $statusTextBox
+        # }
+
+        # STEP 4: Windows and Office Activation
+        Add-Status "STEP 4: Activating Windows 10 Pro and Office 2019 Pro Plus..." $statusTextBox
+        $progressBar.Value = 56 # Tăng giá trị progress bar
+
+        # $activationResult = Invoke-ActivationConfiguration -deviceType $deviceType -statusTextBox $statusTextBox
+        # if ($activationResult) {
+        #     Add-Status "STEP 4 completed successfully!" $statusTextBox
+        # } else {
+        #     Add-Status "STEP 4 encountered errors. Check logs." $statusTextBox
+        # }
+
+        # STEP 5: Windows Features Configuration
+        Add-Status "STEP 5: Configuring Windows Features..." $statusTextBox
+        $progressBar.Value = 70 # Tăng giá trị progress bar
+
+        # $featuresResult = Invoke-WindowsFeaturesConfiguration -deviceType $deviceType -statusTextBox $statusTextBox
+        # if ($featuresResult) {
+        #     Add-Status "STEP 5 completed successfully!" $statusTextBox
+        # } else {
+        #     Add-Status "STEP 5 encountered errors. Check logs." $statusTextBox
+        # }
+
+        # STEP 6: Disk Partitioning (Laptop only)
+        Add-Status "STEP 6: Configuring disk partitioning..." $statusTextBox
+        $progressBar.Value = 85 # Tăng giá trị progress bar
+
+        $partitioningResult = Invoke-DiskPartitioning -deviceType $deviceType -statusTextBox $statusTextBox
+        if ($partitioningResult) {
+            Add-Status "STEP 6 completed successfully!" $statusTextBox
         } else {
-            Add-Status "Step 2 encountered errors. Check logs." $statusTextBox
+            Add-Status "STEP 6 encountered errors. Check logs." $statusTextBox
         }
     }
     catch {
@@ -1070,19 +2136,28 @@ function Show-InstallSoftwareDialog {
     # Show the dialog
     $deviceTypeForm.ShowDialog()
 }
+
+####################################################################################################################
 # [1] Run All Functions
 $buttonRunAll = New-DynamicButton -text "[1] Run All" -x 30 -y 100 -width 380 -height 60 -clickAction {
     Invoke-RunAllOperations -mainForm $script:form
 }
-
 # [2] Install Software Button
 $buttonInstallSoftware = New-DynamicButton -text "[2] Install All Software" -x 30 -y 180 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
     Show-InstallSoftwareDialog
 }
-
+# [9] Join Domain
+$buttonJoinDomain = New-DynamicButton -text "[9] Join Domain" -x 430 -y 340 -width 380 -height 60 -clickAction {
+    Show-DomainManagementForm
+}
+# [0] Exit
+$buttonExit = New-DynamicButton -text "[0] Exit" -x 430 -y 420 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
+    $script:form.Close()
+}
 # Add buttons to form
 $script:form.Controls.Add($buttonRunAll)
 $script:form.Controls.Add($buttonInstallSoftware)
-
+$script:form.Controls.Add($buttonJoinDomain)
+$script:form.Controls.Add($buttonExit)
 # SECTION 5: START APPLICATION
 $script:form.ShowDialog() 

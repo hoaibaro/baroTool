@@ -1913,7 +1913,7 @@ assign letter=$newLetter
 
         # Declare radio buttons at script scope so they're accessible in the shrink button click event
         $script:radio80GB = New-Object System.Windows.Forms.RadioButton
-        $script:radio80GB.Text = "80GB (recommended for 256GB drives)"
+        $script:radio80GB.Text = "100GB (recommended for 256GB drives)"
         $script:radio80GB.Location = New-Object System.Drawing.Point(10, 10)
         $script:radio80GB.Size = New-Object System.Drawing.Size(350, 20)
         $script:radio80GB.ForeColor = [System.Drawing.Color]::White
@@ -2855,20 +2855,6 @@ $buttonTurnOnFeatures = New-DynamicButton -text "[6] Turn On Features" -x 430 -y
 #================================================
 # SECTION 7: RENAME DEVICE FUNCTIONS - Các hàm đổi tên máy tính
 function Rename-DeviceWithBatch {
-    <#
-    .SYNOPSIS
-    Renames the computer using batch file approach with elevation
-    .DESCRIPTION
-    Creates a batch file to rename the computer with administrator privileges
-    .PARAMETER newName
-    The new computer name
-    .PARAMETER statusCallback
-    Optional callback function for status updates
-    .PARAMETER showUI
-    Whether to show user interface messages
-    .OUTPUTS
-    Boolean indicating success
-    #>
     param(
         [Parameter(Mandatory = $true)]
         [string]$newName,
@@ -3782,18 +3768,6 @@ function Invoke-ElevatedDomainCommand {
 
 # Hàm xử lý join domain
 function Invoke-DomainJoinOperation {
-    <#
-    .SYNOPSIS
-    Handles domain join operation
-    .PARAMETER DomainName
-    The domain name to join
-    .PARAMETER Username
-    Username for domain authentication
-    .PARAMETER Password
-    Password for domain authentication
-    .OUTPUTS
-    Boolean indicating success
-    #>
     param(
         [string]$DomainName,
         [string]$Username,

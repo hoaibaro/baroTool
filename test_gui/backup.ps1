@@ -1,5 +1,5 @@
 # ==============================================================================
-# BAROPROVIP - VOLUME MANAGEMENT TOOL (FULLY ORGANIZED VERSION)
+# BAROPROVIP - VOLUME MANAGEMENT TOOL (FULLY BACKUP VERSION)
 # ==============================================================================
 
 # SECTION 1: ADMIN PRIVILEGES CHECK & INITIALIZATION
