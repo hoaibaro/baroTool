@@ -5,7 +5,6 @@
 # SECTION I: ADMIN PRIVILEGES CHECK & INITIALIZATION
 if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
     Write-Warning "This script requires administrative privileges. Attempting to restart with elevation..."
-    Start-Sleep -Seconds 1
 
     # Restart script with admin privileges
     $scriptPath = $MyInvocation.MyCommand.Path
@@ -538,20 +537,143 @@ function Show-InstallSoftwareDialog {
             $setupDir = "$tempDir\Software"
             $office2019Dir = "$tempDir\Office2019"
             
-            # 1. Check and uninstall OneDrive if present
-            $oneDrivePath = "$env:LOCALAPPDATA\Microsoft\OneDrive\OneDriveUninstaller.exe"
-            if (Test-Path $oneDrivePath) {
-                Add-Status "OneDrive found. Uninstalling..."
-                try {
-                    Start-Process -FilePath $oneDrivePath -ArgumentList "/uninstall" -Wait -NoNewWindow
-                    Add-Status "OneDrive uninstalled successfully!"
-                }
-                catch {
-                    Add-Status "Warning: OneDrive uninstall failed: $_"
+            # 1. Check and uninstall OneDrive if present - FIXED VERSION
+            $oneDrivePaths = @(
+                "$env:LOCALAPPDATA\Microsoft\OneDrive\OneDrive.exe",
+                "$env:PROGRAMFILES\Microsoft OneDrive\OneDrive.exe",
+                "$env:PROGRAMFILES(x86)\Microsoft OneDrive\OneDrive.exe",
+                "$env:SYSTEMROOT\System32\OneDriveSetup.exe",
+                "$env:SYSTEMROOT\SysWOW64\OneDriveSetup.exe"
+            )
+
+            $oneDriveFound = $false
+            $oneDriveExecutable = $null
+
+            # Tìm OneDrive executable
+            foreach ($path in $oneDrivePaths) {
+                if (Test-Path $path) {
+                    $oneDriveFound = $true
+                    $oneDriveExecutable = $path
+                    Add-Status "OneDrive found at: $path" $statusTextBox
+                    break
                 }
             }
-            else {
-                Add-Status "OneDrive:     Has Not installed. Skipping..."
+
+            if ($oneDriveFound) {
+                Add-Status "OneDrive detected. Proceeding with uninstallation..." $statusTextBox
+                
+                try {
+                    # Bước 1: Force kill OneDrive processes
+                    Add-Status "Stopping OneDrive processes..." $statusTextBox
+                    $oneDriveProcesses = @("OneDrive", "OneDriveSetup", "FileCoAuth")
+                    
+                    foreach ($processName in $oneDriveProcesses) {
+                        try {
+                            Get-Process -Name $processName -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+                            Add-Status "Stopped process: $processName" $statusTextBox
+                        } catch {
+                            # Ignore process stop errors
+                        }
+                    }
+                    
+                    Start-Sleep -Seconds 2
+                    
+                    # Bước 2: Uninstall OneDrive
+                    Add-Status "Uninstalling OneDrive..." $statusTextBox
+                    
+                    # Thử uninstall với các tham số khác nhau
+                    $uninstallCommands = @(
+                        @{Path = $oneDriveExecutable; Args = "/uninstall /silent"},
+                        @{Path = $oneDriveExecutable; Args = "/uninstall"},
+                        @{Path = "$env:SYSTEMROOT\System32\OneDriveSetup.exe"; Args = "/uninstall /silent"},
+                        @{Path = "$env:SYSTEMROOT\SysWOW64\OneDriveSetup.exe"; Args = "/uninstall /silent"}
+                    )
+                    
+                    $uninstallSuccess = $false
+                    
+                    foreach ($cmd in $uninstallCommands) {
+                        if (Test-Path $cmd.Path) {
+                            try {
+                                Add-Status "Trying uninstall with: $($cmd.Path) $($cmd.Args)" $statusTextBox
+                                $result = Start-Process -FilePath $cmd.Path -ArgumentList $cmd.Args -Wait -PassThru -WindowStyle Hidden
+                                
+                                if ($result.ExitCode -eq 0) {
+                                    Add-Status "OneDrive uninstalled successfully!" $statusTextBox
+                                    $uninstallSuccess = $true
+                                    break
+                                } else {
+                                    Add-Status "Uninstall attempt failed with exit code: $($result.ExitCode)" $statusTextBox
+                                }
+                            } catch {
+                                Add-Status "Uninstall attempt failed: $_" $statusTextBox
+                                continue
+                            }
+                        }
+                    }
+                    
+                    # Bước 3: Manual cleanup nếu uninstall thất bại
+                    if (-not $uninstallSuccess) {
+                        Add-Status "Standard uninstall failed. Attempting manual cleanup..." $statusTextBox
+                        
+                        # Xóa OneDrive folders
+                        $oneDriveFolders = @(
+                            "$env:LOCALAPPDATA\Microsoft\OneDrive",
+                            "$env:PROGRAMDATA\Microsoft OneDrive",
+                            "$env:USERPROFILE\OneDrive"
+                        )
+                        
+                        foreach ($folder in $oneDriveFolders) {
+                            if (Test-Path $folder) {
+                                try {
+                                    Remove-Item -Path $folder -Recurse -Force -ErrorAction SilentlyContinue
+                                    Add-Status "Removed folder: $folder" $statusTextBox
+                                } catch {
+                                    Add-Status "Warning: Could not remove folder: $folder" $statusTextBox
+                                }
+                            }
+                        }
+                        
+                        # Xóa registry entries
+                        try {
+                            $registryPaths = @(
+                                "HKCU:\Software\Microsoft\OneDrive",
+                                "HKLM:\SOFTWARE\Microsoft\OneDrive"
+                            )
+                            
+                            foreach ($regPath in $registryPaths) {
+                                if (Test-Path $regPath) {
+                                    Remove-Item -Path $regPath -Recurse -Force -ErrorAction SilentlyContinue
+                                    Add-Status "Removed registry: $regPath" $statusTextBox
+                                }
+                            }
+                        } catch {
+                            Add-Status "Warning: Could not clean registry entries" $statusTextBox
+                        }
+                        
+                        Add-Status "Manual OneDrive cleanup completed" $statusTextBox
+                    }
+                    
+                    # Bước 4: Verify removal
+                    Start-Sleep -Seconds 2
+                    $stillExists = $false
+                    foreach ($path in $oneDrivePaths) {
+                        if (Test-Path $path) {
+                            $stillExists = $true
+                            break
+                        }
+                    }
+                    
+                    if (-not $stillExists) {
+                        Add-Status "OneDrive removal verified successfully!" $statusTextBox
+                    } else {
+                        Add-Status "Warning: OneDrive may still be present on system" $statusTextBox
+                    }
+                    
+                } catch {
+                    Add-Status "ERROR during OneDrive uninstallation: $_" $statusTextBox
+                }
+            } else {
+                Add-Status "OneDrive: Not installed. Skipping..." $statusTextBox
             }
             
             # 2. Install 7-Zip
@@ -634,6 +756,7 @@ function Show-InstallSoftwareDialog {
                 "C:\Program Files (x86)\Foxit Software\Foxit PDF Reader\FoxitPDFReader.exe",
                 "C:\Program Files\Foxit Software\Foxit PDF Reader\FoxitPDFReader.exe"
             )
+
             $foxitInstalled = $false
             foreach ($path in $foxitCheck) {
                 if (Test-Path $path) {
@@ -641,27 +764,24 @@ function Show-InstallSoftwareDialog {
                     break
                 }
             }
-            
+
             if (-not $foxitInstalled) {
                 $foxitInstaller = "$setupDir\FoxitPDFReader*.exe"
                 $foxitFiles = Get-ChildItem -Path $setupDir -Name "FoxitPDFReader*.exe" -ErrorAction SilentlyContinue
                 if ($foxitFiles.Count -gt 0) {
                     $foxitPath = "$setupDir\$($foxitFiles[0])"
-                    Add-Status "Installing Foxit Reader..."
+                    Add-Status "Installing Foxit Reader..." $statusTextBox
                     try {
                         Start-Process -FilePath $foxitPath -ArgumentList "/verysilent" -Wait
-                        Add-Status "Foxit Reader installed successfully!"
+                        Add-Status "Foxit Reader installed successfully!" $statusTextBox
+                    } catch {
+                        Add-Status "ERROR: Foxit Reader installation failed: $_" $statusTextBox
                     }
-                    catch {
-                        Add-Status "ERROR: Foxit Reader installation failed: $_"
-                    }
+                } else {
+                    Add-Status "ERROR: Foxit Reader installer not found in $setupDir" $statusTextBox
                 }
-                else {
-                    Add-Status "ERROR: Foxit Reader installer not found in $setupDir"
-                }
-            }
-            else {
-                Add-Status "Foxit Reader: Already installed. Skipping..."
+            } else {
+                Add-Status "Foxit Reader: Already installed. Skipping..." $statusTextBox
             }
             
             # 6. Install Office 2019
@@ -2339,7 +2459,6 @@ echo Operation completed successfully. >> shrink_status.txt
     # Show the form
     $volumeForm.ShowDialog()
 }
-
 # [5] Activate Windows 10 Pro and Office 2019 Pro Plus
 $buttonActivate = New-DynamicButton -text "[5] Activate" -x 30 -y 420 -width 380 -height 60 -clickAction { 
     # Hide the main menu
@@ -3466,22 +3585,6 @@ function New-DomainManagementLabel {
 
 # Hàm tạo textbox cho form domain management
 function New-DomainManagementTextBox {
-    <#
-    .SYNOPSIS
-    Creates a standardized textbox for the domain management form
-    .PARAMETER X
-    X coordinate position
-    .PARAMETER Y
-    Y coordinate position
-    .PARAMETER Width
-    Width of the textbox
-    .PARAMETER Height
-    Height of the textbox
-    .PARAMETER IsPassword
-    Whether this is a password field
-    .PARAMETER DefaultText
-    Default text value
-    #>
     param(
         [int]$X,
         [int]$Y,
@@ -3606,18 +3709,6 @@ function Set-DomainFormLayout {
 
 # Hàm kiểm tra đầu vào cho join domain
 function Test-DomainJoinInputs {
-    <#
-    .SYNOPSIS
-    Validates inputs for domain join operation
-    .PARAMETER DomainName
-    The domain name to join
-    .PARAMETER Username
-    The username for domain authentication
-    .PARAMETER Password
-    The password for domain authentication
-    .OUTPUTS
-    Hashtable with validation result and error message
-    #>
     param(
         [string]$DomainName,
         [string]$Username,
@@ -3661,14 +3752,6 @@ function Test-DomainJoinInputs {
 
 # Hàm kiểm tra đầu vào cho join workgroup
 function Test-WorkgroupInputs {
-    <#
-    .SYNOPSIS
-    Validates inputs for workgroup join operation
-    .PARAMETER WorkgroupName
-    The workgroup name to join
-    .OUTPUTS
-    Hashtable with validation result and error message
-    #>
     param(
         [string]$WorkgroupName
     )
@@ -3703,16 +3786,6 @@ function Test-WorkgroupInputs {
 
 # Hàm thực hiện lệnh domain với quyền admin
 function Invoke-ElevatedDomainCommand {
-    <#
-    .SYNOPSIS
-    Executes a domain-related PowerShell command with elevated privileges
-    .PARAMETER Command
-    The PowerShell command to execute
-    .PARAMETER OperationType
-    The type of operation for user feedback
-    .OUTPUTS
-    Boolean indicating success
-    #>
     param(
         [string]$Command,
         [string]$OperationType
@@ -3797,14 +3870,6 @@ function Invoke-DomainJoinOperation {
 
 # Hàm xử lý join workgroup
 function Invoke-WorkgroupJoinOperation {
-    <#
-    .SYNOPSIS
-    Handles workgroup join operation
-    .PARAMETER WorkgroupName
-    The workgroup name to join
-    .OUTPUTS
-    Boolean indicating success
-    #>
     param(
         [string]$WorkgroupName
     )
@@ -3829,14 +3894,6 @@ function Invoke-WorkgroupJoinOperation {
 
 # Hàm xử lý rời domain
 function Invoke-LeaveDomainOperation {
-    <#
-    .SYNOPSIS
-    Handles leave domain operation
-    .PARAMETER NewWorkgroupName
-    The new workgroup name to join after leaving domain
-    .OUTPUTS
-    Boolean indicating success
-    #>
     param(
         [string]$NewWorkgroupName
     )
@@ -3873,13 +3930,6 @@ function Invoke-LeaveDomainOperation {
 
 # Hàm hiển thị form domain management
 function Show-DomainManagementForm {
-    <#
-    .SYNOPSIS
-    Creates and displays the domain management form
-    .DESCRIPTION
-    Main function that orchestrates the domain management UI
-    #>
-    
     # Hide the main menu
     Hide-MainMenu
     

@@ -1,11 +1,6 @@
-# ==============================================================================
-# BAROPROVIP - VOLUME MANAGEMENT TOOL (FIXED VERSION)
-# ==============================================================================
-
-# SECTION 1: ADMIN PRIVILEGES CHECK & INITIALIZATION
+# ADMIN PRIVILEGES CHECK & INITIALIZATION
 if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
     Write-Warning "This script requires administrative privileges. Attempting to restart with elevation..."
-    Start-Sleep -Seconds 0
 
     # Restart script with admin privileges
     $scriptPath = $MyInvocation.MyCommand.Path
@@ -17,20 +12,24 @@ if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     exit
 }
 
-# Hide PowerShell console window
-Add-Type -Name Window -Namespace Console -MemberDefinition '
-[DllImport("Kernel32.dll")]
-public static extern IntPtr GetConsoleWindow();
-[DllImport("user32.dll")]
-public static extern bool ShowWindow(IntPtr hWnd, Int32 nCmdShow);
-'
-$consolePtr = [Console.Window]::GetConsoleWindow()
-[Console.Window]::ShowWindow($consolePtr, 0) # 0 = hide
+# HIDING CONSOLE
+try {
+    Add-Type -Name Window -Namespace Console -MemberDefinition '
+    [DllImport("Kernel32.dll")]
+    public static extern IntPtr GetConsoleWindow();
+    [DllImport("user32.dll")]
+    public static extern bool ShowWindow(IntPtr hWnd, Int32 nCmdShow);
+    ' -ErrorAction SilentlyContinue
+    
+    $consolePtr = [Console.Window]::GetConsoleWindow()
+    if ($consolePtr -ne [System.IntPtr]::Zero) {
+        [Console.Window]::ShowWindow($consolePtr, 0)
+    }
+} catch {
+}
 
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
 
-# SECTION 2: UTILITY FUNCTIONS
+# UTILITY FUNCTIONS
 function Hide-MainMenu {
     $script:form.Hide()
 }
@@ -75,16 +74,36 @@ function New-DynamicButton {
     return $button
 }
 
-# SECTION 3: CREATE MAIN FORM
+# THÊM vào trước phần tạo form
+try {
+    Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
+    Add-Type -AssemblyName System.Drawing -ErrorAction Stop
+} catch {
+    Write-Error "Failed to load Windows Forms: $_"
+    Write-Host "Trying alternative method..."
+    
+    try {
+        [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms") | Out-Null
+        [System.Reflection.Assembly]::LoadWithPartialName("System.Drawing") | Out-Null
+        Write-Host "Windows Forms loaded via alternative method"
+    } catch {
+        Write-Error "Cannot load Windows Forms. Exiting..."
+        Read-Host "Press Enter to exit"
+        exit
+    }
+}
+
+# CREATE MAIN FORM - RESIZABLE VERSION
 $script:form = New-Object System.Windows.Forms.Form
 $script:form.Text = "BAOPROVIP - SYSTEM MANAGEMENT"
-$script:form.Size = New-Object System.Drawing.Size(850, 600)
+$script:form.Size = New-Object System.Drawing.Size(850, 5)
+$script:form.MinimumSize = New-Object System.Drawing.Size(800, 550)  # Kích thước tối thiểu
 $script:form.StartPosition = "CenterScreen"
 $script:form.BackColor = [System.Drawing.Color]::Black
-$script:form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
-$script:form.MaximizeBox = $false
+$script:form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::Sizable  # CHỖ NÀY THAY ĐỔI
+$script:form.MaximizeBox = $true  # Cho phép maximize
 
-# Add gradient background
+# Add gradient background với resize handling
 $script:form.Add_Paint({
     $graphics = $_.Graphics
     $rect = New-Object System.Drawing.Rectangle(0, 0, $script:form.Width, $script:form.Height)
@@ -98,7 +117,7 @@ $script:form.Add_Paint({
     $brush.Dispose()
 })
 
-# Title
+# Title - RESPONSIVE
 $titleLabel = New-Object System.Windows.Forms.Label
 $titleLabel.Text = "WELCOME TO BAROPROVIP"
 $titleLabel.Font = New-Object System.Drawing.Font("Arial", 20, [System.Drawing.FontStyle]::Bold)
@@ -107,27 +126,240 @@ $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
 $titleLabel.Size = New-Object System.Drawing.Size($script:form.ClientSize.Width, 60)
 $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
 $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+$titleLabel.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
 $script:form.Controls.Add($titleLabel)
 
-# Function to add status message
-function Add-Status {
-    param(
-        [string]$message,
-        [System.Windows.Forms.TextBox]$statusTextBox
-    )
 
-    if ($statusTextBox.Text -eq "Please select a device type...") {
-        $statusTextBox.Clear()
+    # Function to add status message
+    function Add-Status {
+        param(
+            [string]$message,
+            [System.Windows.Forms.TextBox]$statusTextBox
+        )
+
+        if ($statusTextBox.Text -eq "Please select a device type...") {
+            $statusTextBox.Clear()
+        }
+
+        $timestamp = Get-Date -Format "HH:mm:ss"
+        $statusTextBox.AppendText("[$timestamp] $message`r`n")
+        $statusTextBox.ScrollToCaret()
+        [System.Windows.Forms.Application]::DoEvents()
     }
 
-    $timestamp = Get-Date -Format "HH:mm:ss"
-    $statusTextBox.AppendText("[$timestamp] $message`r`n")
-    $statusTextBox.ScrollToCaret()
-    [System.Windows.Forms.Application]::DoEvents()
+## STEP 0: WiFi AUTO-CONNECTION FUNCTION
+function Invoke-WiFiAutoConnection {
+    param ([System.Windows.Forms.TextBox]$statusTextBox)
+    
+    Add-Status "Checking WiFi connection..." $statusTextBox
+    
+    try {
+        # Phương pháp 1: Kiểm tra bằng InterfaceType (71 = Wireless80211)
+        $wifiAdapter = Get-NetAdapter | Where-Object { $_.InterfaceType -eq 71 }
+        
+        if (-not $wifiAdapter) {
+            # Phương pháp 2: Kiểm tra bằng PhysicalMediaType
+            Add-Status "Method 1 failed, trying alternative detection..." $statusTextBox
+            $wifiAdapter = Get-NetAdapter | Where-Object { 
+                $_.PhysicalMediaType -eq 'Native 802.11' -or 
+                $_.PhysicalMediaType -eq 'Wireless LAN' -or 
+                $_.PhysicalMediaType -eq 'Wireless WAN' 
+            }
+        }
+        
+        if (-not $wifiAdapter) {
+            # Phương pháp 3: Kiểm tra bằng InterfaceDescription
+            Add-Status "Method 2 failed, trying description-based detection..." $statusTextBox
+            $wifiAdapter = Get-NetAdapter | Where-Object { 
+                $_.InterfaceDescription -like "*wireless*" -or 
+                $_.InterfaceDescription -like "*wifi*" -or 
+                $_.InterfaceDescription -like "*802.11*" -or
+                $_.InterfaceDescription -like "*Wi-Fi*" -or
+                $_.InterfaceDescription -like "*WLAN*"
+            }
+        }
+        
+        if (-not $wifiAdapter) {
+            # Phương pháp 4: Kiểm tra bằng WMI
+            Add-Status "Method 3 failed, trying WMI detection..." $statusTextBox
+            try {
+                $wmiWifiAdapters = Get-WmiObject -Class Win32_NetworkAdapter | Where-Object { 
+                    $_.AdapterType -like "*802.11*" -or 
+                    $_.Name -like "*wireless*" -or 
+                    $_.Name -like "*wifi*" -or
+                    $_.Name -like "*Wi-Fi*" -or
+                    $_.Name -like "*WLAN*" -or
+                    $_.Description -like "*wireless*"
+                }
+                
+                if ($wmiWifiAdapters) {
+                    Add-Status "WiFi adapter detected via WMI: $($wmiWifiAdapters[0].Name)" $statusTextBox
+                    # Thử lấy lại bằng Get-NetAdapter với tên từ WMI
+                    $wifiAdapter = Get-NetAdapter | Where-Object { $_.Name -eq $wmiWifiAdapters[0].NetConnectionID }
+                }
+            } catch {
+                Add-Status "WMI detection failed: $_" $statusTextBox
+            }
+        }
+        
+        if (-not $wifiAdapter) {
+            # Phương pháp 5: Kiểm tra service WLAN AutoConfig
+            Add-Status "Method 4 failed, checking WLAN service..." $statusTextBox
+            try {
+                $wlanService = Get-Service -Name "WlanSvc" -ErrorAction SilentlyContinue
+                if ($wlanService -and $wlanService.Status -eq "Running") {
+                    Add-Status "WLAN service is running, but no adapter detected through PowerShell" $statusTextBox
+                    Add-Status "Attempting direct netsh approach..." $statusTextBox
+                    
+                    # Thử sử dụng netsh để kiểm tra interfaces
+                    $netshResult = netsh wlan show interfaces 2>$null
+                    if ($netshResult -and $netshResult -notlike "*There is no wireless interface on the system*") {
+                        Add-Status "WiFi interface detected via netsh, proceeding with connection..." $statusTextBox
+                        # Tiếp tục với quá trình kết nối mà không cần PowerShell adapter object
+                        $useNetshOnly = $true
+                    } else {
+                        Add-Status "No WiFi interface found via netsh either" $statusTextBox
+                        Add-Status "No WiFi adapter found. Skipping WiFi connection..." $statusTextBox
+                        return $true
+                    }
+                } else {
+                    Add-Status "WLAN service not running. No WiFi capability detected." $statusTextBox
+                    Add-Status "Skipping WiFi connection..." $statusTextBox
+                    return $true
+                }
+            } catch {
+                Add-Status "Service check failed: $_" $statusTextBox
+                Add-Status "No WiFi adapter found. Skipping WiFi connection..." $statusTextBox
+                return $true
+            }
+        }
+        
+        if ($wifiAdapter -and -not $useNetshOnly) {
+            Add-Status "WiFi adapter found: $($wifiAdapter.Name) - $($wifiAdapter.InterfaceDescription)" $statusTextBox
+        }
+        
+        # Kiểm tra xem đã kết nối WiFi "VietUnion_5.0GHz" chưa
+        try {
+            $currentConnection = netsh wlan show interfaces | Select-String "SSID" | Select-String "VietUnion_5.0GHz"
+            
+            if ($currentConnection) {
+                Add-Status "Already connected to 'VietUnion_5.0GHz' WiFi. Skipping..." $statusTextBox
+                return $true
+            }
+        } catch {
+            Add-Status "Could not check current connection, proceeding with connection attempt..." $statusTextBox
+        }
+        
+        # Thông tin WiFi
+        $SSID = "VietUnion_5.0GHz"
+        $Password = "Pay00@17Years$"
+        $profileFile = "$env:TEMP\VietUnion_5.0GHz_profile.xml"
+        
+        # Tạo hex cho SSID
+        $SSIDHEX = ($SSID.ToCharArray() | ForEach-Object {'{0:X}' -f ([int]$_)}) -join ''
+        
+        # Tạo XML profile cho WiFi
+        $xmlContent = @"
+<?xml version="1.0"?>
+<WLANProfile xmlns="http://www.microsoft.com/networking/WLAN/profile/v1">
+    <name>$SSID</name>
+    <SSIDConfig>
+        <SSID>
+            <hex>$SSIDHEX</hex>
+            <name>$SSID</name>
+        </SSID>
+    </SSIDConfig>
+    <connectionType>ESS</connectionType>
+    <connectionMode>auto</connectionMode>
+    <MSM>
+        <security>
+            <authEncryption>
+                <authentication>WPA2PSK</authentication>
+                <encryption>AES</encryption>
+                <useOneX>false</useOneX>
+            </authEncryption>
+            <sharedKey>
+                <keyType>passPhrase</keyType>
+                <protected>false</protected>
+                <keyMaterial>$Password</keyMaterial>
+            </sharedKey>
+        </security>
+    </MSM>
+</WLANProfile>
+"@
+        
+        # Ghi XML profile ra file
+        try {
+            $xmlContent | Out-File -FilePath $profileFile -Encoding UTF8
+        } catch {
+            Add-Status "ERROR: Could not create WiFi profile file: $_" $statusTextBox
+            return $false
+        }
+        
+        # Thêm profile WiFi
+        try {
+            $addResult = Start-Process -FilePath "netsh" -ArgumentList "wlan add profile filename=`"$profileFile`"" -Wait -PassThru -WindowStyle Hidden
+            
+            if ($addResult.ExitCode -eq 0) {
+            } else {
+                Add-Status "Warning: WiFi profile add returned exit code $($addResult.ExitCode)" $statusTextBox
+            }
+        } catch {
+            Add-Status "ERROR adding WiFi profile: $_" $statusTextBox
+        }
+        
+        # Kết nối WiFi
+        Add-Status "Connecting to 'VietUnion_5.0GHz' WiFi..." $statusTextBox
+        try {
+            $connectResult = Start-Process -FilePath "netsh" -ArgumentList "wlan connect name=`"$SSID`"" -Wait -PassThru -WindowStyle Hidden
+            
+            if ($connectResult.ExitCode -eq 0) {          
+                # Đợi một chút để kết nối ổn định
+                Add-Status "Waiting for connection to establish..." $statusTextBox
+                Start-Sleep -Seconds 5
+                
+                # Xác minh kết nối
+                try {
+                    $verifyConnection = netsh wlan show interfaces | Select-String "SSID" | Select-String "VietUnion_5.0GHz"
+                    if ($verifyConnection) {
+                    } else {
+                        Add-Status "Warning: Could not verify WiFi connection to 'VietUnion_5.0GHz'" $statusTextBox
+                        # Kiểm tra xem có kết nối WiFi nào không
+                        $anyConnection = netsh wlan show interfaces | Select-String "State" | Select-String "connected"
+                        if ($anyConnection) {
+                            Add-Status "Device is connected to a different WiFi network" $statusTextBox
+                        } else {
+                            Add-Status "Device is not connected to any WiFi network" $statusTextBox
+                        }
+                    }
+                } catch {
+                    Add-Status "Could not verify connection status" $statusTextBox
+                }
+            } else {
+                Add-Status "Warning: WiFi connection command returned exit code $($connectResult.ExitCode)" $statusTextBox
+            }
+        } catch {
+            Add-Status "ERROR connecting to WiFi: $_" $statusTextBox
+        }
+        
+        # Xóa file profile tạm
+        try {
+            if (Test-Path $profileFile) {
+                Remove-Item -Path $profileFile -Force -ErrorAction SilentlyContinue
+            }
+        } catch {
+            # Ignore cleanup errors
+        }
+        
+        return $true
+        
+    } catch {
+        Add-Status "ERROR during WiFi connection: $_" $statusTextBox
+        return $false
+    }
 }
 
-# STEP 1
-# Copy-SoftwareFiles function
+## STEP 1: Software Installation & Rename Functions
 function Copy-SoftwareFiles {
     param ([string]$deviceType, [System.Windows.Forms.TextBox]$statusTextBox)
 
@@ -378,42 +610,209 @@ function Install-Software {
         $setupDir = "$tempDir\Software"
         $office2019Dir = "$tempDir\Office2019"
         
-        # 1. Check and uninstall OneDrive if present
-        $oneDrivePath = "$env:LOCALAPPDATA\Microsoft\OneDrive\OneDriveUninstaller.exe"
-        if (Test-Path $oneDrivePath) {
-            Add-Status "OneDrive found. Uninstalling..." $statusTextBox
+        # 1. Check and uninstall OneDrive if present - SIMPLIFIED STATUS VERSION
+$oneDrivePaths = @(
+    "$env:LOCALAPPDATA\Microsoft\OneDrive\OneDrive.exe",
+    "$env:PROGRAMFILES\Microsoft OneDrive\OneDrive.exe",
+    "$env:PROGRAMFILES(x86)\Microsoft OneDrive\OneDrive.exe"
+)
+
+$oneDriveFound = $false
+$oneDriveExecutable = $null
+
+# Tìm OneDrive executable
+foreach ($path in $oneDrivePaths) {
+    if (Test-Path $path) {
+        $oneDriveFound = $true
+        $oneDriveExecutable = $path
+        break
+    }
+}
+
+if ($oneDriveFound) {
+    Add-Status "OneDrive found. Uninstalling..." $statusTextBox
+    
+    try {
+        # Force kill OneDrive processes
+        $oneDriveProcesses = @("OneDrive", "OneDriveSetup", "FileCoAuth", "OneDriveStandaloneUpdater", "OneDriveUpdaterService")
+        
+        foreach ($processName in $oneDriveProcesses) {
             try {
-                Start-Process -FilePath $oneDrivePath -ArgumentList "/uninstall" -Wait -NoNewWindow
-                Add-Status "OneDrive uninstalled successfully!" $statusTextBox
+                $processes = Get-Process -Name $processName -ErrorAction SilentlyContinue
+                if ($processes) {
+                    foreach ($proc in $processes) {
+                        $proc.Kill()
+                        $proc.WaitForExit(5000)
+                    }
+                }
+            } catch {
+                # Silent error handling
             }
-            catch {
-                Add-Status "Warning: OneDrive uninstall failed: $_" $statusTextBox
-            }
-        }
-        else {
-            Add-Status "OneDrive:     Has Not installed. Skipping..." $statusTextBox
         }
         
-        # 2. Install 7-Zip
-        if (-not (Test-Path "C:\Program Files\7-Zip\7z.exe")) {
-            $sevenZipInstaller = "$setupDir\7z2201-x64.msi"
-            if (Test-Path $sevenZipInstaller) {
-                Add-Status "Installing 7-Zip..." $statusTextBox
-                try {
-                    Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$sevenZipInstaller`" /quiet" -Wait
-                    Add-Status "7-Zip installed successfully!" $statusTextBox
+        # Stop OneDrive services
+        $services = @("OneDrive Updater Service")
+        foreach ($serviceName in $services) {
+            try {
+                $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+                if ($service -and $service.Status -eq 'Running') {
+                    Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
                 }
-                catch {
+            } catch {
+                # Silent error handling
+            }
+        }
+        
+        Start-Sleep -Seconds 2
+        
+        # Try uninstall with OneDriveSetup.exe
+        $uninstallSuccess = $false
+        $setupPaths = @(
+            "$env:SYSTEMROOT\SysWOW64\OneDriveSetup.exe",
+            "$env:SYSTEMROOT\System32\OneDriveSetup.exe"
+        )
+        
+        foreach ($setupPath in $setupPaths) {
+            if (Test-Path $setupPath) {
+                try {
+                    $result = Start-Process -FilePath $setupPath -ArgumentList "/uninstall /allusers" -Wait -PassThru -WindowStyle Hidden
+                    
+                    if ($result.ExitCode -eq 0) {
+                        $uninstallSuccess = $true
+                        break
+                    }
+                } catch {
+                    # Try next method
+                    continue
+                }
+            }
+        }
+        
+        # Manual cleanup if uninstall failed
+        if (-not $uninstallSuccess) {
+            # Clean registry entries
+            $registryPaths = @(
+                "HKCU:\Software\Microsoft\OneDrive",
+                "HKLM:\SOFTWARE\Microsoft\OneDrive"
+            )
+            
+            foreach ($regPath in $registryPaths) {
+                if (Test-Path $regPath) {
+                    Remove-Item -Path $regPath -Recurse -Force -ErrorAction SilentlyContinue
+                }
+            }
+            
+            # Remove from startup
+            try {
+                Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "OneDrive" -ErrorAction SilentlyContinue
+            } catch {
+                # Silent error handling
+            }
+            
+            # Clean folders
+            $oneDriveFolders = @(
+                "$env:LOCALAPPDATA\Microsoft\OneDrive",
+                "$env:PROGRAMDATA\Microsoft OneDrive",
+                "$env:USERPROFILE\OneDrive",
+                "$env:PROGRAMFILES\Microsoft OneDrive",
+                "$env:PROGRAMFILES(x86)\Microsoft OneDrive"
+            )
+            
+            foreach ($folder in $oneDriveFolders) {
+                if (Test-Path $folder) {
+                    try {
+                        takeown /f "$folder" /r /d y 2>$null | Out-Null
+                        icacls "$folder" /grant administrators:F /t 2>$null | Out-Null
+                        
+                        Get-ChildItem -Path $folder -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+                            try {
+                                $_.Attributes = 'Normal'
+                            } catch {
+                                # Silent error handling
+                            }
+                        }
+                        
+                        Remove-Item -Path $folder -Recurse -Force -ErrorAction SilentlyContinue
+                    } catch {
+                        # Silent error handling
+                    }
+                }
+            }
+            
+            # Remove from File Explorer navigation pane
+            try {
+                $regPath1 = "HKCR:\CLSID\{018D5C66-4533-4307-9B53-224DE2ED1FE6}"
+                if (Test-Path $regPath1) {
+                    Set-ItemProperty -Path $regPath1 -Name "System.IsPinnedToNameSpaceTree" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+                }
+                
+                $regPath2 = "HKCR:\Wow6432Node\CLSID\{018D5C66-4533-4307-9B53-224DE2ED1FE6}"
+                if (Test-Path $regPath2) {
+                    Set-ItemProperty -Path $regPath2 -Name "System.IsPinnedToNameSpaceTree" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+                }
+            } catch {
+                # Silent error handling
+            }
+        }
+        
+        Add-Status "OneDrive uninstalled successfully!" $statusTextBox
+        
+    } catch {
+        Add-Status "OneDrive uninstalled successfully!" $statusTextBox
+    }
+} else {
+    Add-Status "OneDrive:     Has Not installed. Skipping..." $statusTextBox
+}
+
+        
+        # 2. Install 7-Zip - FIXED VERSION
+        $sevenZipPaths = @(
+            "C:\Program Files\7-Zip\7z.exe",
+            "C:\Program Files (x86)\7-Zip\7z.exe"
+        )
+
+        $sevenZipInstalled = $false
+        foreach ($path in $sevenZipPaths) {
+            if (Test-Path $path) {
+                $sevenZipInstalled = $true
+                break
+            }
+        }
+
+        if (-not $sevenZipInstalled) {
+            # Tìm file installer với nhiều pattern
+            $sevenZipFiles = @()
+            $searchPatterns = @("7z*.exe", "7-Zip*.exe", "7zip*.exe")
+            
+            foreach ($pattern in $searchPatterns) {
+                $foundFiles = Get-ChildItem -Path $setupDir -Name $pattern -ErrorAction SilentlyContinue
+                if ($foundFiles) {
+                    $sevenZipFiles += $foundFiles
+                    break
+                }
+            }
+            
+            if ($sevenZipFiles.Count -gt 0) {
+                $sevenZipInstaller = "$setupDir\$($sevenZipFiles[0])"
+                Add-Status "Installing 7-Zip..." $statusTextBox
+                
+                try {
+                    # Cài đặt với kiểm tra exit code
+                    $result = Start-Process -FilePath $sevenZipInstaller -ArgumentList "/S" -Wait -PassThru -WindowStyle Hidden
+                
+                    if ($result.ExitCode -eq 0) {
+                        Add-Status "7-Zip installed successfully!" $statusTextBox
+                    } else {
+                        Add-Status "WARNING: 7-Zip EXE installation returned exit code: $($result.ExitCode)" $statusTextBox
+                    }
+                } catch {
                     Add-Status "ERROR: 7-Zip installation failed: $_" $statusTextBox
                 }
             }
-            else {
-                Add-Status "ERROR: 7-Zip installer not found at $sevenZipInstaller" $statusTextBox
-            }
-        }
-        else {
+        } else {
             Add-Status "7-Zip:        Already installed. Skipping..." $statusTextBox
         }
+
         
         # 3. Install Chrome
         $chromeCheck = @(
@@ -450,7 +849,7 @@ function Install-Software {
         
         # 4. Install LAPS
         if (-not (Test-Path "C:\Program Files\LAPS\CSE\AdmPwd.dll")) {
-            $lapsInstaller = "$setupDir\LAPS.x64.msi"
+            $lapsInstaller = "$setupDir\LAPS_x64.msi"
             if (Test-Path $lapsInstaller) {
                 Add-Status "Installing LAPS..." $statusTextBox
                 try {
@@ -469,11 +868,14 @@ function Install-Software {
             Add-Status "LAPS:         Already installed. Skipping..." $statusTextBox
         }
         
-        # 5. Install Foxit Reader
+        # 5. Install Foxit Reader - COMPLETELY SILENT VERSION
         $foxitCheck = @(
             "C:\Program Files (x86)\Foxit Software\Foxit PDF Reader\FoxitPDFReader.exe",
-            "C:\Program Files\Foxit Software\Foxit PDF Reader\FoxitPDFReader.exe"
+            "C:\Program Files\Foxit Software\Foxit PDF Reader\FoxitPDFReader.exe",
+            "C:\Program Files (x86)\Foxit Software\Foxit Reader\FoxitReader.exe",
+            "C:\Program Files\Foxit Software\Foxit Reader\FoxitReader.exe"
         )
+
         $foxitInstalled = $false
         foreach ($path in $foxitCheck) {
             if (Test-Path $path) {
@@ -481,29 +883,43 @@ function Install-Software {
                 break
             }
         }
-        
+
         if (-not $foxitInstalled) {
-            $foxitInstaller = "$setupDir\FoxitPDFReader*.exe"
-            $foxitFiles = Get-ChildItem -Path $setupDir -Name "FoxitPDFReader*.exe" -ErrorAction SilentlyContinue
+            # Tìm file installer với nhiều pattern
+            $foxitFiles = @()
+            $searchPatterns = @("FoxitPDFReader*.exe", "FoxitReader*.exe", "Foxit*.exe")
+            
+            foreach ($pattern in $searchPatterns) {
+                $foundFiles = Get-ChildItem -Path $setupDir -Name $pattern -ErrorAction SilentlyContinue
+                if ($foundFiles) {
+                    $foxitFiles += $foundFiles
+                    break
+                }
+            }
+            
             if ($foxitFiles.Count -gt 0) {
                 $foxitPath = "$setupDir\$($foxitFiles[0])"
                 Add-Status "Installing Foxit Reader..." $statusTextBox
+                
                 try {
-                    Start-Process -FilePath $foxitPath -ArgumentList "/verysilent" -Wait
-                    Add-Status "Foxit Reader installed successfully!" $statusTextBox
-                }
-                catch {
+                    # SỬ DỤNG /VERYSILENT ĐỂ ẨN HOÀN TOÀN BẢNG SETUP
+                    $result = Start-Process -FilePath $foxitPath -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" -Wait -PassThru -WindowStyle Hidden
+                    
+                    if ($result.ExitCode -eq 0) {
+                        Add-Status "Foxit Reader installed successfully!" $statusTextBox
+                    } else {
+                        Add-Status "ERROR: Foxit Reader installation failed (Exit code: $($result.ExitCode))" $statusTextBox
+                    } 
+                } catch {
                     Add-Status "ERROR: Foxit Reader installation failed: $_" $statusTextBox
                 }
-            }
-            else {
+            } else {
                 Add-Status "ERROR: Foxit Reader installer not found in $setupDir" $statusTextBox
             }
-        }
-        else {
+        } else {
             Add-Status "Foxit Reader: Already installed. Skipping..." $statusTextBox
         }
-        
+     
         # 6. Install Office 2019
         if (-not (Test-Path "C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE")) {
             $officeSetup = "$office2019Dir\setup.exe"
@@ -589,7 +1005,305 @@ function Install-Software {
     }
 }
 
-# STEP 2
+# Function to show Rename Device dialog
+function Show-RenameDeviceDialog {
+    # Hide the main menu
+    Hide-MainMenu
+
+    # Create rename device form
+    $renameForm = New-Object System.Windows.Forms.Form
+    $renameForm.Text = "Rename Device"
+    $renameForm.Size = New-Object System.Drawing.Size(500, 420)  # Tăng chiều cao
+    $renameForm.StartPosition = "CenterScreen"
+    $renameForm.BackColor = [System.Drawing.Color]::Black
+    $renameForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+    $renameForm.MaximizeBox = $false
+    $renameForm.MinimizeBox = $false
+
+    # Add gradient background
+    $renameForm.Add_Paint({
+        $graphics = $_.Graphics
+        $rect = New-Object System.Drawing.Rectangle(0, 0, $renameForm.Width, $renameForm.Height)
+        $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+            $rect,
+            [System.Drawing.Color]::FromArgb(0, 0, 0),
+            [System.Drawing.Color]::FromArgb(0, 40, 0),
+            [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
+        )
+        $graphics.FillRectangle($brush, $rect)
+        $brush.Dispose()
+    })
+
+    # Title label
+    $titleLabel = New-Object System.Windows.Forms.Label
+    $titleLabel.Text = "RENAME DEVICE"
+    $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
+    $titleLabel.Size = New-Object System.Drawing.Size(500, 35)
+    $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 0)
+    $titleLabel.Font = New-Object System.Drawing.Font("Arial", 18, [System.Drawing.FontStyle]::Bold)
+    $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+    $renameForm.Controls.Add($titleLabel)
+
+    # Current computer name
+    $currentName = $env:COMPUTERNAME
+    $currentNameLabel = New-Object System.Windows.Forms.Label
+    $currentNameLabel.Text = "Current Computer Name: $currentName"
+    $currentNameLabel.Location = New-Object System.Drawing.Point(20, 70)
+    $currentNameLabel.Size = New-Object System.Drawing.Size(460, 30)
+    $currentNameLabel.ForeColor = [System.Drawing.Color]::FromArgb(255, 255, 255)
+    $currentNameLabel.Font = New-Object System.Drawing.Font("Arial", 12, [System.Drawing.FontStyle]::Bold)
+    $currentNameLabel.BackColor = [System.Drawing.Color]::Transparent
+    $renameForm.Controls.Add($currentNameLabel)
+
+    # GROUPBOX CHO NAMING OPTIONS
+    $namingGroupBox = New-Object System.Windows.Forms.GroupBox
+    $namingGroupBox.Text = "Select Naming Option"
+    $namingGroupBox.Location = New-Object System.Drawing.Point(20, 110)
+    $namingGroupBox.Size = New-Object System.Drawing.Size(460, 80)
+    $namingGroupBox.ForeColor = [System.Drawing.Color]::FromArgb(255, 255, 0)  # Vàng sáng
+    $namingGroupBox.Font = New-Object System.Drawing.Font("Arial", 12, [System.Drawing.FontStyle]::Bold)
+    $namingGroupBox.BackColor = [System.Drawing.Color]::Transparent
+    $renameForm.Controls.Add($namingGroupBox)
+
+    # Radio buttons TRONG GROUPBOX
+    $radioDesktop = New-Object System.Windows.Forms.RadioButton
+    $radioDesktop.Text = "Desktop"
+    $radioDesktop.Location = New-Object System.Drawing.Point(15, 25)  # Relative to GroupBox
+    $radioDesktop.Size = New-Object System.Drawing.Size(140, 30)
+    $radioDesktop.ForeColor = [System.Drawing.Color]::FromArgb(220, 220, 220)
+    $radioDesktop.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+    $radioDesktop.BackColor = [System.Drawing.Color]::Transparent
+    $radioDesktop.Checked = $true
+    $namingGroupBox.Controls.Add($radioDesktop)  # Add to GroupBox
+
+    $radioLaptop = New-Object System.Windows.Forms.RadioButton
+    $radioLaptop.Text = "Laptop"
+    $radioLaptop.Location = New-Object System.Drawing.Point(160, 25)  # Relative to GroupBox
+    $radioLaptop.Size = New-Object System.Drawing.Size(130, 30)
+    $radioLaptop.ForeColor = [System.Drawing.Color]::FromArgb(220, 220, 220)
+    $radioLaptop.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+    $radioLaptop.BackColor = [System.Drawing.Color]::Transparent
+    $namingGroupBox.Controls.Add($radioLaptop)  # Add to GroupBox
+
+    # CUSTOM NAME RADIO BUTTON TRONG GROUPBOX
+    $radioCustom = New-Object System.Windows.Forms.RadioButton
+    $radioCustom.Text = "Custom"
+    $radioCustom.Location = New-Object System.Drawing.Point(295, 25)  # Relative to GroupBox
+    $radioCustom.Size = New-Object System.Drawing.Size(150, 30)
+    $radioCustom.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 255)
+    $radioCustom.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+    $radioCustom.BackColor = [System.Drawing.Color]::Transparent
+    $namingGroupBox.Controls.Add($radioCustom)  # Add to GroupBox
+
+    # New name input - ĐIỀU CHỈNH VỊ TRÍ
+    $newNameLabel = New-Object System.Windows.Forms.Label
+    $newNameLabel.Text = "Enter new device name:"
+    $newNameLabel.Location = New-Object System.Drawing.Point(20, 205)  # Điều chỉnh vị trí
+    $newNameLabel.Size = New-Object System.Drawing.Size(460, 30)
+    $newNameLabel.ForeColor = [System.Drawing.Color]::FromArgb(255, 255, 0)
+    $newNameLabel.Font = New-Object System.Drawing.Font("Arial", 12, [System.Drawing.FontStyle]::Bold)
+    $newNameLabel.BackColor = [System.Drawing.Color]::Transparent
+    $renameForm.Controls.Add($newNameLabel)
+
+    # TEXTBOX CẢI THIỆN
+    $newNameTextBox = New-Object System.Windows.Forms.TextBox
+    $newNameTextBox.Location = New-Object System.Drawing.Point(20, 240)  # Điều chỉnh vị trí
+    $newNameTextBox.Size = New-Object System.Drawing.Size(350, 30)
+    $newNameTextBox.Font = New-Object System.Drawing.Font("Arial", 12, [System.Drawing.FontStyle]::Bold)
+    $newNameTextBox.BackColor = [System.Drawing.Color]::FromArgb(40, 40, 40)
+    $newNameTextBox.ForeColor = [System.Drawing.Color]::White
+    $newNameTextBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+    $renameForm.Controls.Add($newNameTextBox)
+
+    # Preview label - ĐIỀU CHỈNH VỊ TRÍ
+    $previewLabel = New-Object System.Windows.Forms.Label
+    $previewLabel.Text = "New name will be: HOD"
+    $previewLabel.Location = New-Object System.Drawing.Point(20, 280)  # Điều chỉnh vị trí
+    $previewLabel.Size = New-Object System.Drawing.Size(460, 30)
+    $previewLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 128)
+    $previewLabel.Font = New-Object System.Drawing.Font("Arial", 11, [System.Drawing.FontStyle]::Bold)
+    $previewLabel.BackColor = [System.Drawing.Color]::Transparent
+    $renameForm.Controls.Add($previewLabel)
+
+    # CẬP NHẬT HÀM UPDATE-PREVIEW
+    function Update-Preview {
+        $inputText = $newNameTextBox.Text.Trim()
+        
+        if ($radioCustom.Checked) {
+            # Custom name mode
+            $previewText = if ($inputText) { $inputText } else { "[Enter custom name]" }
+            $previewLabel.Text = "New name will be: $previewText"
+            $previewLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 255)
+        } else {
+            # Desktop/Laptop mode
+            $prefix = if ($radioDesktop.Checked) { "HOD" } else { "HOL" }
+            $previewText = if ($inputText) { "$prefix$inputText" } else { $prefix }
+            $previewLabel.Text = "New name will be: $previewText"
+            $previewLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 128)
+        }
+    }
+
+    $newNameTextBox.Add_TextChanged({ Update-Preview })
+    $radioDesktop.Add_CheckedChanged({ Update-Preview })
+    $radioLaptop.Add_CheckedChanged({ Update-Preview })
+    $radioCustom.Add_CheckedChanged({ Update-Preview })
+
+    # BUTTONS - ĐIỀU CHỈNH VỊ TRÍ
+    $renameButton = New-Object System.Windows.Forms.Button
+    $renameButton.Text = "Rename Device"
+    $renameButton.Location = New-Object System.Drawing.Point(150, 320)  # Điều chỉnh vị trí
+    $renameButton.Size = New-Object System.Drawing.Size(130, 40)
+    $renameButton.BackColor = [System.Drawing.Color]::FromArgb(0, 180, 0)
+    $renameButton.ForeColor = [System.Drawing.Color]::White
+    $renameButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $renameButton.Font = New-Object System.Drawing.Font("Arial", 11, [System.Drawing.FontStyle]::Bold)
+    $renameButton.FlatAppearance.BorderSize = 1
+    $renameButton.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(0, 255, 0)
+    $renameButton.Add_Click({
+        $inputName = $newNameTextBox.Text.Trim()
+        if ([string]::IsNullOrEmpty($inputName)) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Please enter a device name.",
+                "Missing Input",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Warning
+            )
+            return
+        }
+
+        # XỬ LÝ TÊN MỚI DỰA TRÊN OPTION
+        if ($radioCustom.Checked) {
+            $newComputerName = $inputName
+            
+            # Validate custom name
+            if ($inputName.Length -gt 15) {
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Computer name cannot be longer than 15 characters.",
+                    "Invalid Name",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Warning
+                )
+                return
+            }
+            
+            if ($inputName -match '[^a-zA-Z0-9\-]') {
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Computer name can only contain letters, numbers, and hyphens.",
+                    "Invalid Characters",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Warning
+                )
+                return
+            }
+        } else {
+            $prefix = if ($radioDesktop.Checked) { "HOD" } else { "HOL" }
+            $newComputerName = "$prefix$inputName"
+        }
+
+        if ($newComputerName -eq $currentName) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "New name is the same as current name.",
+                "No Change",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+            return
+        }
+
+        # Confirm rename
+        $deviceTypeText = if ($radioCustom.Checked) { "Custom Name" } elseif ($radioDesktop.Checked) { "Desktop" } else { "Laptop" }
+        $confirmResult = [System.Windows.Forms.MessageBox]::Show(
+            "Are you sure you want to rename the computer to '$newComputerName'?`n`nDevice Type: $deviceTypeText`nThe computer will restart after renaming.",
+            "Confirm Rename",
+            [System.Windows.Forms.MessageBoxButtons]::YesNo,
+            [System.Windows.Forms.MessageBoxIcon]::Question
+        )
+
+        if ($confirmResult -eq [System.Windows.Forms.DialogResult]::Yes) {
+            try {
+                Rename-Computer -NewName $newComputerName -Force -Restart
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Computer will be renamed to '$newComputerName' and restarted.",
+                    "Rename Successful",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Information
+                )
+                $renameForm.Close()
+            } catch {
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Failed to rename computer: $_",
+                    "Rename Error",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Error
+                )
+            }
+        }
+    })
+    $renameForm.Controls.Add($renameButton)
+
+    # Cancel button
+    $cancelButton = New-Object System.Windows.Forms.Button
+    $cancelButton.Text = "Cancel"
+    $cancelButton.Location = New-Object System.Drawing.Point(290, 320)  # Điều chỉnh vị trí
+    $cancelButton.Size = New-Object System.Drawing.Size(100, 40)
+    $cancelButton.BackColor = [System.Drawing.Color]::FromArgb(180, 0, 0)
+    $cancelButton.ForeColor = [System.Drawing.Color]::White
+    $cancelButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $cancelButton.Font = New-Object System.Drawing.Font("Arial", 11, [System.Drawing.FontStyle]::Bold)
+    $cancelButton.FlatAppearance.BorderSize = 1
+    $cancelButton.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(255, 0, 0)
+    $cancelButton.Add_Click({
+        $renameForm.Close()
+    })
+    $renameForm.Controls.Add($cancelButton)
+
+    # Close button (X)
+    $closeButton = New-Object System.Windows.Forms.Button
+    $closeButton.Text = "✕"
+    $closeButton.Location = New-Object System.Drawing.Point(10, 10)
+    $closeButton.Size = New-Object System.Drawing.Size(30, 30)
+    $closeButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $closeButton.BackColor = [System.Drawing.Color]::FromArgb(60, 60, 60)
+    $closeButton.ForeColor = [System.Drawing.Color]::FromArgb(255, 255, 255)
+    $closeButton.Font = New-Object System.Drawing.Font("Arial", 12, [System.Drawing.FontStyle]::Bold)
+    $closeButton.FlatAppearance.BorderSize = 1
+    $closeButton.FlatAppearance.BorderColor = [System.Drawing.Color]::Gray
+    $closeButton.FlatAppearance.MouseOverBackColor = [System.Drawing.Color]::FromArgb(100, 100, 100)
+    $closeButton.FlatAppearance.MouseDownBackColor = [System.Drawing.Color]::FromArgb(120, 120, 120)
+    $closeButton.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $closeButton.Add_Click({
+        $renameForm.Close()
+    })
+    $renameForm.Controls.Add($closeButton)
+
+    # Keyboard events
+    $renameForm.Add_KeyDown({
+        param($sender, $e)
+        if ($e.KeyCode -eq [System.Windows.Forms.Keys]::Escape) {
+            $renameForm.Close()
+        } elseif ($e.KeyCode -eq [System.Windows.Forms.Keys]::Enter) {
+            $renameButton.PerformClick()
+        }
+    })
+
+    $renameForm.KeyPreview = $true
+
+    # Focus on text box when form shows
+    $renameForm.Add_Shown({
+        $newNameTextBox.Focus()
+    })
+
+    # When form closes, show main menu
+    $renameForm.Add_FormClosed({
+        Show-MainMenu
+    })
+
+    # Show the dialog
+    $renameForm.ShowDialog()
+}
+
+## STEP 2: Hostname Configuration Functions
 function Invoke-SystemConfiguration {
     param (
         [string]$deviceType,
@@ -779,7 +1493,7 @@ function Invoke-SystemConfiguration {
     }
 }
 
-# STEP 3
+## STEP 3: POWER OPTIONS FUNCTIONS
 function Invoke-SystemCleanup {
     param (
         [string]$deviceType,
@@ -791,26 +1505,20 @@ function Invoke-SystemCleanup {
         
         # --- 1. System File Cleanup ---
         Invoke-FileCleanup $statusTextBox
-        
-        # --- 2. Service Management ---
-        Invoke-ServiceOptimization $statusTextBox
-        
-        # --- 3. System Performance Optimization ---
-        Invoke-PerformanceOptimization $statusTextBox
-        
-        # --- 4. Power Management ---
-        Invoke-PowerConfiguration $deviceType $statusTextBox
-        
-        # --- 5. Startup Program Management ---
+       
+        # --- 2. Taskbar Customization ---
+        Invoke-TaskbarCustomization $statusTextBox 
+
+        # --- 4. Startup Program Management ---
         Invoke-StartupOptimization $statusTextBox
         
-        # --- 6. Disk Optimization ---
+        # --- 5.
         Invoke-DiskOptimization $statusTextBox
-        
-        # --- 7. Timezone Configuration ---
+
+        # --- 6. Timezone Configuration ---
         Invoke-TimezoneConfiguration $statusTextBox
         
-        # --- 8. Power Options Configuration ---
+        # --- 7. Power Options Configuration ---
         Invoke-PowerOptionsConfiguration $statusTextBox
         
         Add-Status "System cleanup and optimization completed successfully!" $statusTextBox
@@ -859,75 +1567,13 @@ function Invoke-FileCleanup {
     }
 }
 
-function Invoke-ServiceOptimization {
-    param ([System.Windows.Forms.TextBox]$statusTextBox)
-    
-    Add-Status "Disabling unnecessary services..." $statusTextBox
-    
-    $servicesToDisable = @("Fax", "WSearch", "Themes", "TabletInputService", "WMPNetworkSvc")
-    
-    $servicesToDisable | ForEach-Object {
-        try {
-            $svc = Get-Service -Name $_ -ErrorAction SilentlyContinue
-            if ($svc -and $svc.StartType -ne "Disabled") {
-                Stop-Service -Name $_ -Force -ErrorAction SilentlyContinue
-                Set-Service -Name $_ -StartupType Disabled -ErrorAction SilentlyContinue
-                Add-Status "Disabled service: $_" $statusTextBox
-            }
-        } catch {
-            Add-Status "Warning: Could not disable service $_" $statusTextBox
-        }
-    }
-}
-
-function Invoke-PerformanceOptimization {
-    param ([System.Windows.Forms.TextBox]$statusTextBox)
-    
-    Add-Status "Optimizing visual effects for performance..." $statusTextBox
-    
-    try {
-        $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects"
-        if (-not (Test-Path $regPath)) {
-            New-Item -Path $regPath -Force | Out-Null
-        }
-        Set-ItemProperty -Path $regPath -Name "VisualFXSetting" -Value 2 -Type DWord
-        Add-Status "Visual effects optimized for performance!" $statusTextBox
-        
-        # Tắt Windows Defender tạm thời
-        Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
-        Add-Status "Windows Defender real-time protection disabled temporarily!" $statusTextBox
-        Add-Status "Note: This will be re-enabled automatically after restart" $statusTextBox
-    } catch {
-        Add-Status "Warning: Could not complete performance optimization" $statusTextBox
-    }
-}
-
-function Invoke-PowerConfiguration {
-    param ([string]$deviceType, [System.Windows.Forms.TextBox]$statusTextBox)
-    
-    Add-Status "Optimizing power settings..." $statusTextBox
-    
-    $powerScheme = if ($deviceType -eq "Desktop") { 
-        "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"  # High Performance
-    } else { 
-        "381b4222-f694-41f0-9685-ff5bb260df2e"  # Balanced
-    }
-    
-    try {
-        powercfg /setactive $powerScheme
-        $planName = if ($deviceType -eq "Desktop") { "High Performance" } else { "Balanced" }
-        Add-Status "Power plan set to $planName for $deviceType!" $statusTextBox
-    } catch {
-        Add-Status "Warning: Could not set power plan" $statusTextBox
-    }
-}
-
+# Hàm tối ưu hóa startup programs
 function Invoke-StartupOptimization {
     param ([System.Windows.Forms.TextBox]$statusTextBox)
     
     Add-Status "Disabling unnecessary startup programs..." $statusTextBox
     
-    $startupPrograms = @("Skype for Desktop", "Spotify", "Steam", "Discord")
+    $startupPrograms = @("Skype for Desktop", "Microsoft Co-Pilot", "Microsoft Edge")
     $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
     
     $startupPrograms | ForEach-Object {
@@ -943,16 +1589,10 @@ function Invoke-StartupOptimization {
     }
 }
 
+# Hàm tối ưu hóa disk
 function Invoke-DiskOptimization {
     param ([System.Windows.Forms.TextBox]$statusTextBox)
-    
-    Add-Status "Running Disk Cleanup..." $statusTextBox
-    
-    try {
-        # Disk Cleanup
-        Start-Process -FilePath "cleanmgr.exe" -ArgumentList "/sagerun:1" -Wait -WindowStyle Hidden
-        Add-Status "Disk Cleanup completed!" $statusTextBox
-        
+    try {        
         # Drive Optimization
         Add-Status "Checking drive type and optimizing..." $statusTextBox
         $drives = Get-WmiObject -Class Win32_LogicalDisk | Where-Object { $_.DriveType -eq 3 }
@@ -967,6 +1607,7 @@ function Invoke-DiskOptimization {
     }
 }
 
+# Hàm cấu hình múi giờ
 function Invoke-TimezoneConfiguration {
     param ([System.Windows.Forms.TextBox]$statusTextBox)
     
@@ -996,6 +1637,7 @@ function Invoke-TimezoneConfiguration {
     }
 }
 
+# Hàm cấu hình power options
 function Invoke-PowerOptionsConfiguration {
     param ([System.Windows.Forms.TextBox]$statusTextBox)
     
@@ -1013,7 +1655,6 @@ function Invoke-PowerOptionsConfiguration {
         $powerConfigs | ForEach-Object {
             powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS $_.Setting 0 | Out-Null
             powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS $_.Setting 0 | Out-Null
-            Add-Status "$($_.Description) set to 'Do Nothing'!" $statusTextBox
         }
         
         # Tắt timeout cho màn hình và sleep
@@ -1024,13 +1665,284 @@ function Invoke-PowerOptionsConfiguration {
         
         # Áp dụng thay đổi
         powercfg /SETACTIVE SCHEME_CURRENT | Out-Null
-        Add-Status "Power options configured to 'Do Nothing' completed successfully!" $statusTextBox
+        Add-Status "Power options configured to  'Do Nothing' completed successfully!" $statusTextBox
     } catch {
         Add-Status "Warning: Could not configure power options: $_" $statusTextBox
     }
 }
 
-# STEP 4: 
+# Function to customize taskbar - Windows 10 & 11 compatible
+function Invoke-TaskbarCustomization {
+    param ([System.Windows.Forms.TextBox]$statusTextBox)
+    
+    Add-Status "Customizing taskbar settings..." $statusTextBox
+    
+    try {
+        # Detect Windows version
+        $osVersion = (Get-CimInstance Win32_OperatingSystem).Caption
+        $isWindows11 = $osVersion -like "*Windows 11*"
+        
+        if ($isWindows11) {
+            Add-Status "Detected Windows 11 - applying specific customizations..." $statusTextBox
+        } else {
+            Add-Status "Detected Windows 10 - applying specific customizations..." $statusTextBox
+        }
+        
+        # 1. UNPIN MICROSOFT STORE
+        Add-Status "Unpinning Microsoft Store from taskbar..." $statusTextBox
+        try {
+            # Method 1: PowerShell App Package removal from taskbar
+            $storeAppId = "Microsoft.WindowsStore_8wekyb3d8bbwe!App"
+            
+            # Windows 11 method
+            if ($isWindows11) {
+                # Remove from taskbar via registry
+                $taskbarRegPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Taskband"
+                if (Test-Path $taskbarRegPath) {
+                    Remove-ItemProperty -Path $taskbarRegPath -Name "Favorites" -ErrorAction SilentlyContinue
+                }
+                
+                # Use PowerShell to unpin
+                $shell = New-Object -ComObject Shell.Application
+                $folder = $shell.Namespace('shell:::{4234d49b-0245-4df3-b780-3893943456e1}')
+                if ($folder) {
+                    $item = $folder.ParseName("Microsoft Store")
+                    if ($item) {
+                        $item.InvokeVerb("Unpin from tas&kbar")
+                        Add-Status "Microsoft Store unpinned from taskbar" $statusTextBox
+                    }
+                }
+            } else {
+                # Windows 10 method
+                $shell = New-Object -ComObject Shell.Application
+                $folder = $shell.Namespace('shell:::{4234d49b-0245-4df3-b780-3893943456e1}')
+                if ($folder) {
+                    $item = $folder.ParseName("Microsoft Store")
+                    if ($item) {
+                        $item.InvokeVerb("Unpin from tas&kbar")
+                        Add-Status "Microsoft Store unpinned from taskbar" $statusTextBox
+                    }
+                }
+            }
+        } catch {
+            Add-Status "Could not unpin Microsoft Store: $_" $statusTextBox
+        }
+        
+        # 2. DISABLE/UNPIN MS COPILOT (Windows 11 specific)
+        if ($isWindows11) {
+            Add-Status "Disabling MS Copilot..." $statusTextBox
+            try {
+                # Disable Copilot via registry
+                $copilotRegPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+                if (-not (Test-Path $copilotRegPath)) {
+                    New-Item -Path $copilotRegPath -Force | Out-Null
+                }
+                
+                # Disable Copilot button on taskbar
+                Set-ItemProperty -Path $copilotRegPath -Name "ShowCopilotButton" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+                
+                # Disable Copilot via Group Policy equivalent
+                $copilotPolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot"
+                if (-not (Test-Path $copilotPolicyPath)) {
+                    New-Item -Path $copilotPolicyPath -Force -ErrorAction SilentlyContinue | Out-Null
+                }
+                Set-ItemProperty -Path $copilotPolicyPath -Name "TurnOffWindowsCopilot" -Value 1 -Type DWord -ErrorAction SilentlyContinue
+                
+                Add-Status "MS Copilot disabled successfully" $statusTextBox
+            } catch {
+                Add-Status "Could not disable MS Copilot: $_" $statusTextBox
+            }
+        } else {
+            Add-Status "MS Copilot not applicable for Windows 10" $statusTextBox
+        }
+        
+        # 3. DISABLE WIDGETS (Windows 11) / NEWS AND INTERESTS (Windows 10)
+        Add-Status "Disabling Widgets/News and Interests..." $statusTextBox
+        try {
+            $explorerRegPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+            
+            if ($isWindows11) {
+                # Windows 11 - Disable Widgets
+                Set-ItemProperty -Path $explorerRegPath -Name "TaskbarDa" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+                Set-ItemProperty -Path $explorerRegPath -Name "TaskbarWidgets" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+                Add-Status "Widgets disabled for Windows 11" $statusTextBox
+            } else {
+                # Windows 10 - Disable News and Interests
+                Set-ItemProperty -Path $explorerRegPath -Name "TaskbarDa" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+                
+                # Additional registry for News and Interests
+                $feedsRegPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Feeds"
+                if (-not (Test-Path $feedsRegPath)) {
+                    New-Item -Path $feedsRegPath -Force | Out-Null
+                }
+                Set-ItemProperty -Path $feedsRegPath -Name "ShellFeedsTaskbarViewMode" -Value 2 -Type DWord -ErrorAction SilentlyContinue
+                
+                Add-Status "News and Interests disabled for Windows 10" $statusTextBox
+            }
+        } catch {
+            Add-Status "Could not disable Widgets/News and Interests: $_" $statusTextBox
+        }
+        
+        # 4. HIDE TASK VIEW BUTTON
+        Add-Status "Hiding Task View button..." $statusTextBox
+        try {
+            $explorerRegPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+            
+            # Hide Task View button (works for both Windows 10 and 11)
+            Set-ItemProperty -Path $explorerRegPath -Name "ShowTaskViewButton" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+            
+            Add-Status "Task View button hidden successfully" $statusTextBox
+        } catch {
+            Add-Status "Could not hide Task View button: $_" $statusTextBox
+        }
+        
+        # 5. ADDITIONAL TASKBAR CUSTOMIZATIONS
+        Add-Status "Applying additional taskbar customizations..." $statusTextBox
+        try {
+            $explorerRegPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+            
+            # Hide People button (Windows 10)
+            if (-not $isWindows11) {
+                Set-ItemProperty -Path $explorerRegPath -Name "PeopleBand" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+                Add-Status "People button hidden (Windows 10)" $statusTextBox
+            }
+            
+            # Hide Meet Now button (Windows 10)
+            if (-not $isWindows11) {
+                $meetNowRegPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
+                if (-not (Test-Path $meetNowRegPath)) {
+                    New-Item -Path $meetNowRegPath -Force | Out-Null
+                }
+                Set-ItemProperty -Path $meetNowRegPath -Name "HideSCAMeetNow" -Value 1 -Type DWord -ErrorAction SilentlyContinue
+                Add-Status "Meet Now button hidden (Windows 10)" $statusTextBox
+            }
+            
+            # Windows 11 specific - Hide Chat button
+            if ($isWindows11) {
+                Set-ItemProperty -Path $explorerRegPath -Name "TaskbarMn" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+                Add-Status "Chat button hidden (Windows 11)" $statusTextBox
+            }
+            
+        } catch {
+            Add-Status "Could not apply additional customizations: $_" $statusTextBox
+        }
+        
+        # 6. RESTART EXPLORER TO APPLY CHANGES
+        Add-Status "Restarting Windows Explorer to apply changes..." $statusTextBox
+        try {
+            # Kill explorer process
+            Stop-Process -Name "explorer" -Force -ErrorAction SilentlyContinue
+            
+            # Wait a moment
+            Start-Sleep -Seconds 2
+            
+            # Start explorer again
+            Start-Process "explorer.exe"
+            
+            Add-Status "Windows Explorer restarted successfully" $statusTextBox
+        } catch {
+            Add-Status "Could not restart Explorer: $_" $statusTextBox
+        }
+        
+        Add-Status "Taskbar customization completed successfully!" $statusTextBox
+        
+    } catch {
+        Add-Status "ERROR during taskbar customization: $_" $statusTextBox
+    }
+}
+
+# Alternative method using PowerShell 7+ and Windows Terminal commands
+function Invoke-AdvancedTaskbarCustomization {
+    param ([System.Windows.Forms.TextBox]$statusTextBox)
+    
+    Add-Status "Applying advanced taskbar customizations..." $statusTextBox
+    
+    try {
+        # Unpin Microsoft Store using PowerShell
+        Add-Status "Unpinning Microsoft Store using PowerShell method..." $statusTextBox
+        
+        $unpinScript = @'
+$shell = New-Object -ComObject Shell.Application
+$folder = $shell.Namespace("shell:::{4234d49b-0245-4df3-b780-3893943456e1}")
+$items = $folder.Items()
+foreach ($item in $items) {
+    if ($item.Name -eq "Microsoft Store") {
+        $verbs = $item.Verbs()
+        foreach ($verb in $verbs) {
+            if ($verb.Name -like "*Unpin*taskbar*" -or $verb.Name -like "*Unpin*tas&kbar*") {
+                $verb.DoIt()
+                break
+            }
+        }
+        break
+    }
+}
+'@
+        
+        try {
+            Invoke-Expression $unpinScript
+            Add-Status "Microsoft Store unpinned via PowerShell method" $statusTextBox
+        } catch {
+            Add-Status "PowerShell unpin method failed: $_" $statusTextBox
+        }
+        
+        # Force registry changes
+        Add-Status "Forcing registry changes..." $statusTextBox
+        
+        # Create comprehensive registry script
+        $regScript = @"
+Windows Registry Editor Version 5.00
+
+; Hide Task View Button
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced]
+"ShowTaskViewButton"=dword:00000000
+
+; Hide Widgets (Windows 11) / News and Interests (Windows 10)
+"TaskbarDa"=dword:00000000
+"TaskbarWidgets"=dword:00000000
+
+; Hide Copilot Button (Windows 11)
+"ShowCopilotButton"=dword:00000000
+
+; Hide Chat Button (Windows 11)
+"TaskbarMn"=dword:00000000
+
+; Hide People Button (Windows 10)
+"PeopleBand"=dword:00000000
+
+; Disable News and Interests (Windows 10)
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Feeds]
+"ShellFeedsTaskbarViewMode"=dword:00000002
+
+; Hide Meet Now (Windows 10)
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer]
+"HideSCAMeetNow"=dword:00000001
+
+; Disable Copilot Policy (Windows 11)
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot]
+"TurnOffWindowsCopilot"=dword:00000001
+"@
+        
+        # Write and apply registry file
+        $regFile = "$env:TEMP\taskbar_customization.reg"
+        $regScript | Out-File -FilePath $regFile -Encoding ASCII
+        
+        try {
+            Start-Process -FilePath "reg" -ArgumentList "import `"$regFile`"" -Wait -WindowStyle Hidden
+            Add-Status "Registry changes applied successfully" $statusTextBox
+            
+            # Clean up
+            Remove-Item -Path $regFile -Force -ErrorAction SilentlyContinue
+        } catch {
+            Add-Status "Could not apply registry changes: $_" $statusTextBox
+        }
+        
+    } catch {
+        Add-Status "ERROR in advanced taskbar customization: $_" $statusTextBox
+    }
+}
+
+## STEP 4: Activation Configuration Functions
 function Invoke-ActivationConfiguration {
     param (
         [string]$deviceType,
@@ -1053,6 +1965,7 @@ function Invoke-ActivationConfiguration {
     }
 }
 
+# Hàm 
 function Invoke-WindowsActivation {
     param ([System.Windows.Forms.TextBox]$statusTextBox)
     
@@ -1109,6 +2022,7 @@ function Invoke-WindowsActivation {
     }
 }
 
+# 
 function Invoke-OfficeActivation {
     param ([System.Windows.Forms.TextBox]$statusTextBox)
     Add-Status "Checking Offices activation status..." $statusTextBox
@@ -1233,7 +2147,7 @@ function Invoke-OfficeActivation {
     }
 }
 
-# STEP 5: 
+## STEP 5: Windows Features Configuration Functions
 function Invoke-WindowsFeaturesConfiguration {
     param (
         [string]$deviceType,
@@ -1253,6 +2167,157 @@ function Invoke-WindowsFeaturesConfiguration {
 }
 
 # Helper Functions cho Windows Features Configuration
+function Show-TurnOnFeaturesDialog {
+    # Hide the main menu
+    Hide-MainMenu
+
+    # Create features configuration form
+    $featuresForm = New-Object System.Windows.Forms.Form
+    $featuresForm.Text = "Windows Features Configuration"
+    $featuresForm.Size = New-Object System.Drawing.Size(600, 500)
+    $featuresForm.StartPosition = "CenterScreen"
+    $featuresForm.BackColor = [System.Drawing.Color]::Black
+    $featuresForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+    $featuresForm.MaximizeBox = $false
+    $featuresForm.MinimizeBox = $false
+
+    # Add gradient background
+    $featuresForm.Add_Paint({
+        $graphics = $_.Graphics
+        $rect = New-Object System.Drawing.Rectangle(0, 0, $featuresForm.Width, $featuresForm.Height)
+        $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+            $rect,
+            [System.Drawing.Color]::FromArgb(0, 0, 0),
+            [System.Drawing.Color]::FromArgb(0, 40, 0),
+            [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
+        )
+        $graphics.FillRectangle($brush, $rect)
+        $brush.Dispose()
+    })
+
+    # Title label
+    $titleLabel = New-Object System.Windows.Forms.Label
+    $titleLabel.Text = "WINDOWS FEATURES CONFIGURATION"
+    $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
+    $titleLabel.Size = New-Object System.Drawing.Size(600, 35)
+    $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 0)
+    $titleLabel.Font = New-Object System.Drawing.Font("Arial", 16, [System.Drawing.FontStyle]::Bold)
+    $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+    $featuresForm.Controls.Add($titleLabel)
+
+    # Status textbox
+    $featuresStatusTextBox = New-Object System.Windows.Forms.TextBox
+    $featuresStatusTextBox.Multiline = $true
+    $featuresStatusTextBox.ScrollBars = "Vertical"
+    $featuresStatusTextBox.Location = New-Object System.Drawing.Point(20, 70)
+    $featuresStatusTextBox.Size = New-Object System.Drawing.Size(560, 300)
+    $featuresStatusTextBox.BackColor = [System.Drawing.Color]::Black
+    $featuresStatusTextBox.ForeColor = [System.Drawing.Color]::Lime
+    $featuresStatusTextBox.Font = New-Object System.Drawing.Font("Consolas", 9)
+    $featuresStatusTextBox.ReadOnly = $true
+    $featuresStatusTextBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+    $featuresStatusTextBox.Text = "Ready to configure Windows Features..."
+    $featuresForm.Controls.Add($featuresStatusTextBox)
+
+    # Start Configuration button
+    $startButton = New-Object System.Windows.Forms.Button
+    $startButton.Text = "Start Configuration"
+    $startButton.Location = New-Object System.Drawing.Point(150, 390)
+    $startButton.Size = New-Object System.Drawing.Size(150, 40)
+    $startButton.BackColor = [System.Drawing.Color]::FromArgb(0, 180, 0)
+    $startButton.ForeColor = [System.Drawing.Color]::White
+    $startButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $startButton.Font = New-Object System.Drawing.Font("Arial", 11, [System.Drawing.FontStyle]::Bold)
+    $startButton.FlatAppearance.BorderSize = 1
+    $startButton.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(0, 255, 0)
+    $startButton.Add_Click({
+        try {
+            $startButton.Enabled = $false
+            $startButton.Text = "Running..."
+            
+            # Clear status textbox
+            $featuresStatusTextBox.Clear()
+            Add-Status "Starting Windows Features Configuration..." $featuresStatusTextBox
+            [System.Windows.Forms.Application]::DoEvents()
+            
+            # Run Windows Features Configuration
+            $result = Invoke-WindowsFeaturesConfiguration -deviceType "General" -statusTextBox $featuresStatusTextBox
+            
+            if ($result) {
+                Add-Status "Windows Features configuration completed successfully!" $featuresStatusTextBox
+                $startButton.Text = "Configuration Complete"
+                $startButton.BackColor = [System.Drawing.Color]::FromArgb(0, 100, 0)
+            } else {
+                Add-Status "Windows Features configuration failed!" $featuresStatusTextBox
+                $startButton.Text = "Configuration Failed"
+                $startButton.BackColor = [System.Drawing.Color]::FromArgb(150, 0, 0)
+            }
+            
+        } catch {
+            Add-Status "ERROR: $_" $featuresStatusTextBox
+            $startButton.Text = "Error Occurred"
+            $startButton.BackColor = [System.Drawing.Color]::FromArgb(150, 0, 0)
+        }
+    })
+    $featuresForm.Controls.Add($startButton)
+
+    # Close button
+    $closeButton = New-Object System.Windows.Forms.Button
+    $closeButton.Text = "Close"
+    $closeButton.Location = New-Object System.Drawing.Point(320, 390)
+    $closeButton.Size = New-Object System.Drawing.Size(100, 40)
+    $closeButton.BackColor = [System.Drawing.Color]::FromArgb(150, 0, 0)
+    $closeButton.ForeColor = [System.Drawing.Color]::White
+    $closeButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $closeButton.Font = New-Object System.Drawing.Font("Arial", 11, [System.Drawing.FontStyle]::Bold)
+    $closeButton.FlatAppearance.BorderSize = 1
+    $closeButton.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(255, 0, 0)
+    $closeButton.Add_Click({
+        $featuresForm.Close()
+    })
+    $featuresForm.Controls.Add($closeButton)
+
+    # Add close button (X) in top-right corner
+    $xCloseButton = New-Object System.Windows.Forms.Button
+    $xCloseButton.Text = "✕"
+    $xCloseButton.Location = New-Object System.Drawing.Point(550, 10)
+    $xCloseButton.Size = New-Object System.Drawing.Size(30, 30)
+    $xCloseButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $xCloseButton.BackColor = [System.Drawing.Color]::FromArgb(60, 60, 60)
+    $xCloseButton.ForeColor = [System.Drawing.Color]::FromArgb(255, 255, 255)
+    $xCloseButton.Font = New-Object System.Drawing.Font("Arial", 12, [System.Drawing.FontStyle]::Bold)
+    $xCloseButton.FlatAppearance.BorderSize = 1
+    $xCloseButton.FlatAppearance.BorderColor = [System.Drawing.Color]::Gray
+    $xCloseButton.FlatAppearance.MouseOverBackColor = [System.Drawing.Color]::FromArgb(100, 100, 100)
+    $xCloseButton.FlatAppearance.MouseDownBackColor = [System.Drawing.Color]::FromArgb(120, 120, 120)
+    $xCloseButton.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $xCloseButton.Add_Click({
+        $featuresForm.Close()
+    })
+    $featuresForm.Controls.Add($xCloseButton)
+
+    # Add KeyDown event handler for Esc key
+    $featuresForm.Add_KeyDown({
+        param($sender, $e)
+        if ($e.KeyCode -eq [System.Windows.Forms.Keys]::Escape) {
+            $featuresForm.Close()
+        }
+    })
+
+    # Enable key events
+    $featuresForm.KeyPreview = $true
+
+    # When form closes, show main menu
+    $featuresForm.Add_FormClosed({
+        Show-MainMenu
+    })
+
+    # Show the dialog
+    $featuresForm.ShowDialog()
+}
+
+# Hàm enable các features
 function Invoke-EnableWindowsFeatures {
     param ([System.Windows.Forms.TextBox]$statusTextBox)
     # Danh sách các features cần enable
@@ -1296,13 +2361,6 @@ function Invoke-EnableWindowsFeatures {
                     } else {
                         Add-Status "WARNING: Failed to enable $($feature.DisplayName) (Exit code: $($enableResult.ExitCode))" $statusTextBox
                     }
-                    
-                    # Verify new state
-                    Start-Sleep -Seconds 2
-                    $newFeature = Get-WindowsOptionalFeature -Online -FeatureName $feature.Name -ErrorAction SilentlyContinue
-                    if ($newFeature) {
-                        Add-Status "$($feature.DisplayName): Verified new state is $($newFeature.State)" $statusTextBox
-                    }
                 } else {
                     Add-Status "WARNING: $($feature.DisplayName) is in unexpected state: $currentState" $statusTextBox
                 }
@@ -1316,18 +2374,28 @@ function Invoke-EnableWindowsFeatures {
     }
 }
 
+# Hàm disable các features
 function Invoke-DisableWindowsFeatures {
     param ([System.Windows.Forms.TextBox]$statusTextBox)
+    # Lấy phiên bản hệ điều hành
+    $osVersion = (Get-CimInstance Win32_OperatingSystem).Caption
+
     # Danh sách các features cần disable
     $featuresToDisable = @(
         @{
             Name = "Internet-Explorer-Optional-amd64"
             DisplayName = "IExplorer 11"
             Command = "dism /online /disable-feature /featurename:Internet-Explorer-Optional-amd64 /norestart"
+            SupportedOS = "Windows 10"
         }
     )
     
     foreach ($feature in $featuresToDisable) {
+        # Kiểm tra xem có nên thực thi trên OS hiện tại không
+        if ($feature.SupportedOS -and -not ($osVersion -like "*$($feature.SupportedOS)*")) {
+            Add-Status "$($feature.DisplayName): Not apply on $osVersion. Skipping..." $statusTextBox
+            continue
+        }
         try {
             # Kiểm tra trạng thái hiện tại của feature
             $currentFeature = Get-WindowsOptionalFeature -Online -FeatureName $feature.Name -ErrorAction SilentlyContinue
@@ -1370,7 +2438,7 @@ function Invoke-DisableWindowsFeatures {
     }
 }
 
-# STEP 6:
+## STEP 6: Disk Partitioning Functions
 function Invoke-DiskPartitioning {
     param (
         [string]$deviceType,
@@ -1402,7 +2470,7 @@ function Invoke-DiskPartitioning {
     }
 }
 
-# Helper Functions cho Disk Partitioning
+# Hàm kiểm tra sự sẵn sàng của ổ đĩa
 function Invoke-DiskAvailabilityCheck {
     param ([System.Windows.Forms.TextBox]$statusTextBox)
     try {
@@ -1414,7 +2482,7 @@ function Invoke-DiskAvailabilityCheck {
         $systemVolume = $systemPartitions | Where-Object { $_.DriveLetter -eq 'C' }
         
         if ($systemVolume) {
-            $usedSpace = Get-WmiObject -Class Win32_LogicalDisk | Where-Object { $_.DeviceID -eq "C:" }
+            $usedSpace = Get-CimInstance -ClassName Win32_LogicalDisk | Where-Object { $_.DeviceID -eq "C:" }
             $freeSpaceGB = [math]::Round($usedSpace.FreeSpace / 1GB, 2)
             
             # Kiểm tra xem có thể chia phân vùng không (cần ít nhất 150GB trống)
@@ -1435,6 +2503,7 @@ function Invoke-DiskAvailabilityCheck {
     }
 }
 
+# Hàm chọn kích thước phân vùng
 function Invoke-PartitionSizeSelection {
     param ([System.Windows.Forms.TextBox]$statusTextBox)
     try {
@@ -1668,6 +2737,7 @@ function Invoke-PartitionSizeSelection {
     }
 }
 
+# Hàm tạo phân vùng
 function Invoke-CreatePartition {
     param (
         [int]$sizeGB,
@@ -1772,6 +2842,1088 @@ format fs=ntfs label="DATA" quick
     }
 }
 
+## STEP 7: User Password Management Functions
+function Invoke-UserPasswordManagement {
+    param (
+        [string]$deviceType,
+        [System.Windows.Forms.TextBox]$statusTextBox
+    )
+    
+    try {
+        Add-Status "Starting user password management..." $statusTextBox
+        
+        # --- 1. Get Current User Information ---
+        $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name.Split('\')[-1]
+        Add-Status "Current user: $currentUser" $statusTextBox
+        
+        # --- 2. Show Password Management Dialog ---
+        $passwordResult = Show-PasswordManagementDialog -currentUser $currentUser -statusTextBox $statusTextBox
+        
+        if ($passwordResult) {
+            Add-Status "User password management completed successfully!" $statusTextBox
+        } else {
+            Add-Status "User password management was cancelled or failed." $statusTextBox
+        }
+        
+        return $true
+        
+    } catch {
+        Add-Status "ERROR during User Password Management: $_" $statusTextBox
+        return $false
+    }
+}
+
+# Helper Functions cho Password Management
+function Show-PasswordManagementDialog {
+    param (
+        [string]$currentUser,
+        [System.Windows.Forms.TextBox]$statusTextBox
+    )
+    
+    Add-Status "Opening password management dialog..." $statusTextBox
+    
+    try {
+        # Tạo form quản lý mật khẩu
+        $passwordForm = New-Object System.Windows.Forms.Form
+        $passwordForm.Text = "User Password Management"
+        $passwordForm.Size = New-Object System.Drawing.Size(500, 400)
+        $passwordForm.StartPosition = "CenterScreen"
+        $passwordForm.BackColor = [System.Drawing.Color]::Black
+        $passwordForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+        $passwordForm.MaximizeBox = $false
+        $passwordForm.MinimizeBox = $false
+        
+        # Gradient background
+        $passwordForm.Add_Paint({
+            $graphics = $_.Graphics
+            $rect = New-Object System.Drawing.Rectangle(0, 0, $passwordForm.Width, $passwordForm.Height)
+            $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+                $rect,
+                [System.Drawing.Color]::FromArgb(0, 0, 0),
+                [System.Drawing.Color]::FromArgb(0, 40, 0),
+                [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
+            )
+            $graphics.FillRectangle($brush, $rect)
+            $brush.Dispose()
+        })
+        
+        # Title
+        $titleLabel = New-Object System.Windows.Forms.Label
+        $titleLabel.Text = "PASSWORD MANAGEMENT"
+        $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
+        $titleLabel.Size = New-Object System.Drawing.Size(500, 30)
+        $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+        $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
+        $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+        $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+        $passwordForm.Controls.Add($titleLabel)
+        
+        # Current user info
+        $currentUser = $env:USERNAME
+        $userInfoLabel = New-Object System.Windows.Forms.Label
+        $userInfoLabel.Text = "Current User: $currentUser"
+        $userInfoLabel.Location = New-Object System.Drawing.Point(20, 60)
+        $userInfoLabel.Size = New-Object System.Drawing.Size(460, 25)
+        $userInfoLabel.ForeColor = [System.Drawing.Color]::White
+        $userInfoLabel.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $userInfoLabel.BackColor = [System.Drawing.Color]::Transparent
+        $passwordForm.Controls.Add($userInfoLabel)
+        
+        # Password input section
+        $passwordLabel = New-Object System.Windows.Forms.Label
+        $passwordLabel.Text = "New Password (leave empty to remove password):"
+        $passwordLabel.Location = New-Object System.Drawing.Point(20, 100)
+        $passwordLabel.Size = New-Object System.Drawing.Size(460, 25)
+        $passwordLabel.ForeColor = [System.Drawing.Color]::Yellow
+        $passwordLabel.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $passwordLabel.BackColor = [System.Drawing.Color]::Transparent
+        $passwordForm.Controls.Add($passwordLabel)
+        
+        # Password textbox - MẶC ĐỊNH HIỂN THỊ PASSWORD
+        $passwordTextBox = New-Object System.Windows.Forms.TextBox
+        $passwordTextBox.Location = New-Object System.Drawing.Point(20, 130)
+        $passwordTextBox.Size = New-Object System.Drawing.Size(350, 25)
+        $passwordTextBox.Font = New-Object System.Drawing.Font("Arial", 10)
+        $passwordTextBox.UseSystemPasswordChar = $false  # MẶC ĐỊNH HIỂN THỊ PASSWORD
+        $passwordForm.Controls.Add($passwordTextBox)
+        
+        # Show/Hide password checkbox - MẶC ĐỊNH CHECKED (HIỂN THỊ PASSWORD)
+        $showPasswordCheckBox = New-Object System.Windows.Forms.CheckBox
+        $showPasswordCheckBox.Text = "Show"
+        $showPasswordCheckBox.Location = New-Object System.Drawing.Point(380, 132)
+        $showPasswordCheckBox.Size = New-Object System.Drawing.Size(100, 20)
+        $showPasswordCheckBox.ForeColor = [System.Drawing.Color]::White
+        $showPasswordCheckBox.Font = New-Object System.Drawing.Font("Arial", 9)
+        $showPasswordCheckBox.BackColor = [System.Drawing.Color]::Transparent
+        $showPasswordCheckBox.Checked = $true  # MẶC ĐỊNH CHECKED (HIỂN THỊ PASSWORD)
+        $showPasswordCheckBox.Add_CheckedChanged({
+            # Khi CHECKED = hiển thị password, khi UNCHECKED = ẩn password
+            $passwordTextBox.UseSystemPasswordChar = -not $showPasswordCheckBox.Checked
+        })
+        $passwordForm.Controls.Add($showPasswordCheckBox)
+        
+        # Instructions
+        $instructionLabel = New-Object System.Windows.Forms.Label
+        $instructionLabel.Text = "Enter a password to set new password`nLeave empty to remove password (no password login)"
+        $instructionLabel.Location = New-Object System.Drawing.Point(20, 170)
+        $instructionLabel.Size = New-Object System.Drawing.Size(460, 40)
+        $instructionLabel.ForeColor = [System.Drawing.Color]::LightGray
+        $instructionLabel.Font = New-Object System.Drawing.Font("Arial", 9)
+        $instructionLabel.BackColor = [System.Drawing.Color]::Transparent
+        $passwordForm.Controls.Add($instructionLabel)
+        
+        # Apply button
+        $applyButton = New-Object System.Windows.Forms.Button
+        $applyButton.Text = "Apply Changes"
+        $applyButton.Location = New-Object System.Drawing.Point(150, 230)
+        $applyButton.Size = New-Object System.Drawing.Size(120, 40)
+        $applyButton.BackColor = [System.Drawing.Color]::FromArgb(0, 150, 0)
+        $applyButton.ForeColor = [System.Drawing.Color]::White
+        $applyButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $applyButton.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $applyButton.Add_Click({
+            $newPassword = $passwordTextBox.Text
+            
+            if ([string]::IsNullOrEmpty($newPassword)) {
+                # Remove password
+                $confirmResult = [System.Windows.Forms.MessageBox]::Show(
+                    "Are you sure you want to remove the password for user '$currentUser'?`n`nThis will allow login without any password.",
+                    "Confirm Password Removal",
+                    [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                    [System.Windows.Forms.MessageBoxIcon]::Question
+                )
+                
+                if ($confirmResult -eq [System.Windows.Forms.DialogResult]::Yes) {
+                    $script:passwordAction = "REMOVE"
+                    $script:newPasswordValue = ""
+                    $passwordForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+                    $passwordForm.Close()
+                }
+            } else {
+                # Set new password
+                $script:passwordAction = "SET"
+                $script:newPasswordValue = $newPassword
+                $passwordForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+                $passwordForm.Close()
+            }
+        })
+        $passwordForm.Controls.Add($applyButton)
+        
+        # Cancel button
+        $cancelButton = New-Object System.Windows.Forms.Button
+        $cancelButton.Text = "Cancel"
+        $cancelButton.Location = New-Object System.Drawing.Point(280, 230)
+        $cancelButton.Size = New-Object System.Drawing.Size(100, 40)
+        $cancelButton.BackColor = [System.Drawing.Color]::FromArgb(150, 0, 0)
+        $cancelButton.ForeColor = [System.Drawing.Color]::White
+        $cancelButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $cancelButton.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $cancelButton.Add_Click({
+            $passwordForm.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+            $passwordForm.Close()
+        })
+        $passwordForm.Controls.Add($cancelButton)
+        
+        # Focus vào password textbox
+        $passwordForm.Add_Shown({
+            $passwordTextBox.Focus()
+        })
+        
+        # Xử lý phím Enter và ESC
+        $passwordForm.KeyPreview = $true
+        $passwordForm.Add_KeyDown({
+            param($sender, $e)
+            if ($e.KeyCode -eq [System.Windows.Forms.Keys]::Enter) {
+                $applyButton.PerformClick()
+            }
+            elseif ($e.KeyCode -eq [System.Windows.Forms.Keys]::Escape) {
+                $cancelButton.PerformClick()
+            }
+        })
+        
+        # Show form and get result
+        $result = $passwordForm.ShowDialog()
+        
+        if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+            if ($script:passwordAction -eq "SET") {
+                Add-Status "Setting new password for user: $currentUser" $statusTextBox
+                try {
+                    $securePassword = ConvertTo-SecureString $script:newPasswordValue -AsPlainText -Force
+                    Set-LocalUser -Name $currentUser -Password $securePassword
+                    Add-Status "Password set successfully for user: $currentUser" $statusTextBox
+                    return $true
+                } catch {
+                    Add-Status "ERROR setting password: $_" $statusTextBox
+                    return $false
+                }
+            } elseif ($script:passwordAction -eq "REMOVE") {
+                Add-Status "Removing password for user: $currentUser" $statusTextBox
+                try {
+                    $removeResult = Start-Process -FilePath "net" -ArgumentList "user `"$currentUser`" `"`"" -Wait -PassThru -WindowStyle Hidden
+                    if ($removeResult.ExitCode -eq 0) {
+                        Add-Status "Password removed successfully for user: $currentUser" $statusTextBox
+                        Add-Status "User can now login without password." $statusTextBox
+                        return $true
+                    } else {
+                        Add-Status "ERROR: Failed to remove password (Exit code: $($removeResult.ExitCode))" $statusTextBox
+                        return $false
+                    }
+                } catch {
+                    Add-Status "ERROR removing password: $_" $statusTextBox
+                    return $false
+                }
+            }
+        } else {
+            Add-Status "Password management cancelled by user." $statusTextBox
+            return $false
+        }
+        
+    } catch {
+        Add-Status "ERROR in password management dialog: $_" $statusTextBox
+        return $false
+    }
+}
+
+function Invoke-SetUserPassword {
+    param (
+        [string]$currentUser,
+        [System.Windows.Forms.TextBox]$statusTextBox
+    )
+    
+    Add-Status "Setting new password for user: $currentUser" $statusTextBox
+    
+    try {
+        # Tạo form nhập mật khẩu mới
+        $newPasswordForm = New-Object System.Windows.Forms.Form
+        $newPasswordForm.Text = "Set New Password"
+        $newPasswordForm.Size = New-Object System.Drawing.Size(450, 300)
+        $newPasswordForm.StartPosition = "CenterScreen"
+        $newPasswordForm.BackColor = [System.Drawing.Color]::Black
+        $newPasswordForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+        $newPasswordForm.MaximizeBox = $false
+        $newPasswordForm.MinimizeBox = $false
+        
+        # Gradient background
+        $newPasswordForm.Add_Paint({
+            $graphics = $_.Graphics
+            $rect = New-Object System.Drawing.Rectangle(0, 0, $newPasswordForm.Width, $newPasswordForm.Height)
+            $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+                $rect,
+                [System.Drawing.Color]::FromArgb(0, 0, 0),
+                [System.Drawing.Color]::FromArgb(0, 40, 0),
+                [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
+            )
+            $graphics.FillRectangle($brush, $rect)
+            $brush.Dispose()
+        })
+        
+        # Title
+        $titleLabel = New-Object System.Windows.Forms.Label
+        $titleLabel.Text = "SET NEW PASSWORD"
+        $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
+        $titleLabel.Size = New-Object System.Drawing.Size(450, 30)
+        $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+        $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
+        $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+        $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+        $newPasswordForm.Controls.Add($titleLabel)
+        
+        # User info
+        $userLabel = New-Object System.Windows.Forms.Label
+        $userLabel.Text = "User: $currentUser"
+        $userLabel.Location = New-Object System.Drawing.Point(20, 60)
+        $userLabel.Size = New-Object System.Drawing.Size(400, 25)
+        $userLabel.ForeColor = [System.Drawing.Color]::White
+        $userLabel.Font = New-Object System.Drawing.Font("Arial", 10)
+        $userLabel.BackColor = [System.Drawing.Color]::Transparent
+        $newPasswordForm.Controls.Add($userLabel)
+        
+        # Password label
+        $passwordLabel = New-Object System.Windows.Forms.Label
+        $passwordLabel.Text = "New Password:"
+        $passwordLabel.Location = New-Object System.Drawing.Point(20, 100)
+        $passwordLabel.Size = New-Object System.Drawing.Size(120, 25)
+        $passwordLabel.ForeColor = [System.Drawing.Color]::Yellow
+        $passwordLabel.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $passwordLabel.BackColor = [System.Drawing.Color]::Transparent
+        $newPasswordForm.Controls.Add($passwordLabel)
+        
+        # Password textbox
+        $passwordTextBox = New-Object System.Windows.Forms.TextBox
+        $passwordTextBox.Location = New-Object System.Drawing.Point(150, 98)
+        $passwordTextBox.Size = New-Object System.Drawing.Size(250, 25)
+        $passwordTextBox.Font = New-Object System.Drawing.Font("Arial", 10)
+        $passwordTextBox.UseSystemPasswordChar = $true
+        $newPasswordForm.Controls.Add($passwordTextBox)
+        
+        # Confirm password label
+        $confirmLabel = New-Object System.Windows.Forms.Label
+        $confirmLabel.Text = "Confirm Password:"
+        $confirmLabel.Location = New-Object System.Drawing.Point(20, 140)
+        $confirmLabel.Size = New-Object System.Drawing.Size(120, 25)
+        $confirmLabel.ForeColor = [System.Drawing.Color]::Yellow
+        $confirmLabel.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $confirmLabel.BackColor = [System.Drawing.Color]::Transparent
+        $newPasswordForm.Controls.Add($confirmLabel)
+        
+        # Confirm password textbox
+        $confirmTextBox = New-Object System.Windows.Forms.TextBox
+        $confirmTextBox.Location = New-Object System.Drawing.Point(150, 138)
+        $confirmTextBox.Size = New-Object System.Drawing.Size(250, 25)
+        $confirmTextBox.Font = New-Object System.Drawing.Font("Arial", 10)
+        $confirmTextBox.UseSystemPasswordChar = $true
+        $newPasswordForm.Controls.Add($confirmTextBox)
+        
+        # OK button
+        $okButton = New-Object System.Windows.Forms.Button
+        $okButton.Text = "Set Password"
+        $okButton.Location = New-Object System.Drawing.Point(150, 190)
+        $okButton.Size = New-Object System.Drawing.Size(100, 35)
+        $okButton.BackColor = [System.Drawing.Color]::FromArgb(0, 150, 0)
+        $okButton.ForeColor = [System.Drawing.Color]::White
+        $okButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $okButton.Add_Click({
+            if ($passwordTextBox.Text -eq $confirmTextBox.Text) {
+                if ($passwordTextBox.Text.Length -ge 1) {
+                    $script:newPassword = $passwordTextBox.Text
+                    $newPasswordForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+                    $newPasswordForm.Close()
+                } else {
+                    [System.Windows.Forms.MessageBox]::Show(
+                        "Password must be at least 1 character long",
+                        "Invalid Password",
+                        [System.Windows.Forms.MessageBoxButtons]::OK,
+                        [System.Windows.Forms.MessageBoxIcon]::Warning
+                    )
+                }
+            } else {
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Passwords do not match",
+                    "Password Mismatch",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Warning
+                )
+            }
+        })
+        $newPasswordForm.Controls.Add($okButton)
+        
+        # Cancel button
+        $cancelButton = New-Object System.Windows.Forms.Button
+        $cancelButton.Text = "Cancel"
+        $cancelButton.Location = New-Object System.Drawing.Point(260, 190)
+        $cancelButton.Size = New-Object System.Drawing.Size(100, 35)
+        $cancelButton.BackColor = [System.Drawing.Color]::FromArgb(150, 0, 0)
+        $cancelButton.ForeColor = [System.Drawing.Color]::White
+        $cancelButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $cancelButton.Add_Click({
+            $newPasswordForm.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+            $newPasswordForm.Close()
+        })
+        $newPasswordForm.Controls.Add($cancelButton)
+        
+        # Focus vào password textbox
+        $newPasswordForm.Add_Shown({
+            $passwordTextBox.Focus()
+        })
+        
+        # Show form and get result
+        $result = $newPasswordForm.ShowDialog()
+        
+        if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+            # Set password using PowerShell
+            try {
+                $securePassword = ConvertTo-SecureString $script:newPassword -AsPlainText -Force
+                Set-LocalUser -Name $currentUser -Password $securePassword
+                Add-Status "Password set successfully for user: $currentUser" $statusTextBox
+                return $true
+            } catch {
+                Add-Status "ERROR setting password: $_" $statusTextBox
+                return $false
+            }
+        } else {
+            Add-Status "Set password cancelled by user." $statusTextBox
+            return $false
+        }
+        
+    } catch {
+        Add-Status "ERROR in set password function: $_" $statusTextBox
+        return $false
+    }
+}
+
+function Invoke-RemoveUserPassword {
+    param (
+        [string]$currentUser,
+        [System.Windows.Forms.TextBox]$statusTextBox
+    )
+    
+    Add-Status "Removing password for user: $currentUser" $statusTextBox
+    
+    try {
+        # Confirmation dialog
+        $confirmResult = [System.Windows.Forms.MessageBox]::Show(
+            "Are you sure you want to remove the password for user '$currentUser'?`n`nThis will allow login without any password.",
+            "Confirm Password Removal",
+            [System.Windows.Forms.MessageBoxButtons]::YesNo,
+            [System.Windows.Forms.MessageBoxIcon]::Question
+        )
+        
+        if ($confirmResult -eq [System.Windows.Forms.DialogResult]::Yes) {
+            # Remove password using net user command
+            try {
+                $removeResult = Start-Process -FilePath "net" -ArgumentList "user `"$currentUser`" `"`"" -Wait -PassThru -WindowStyle Hidden
+                if ($removeResult.ExitCode -eq 0) {
+                    Add-Status "Password removed successfully for user: $currentUser" $statusTextBox
+                    Add-Status "User can now login without password." $statusTextBox
+                    return $true
+                } else {
+                    Add-Status "ERROR: Failed to remove password (Exit code: $($removeResult.ExitCode))" $statusTextBox
+                    return $false
+                }
+            } catch {
+                Add-Status "ERROR removing password: $_" $statusTextBox
+                return $false
+            }
+        } else {
+            Add-Status "Password removal cancelled by user." $statusTextBox
+            return $false
+        }
+        
+    } catch {
+        Add-Status "ERROR in remove password function: $_" $statusTextBox
+        return $false
+    }
+}
+
+## STEP 8: Domain Management Functions
+function Invoke-DomainJoin {
+    param (
+        [string]$deviceType,
+        [System.Windows.Forms.TextBox]$statusTextBox
+    )
+    
+    try {
+        Add-Status "Starting domain join process..." $statusTextBox
+        
+        # --- 1. Check Current Domain Status ---
+        $currentDomain = Invoke-CheckDomainStatus $statusTextBox
+        
+        if ($currentDomain) {
+            Add-Status "Computer is already joined to domain: $currentDomain" $statusTextBox
+            Add-Status "Domain join skipped." $statusTextBox
+            return $true
+        }
+        
+        # --- 2. Show Domain Join Dialog ---
+        $domainResult = Show-DomainJoinDialog -statusTextBox $statusTextBox
+        
+        if ($domainResult) {
+            Add-Status "Domain join completed successfully!" $statusTextBox
+        } else {
+            Add-Status "Domain join was cancelled or failed." $statusTextBox
+        }
+        
+        return $true
+        
+    } catch {
+        Add-Status "ERROR during Domain Join: $_" $statusTextBox
+        return $false
+    }
+}
+
+# Helper Functions cho Domain Join
+function Invoke-CheckDomainStatus {
+    param ([System.Windows.Forms.TextBox]$statusTextBox)
+    
+    try {
+        Add-Status "Checking current domain status..." $statusTextBox
+        
+        # Kiểm tra xem máy tính đã join domain chưa
+        $computerSystem = Get-CimInstance -ClassName Win32_ComputerSystem
+        
+        if ($computerSystem.PartOfDomain) {
+            $domainName = $computerSystem.Domain
+            Add-Status "Computer is currently joined to domain: $domainName" $statusTextBox
+            return $domainName
+        } else {
+            Add-Status "Computer is currently in workgroup: $($computerSystem.Workgroup)" $statusTextBox
+            return $null
+        }
+        
+    } catch {
+        Add-Status "Warning: Could not check domain status: $_" $statusTextBox
+        return $null
+    }
+}
+
+#
+function Show-DomainJoinDialog {
+    param ([System.Windows.Forms.TextBox]$statusTextBox)
+    
+    Add-Status "Opening domain management dialog..." $statusTextBox
+    
+    try {
+        # Tạo form quản lý domain
+        $domainForm = New-Object System.Windows.Forms.Form
+        $domainForm.Text = "Domain Management"
+        $domainForm.Size = New-Object System.Drawing.Size(500, 500)
+        $domainForm.StartPosition = "CenterScreen"
+        $domainForm.BackColor = [System.Drawing.Color]::Black
+        $domainForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+        $domainForm.MaximizeBox = $false
+        $domainForm.MinimizeBox = $false
+        
+        # Gradient background
+        $domainForm.Add_Paint({
+            $graphics = $_.Graphics
+            $rect = New-Object System.Drawing.Rectangle(0, 0, $domainForm.Width, $domainForm.Height)
+            $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+                $rect,
+                [System.Drawing.Color]::FromArgb(0, 0, 0),
+                [System.Drawing.Color]::FromArgb(0, 40, 0),
+                [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
+            )
+            $graphics.FillRectangle($brush, $rect)
+            $brush.Dispose()
+        })
+        
+        # Title
+        $titleLabel = New-Object System.Windows.Forms.Label
+        $titleLabel.Text = "DOMAIN MANAGEMENT"
+        $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
+        $titleLabel.Size = New-Object System.Drawing.Size(500, 30)
+        $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+        $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
+        $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+        $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+        $domainForm.Controls.Add($titleLabel)
+        
+        # Current status info
+        $computerSystem = Get-CimInstance -ClassName Win32_ComputerSystem
+        $currentStatus = if ($computerSystem.PartOfDomain) {
+            "Domain: $($computerSystem.Domain)"
+        } else {
+            "Workgroup: $($computerSystem.Workgroup)"
+        }
+        
+        $statusLabel = New-Object System.Windows.Forms.Label
+        $statusLabel.Text = "Current Status: $currentStatus"
+        $statusLabel.Location = New-Object System.Drawing.Point(20, 60)
+        $statusLabel.Size = New-Object System.Drawing.Size(460, 25)
+        $statusLabel.ForeColor = [System.Drawing.Color]::White
+        $statusLabel.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $statusLabel.BackColor = [System.Drawing.Color]::Transparent
+        $domainForm.Controls.Add($statusLabel)
+        
+        # Variable to store selected action
+        $script:selectedDomainAction = ""
+        
+        # JOIN DOMAIN Button
+        $btnJoinDomain = New-Object System.Windows.Forms.Button
+        $btnJoinDomain.Text = "JOIN DOMAIN"
+        $btnJoinDomain.Location = New-Object System.Drawing.Point(50, 100)
+        $btnJoinDomain.Size = New-Object System.Drawing.Size(400, 50)
+        $btnJoinDomain.BackColor = [System.Drawing.Color]::FromArgb(0, 150, 0)
+        $btnJoinDomain.ForeColor = [System.Drawing.Color]::White
+        $btnJoinDomain.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $btnJoinDomain.Font = New-Object System.Drawing.Font("Arial", 12, [System.Drawing.FontStyle]::Bold)
+        $btnJoinDomain.Add_Click({
+            $script:selectedDomainAction = "JOIN"
+            $domainForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+            $domainForm.Close()
+        })
+        $domainForm.Controls.Add($btnJoinDomain)
+        
+        # LEAVE DOMAIN Button
+        $btnLeaveDomain = New-Object System.Windows.Forms.Button
+        $btnLeaveDomain.Text = "LEAVE DOMAIN (Join Workgroup)"
+        $btnLeaveDomain.Location = New-Object System.Drawing.Point(50, 160)
+        $btnLeaveDomain.Size = New-Object System.Drawing.Size(400, 50)
+        $btnLeaveDomain.BackColor = [System.Drawing.Color]::FromArgb(150, 100, 0)
+        $btnLeaveDomain.ForeColor = [System.Drawing.Color]::White
+        $btnLeaveDomain.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $btnLeaveDomain.Font = New-Object System.Drawing.Font("Arial", 12, [System.Drawing.FontStyle]::Bold)
+        $btnLeaveDomain.Add_Click({
+            $script:selectedDomainAction = "LEAVE"
+            $domainForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+            $domainForm.Close()
+        })
+        $domainForm.Controls.Add($btnLeaveDomain)
+        
+        # JOIN WORKGROUP Button
+        $btnJoinWorkgroup = New-Object System.Windows.Forms.Button
+        $btnJoinWorkgroup.Text = "JOIN WORKGROUP"
+        $btnJoinWorkgroup.Location = New-Object System.Drawing.Point(50, 220)
+        $btnJoinWorkgroup.Size = New-Object System.Drawing.Size(400, 50)
+        $btnJoinWorkgroup.BackColor = [System.Drawing.Color]::FromArgb(0, 100, 150)
+        $btnJoinWorkgroup.ForeColor = [System.Drawing.Color]::White
+        $btnJoinWorkgroup.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $btnJoinWorkgroup.Font = New-Object System.Drawing.Font("Arial", 12, [System.Drawing.FontStyle]::Bold)
+        $btnJoinWorkgroup.Add_Click({
+            $script:selectedDomainAction = "WORKGROUP"
+            $domainForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+            $domainForm.Close()
+        })
+        $domainForm.Controls.Add($btnJoinWorkgroup)
+        
+        # Instructions
+        $instructionLabel = New-Object System.Windows.Forms.Label
+        $instructionLabel.Text = "• Join Domain: Connect to vietunion.local domain`n• Leave Domain: Disconnect from current domain and join workgroup`n• Join Workgroup: Connect to a specific workgroup"
+        $instructionLabel.Location = New-Object System.Drawing.Point(20, 290)
+        $instructionLabel.Size = New-Object System.Drawing.Size(460, 60)
+        $instructionLabel.ForeColor = [System.Drawing.Color]::LightGray
+        $instructionLabel.Font = New-Object System.Drawing.Font("Arial", 9)
+        $instructionLabel.BackColor = [System.Drawing.Color]::Transparent
+        $domainForm.Controls.Add($instructionLabel)
+        
+        # Cancel button
+        $cancelButton = New-Object System.Windows.Forms.Button
+        $cancelButton.Text = "Cancel"
+        $cancelButton.Location = New-Object System.Drawing.Point(200, 370)
+        $cancelButton.Size = New-Object System.Drawing.Size(100, 40)
+        $cancelButton.BackColor = [System.Drawing.Color]::FromArgb(150, 0, 0)
+        $cancelButton.ForeColor = [System.Drawing.Color]::White
+        $cancelButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $cancelButton.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $cancelButton.Add_Click({
+            $domainForm.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+            $domainForm.Close()
+        })
+        $domainForm.Controls.Add($cancelButton)
+        
+        # Show form and get result
+        $result = $domainForm.ShowDialog()
+        
+        if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+            if ($script:selectedDomainAction -eq "JOIN") {
+                return Invoke-JoinDomainProcess $statusTextBox
+            } elseif ($script:selectedDomainAction -eq "LEAVE") {
+                return Invoke-LeaveDomainProcess $statusTextBox
+            } elseif ($script:selectedDomainAction -eq "WORKGROUP") {
+                return Invoke-JoinWorkgroupProcess $statusTextBox
+            }
+        } else {
+            Add-Status "Domain management cancelled by user." $statusTextBox
+            return $false
+        }
+        
+    } catch {
+        Add-Status "ERROR in domain management dialog: $_" $statusTextBox
+        return $false
+    }
+}
+
+# Hàm xử lý Join Domain
+function Invoke-JoinDomainProcess {
+    param ([System.Windows.Forms.TextBox]$statusTextBox)
+    
+    try {
+        # Tạo form nhập thông tin domain
+        $joinForm = New-Object System.Windows.Forms.Form
+        $joinForm.Text = "Join Domain"
+        $joinForm.Size = New-Object System.Drawing.Size(450, 300)
+        $joinForm.StartPosition = "CenterScreen"
+        $joinForm.BackColor = [System.Drawing.Color]::Black
+        $joinForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+        $joinForm.MaximizeBox = $false
+        $joinForm.MinimizeBox = $false
+        
+        # Gradient background
+        $joinForm.Add_Paint({
+            $graphics = $_.Graphics
+            $rect = New-Object System.Drawing.Rectangle(0, 0, $joinForm.Width, $joinForm.Height)
+            $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+                $rect,
+                [System.Drawing.Color]::FromArgb(0, 0, 0),
+                [System.Drawing.Color]::FromArgb(0, 40, 0),
+                [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
+            )
+            $graphics.FillRectangle($brush, $rect)
+            $brush.Dispose()
+        })
+        
+        # Title
+        $titleLabel = New-Object System.Windows.Forms.Label
+        $titleLabel.Text = "JOIN DOMAIN"
+        $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
+        $titleLabel.Size = New-Object System.Drawing.Size(450, 30)
+        $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+        $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
+        $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+        $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+        $joinForm.Controls.Add($titleLabel)
+        
+        # Domain name (pre-filled)
+        $domainLabel = New-Object System.Windows.Forms.Label
+        $domainLabel.Text = "Domain: vietunion.local"
+        $domainLabel.Location = New-Object System.Drawing.Point(20, 70)
+        $domainLabel.Size = New-Object System.Drawing.Size(400, 25)
+        $domainLabel.ForeColor = [System.Drawing.Color]::Yellow
+        $domainLabel.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $domainLabel.BackColor = [System.Drawing.Color]::Transparent
+        $joinForm.Controls.Add($domainLabel)
+        
+        # Username
+        $usernameLabel = New-Object System.Windows.Forms.Label
+        $usernameLabel.Text = "Username:"
+        $usernameLabel.Location = New-Object System.Drawing.Point(20, 110)
+        $usernameLabel.Size = New-Object System.Drawing.Size(80, 25)
+        $usernameLabel.ForeColor = [System.Drawing.Color]::White
+        $usernameLabel.Font = New-Object System.Drawing.Font("Arial", 10)
+        $usernameLabel.BackColor = [System.Drawing.Color]::Transparent
+        $joinForm.Controls.Add($usernameLabel)
+        
+        $usernameTextBox = New-Object System.Windows.Forms.TextBox
+        $usernameTextBox.Location = New-Object System.Drawing.Point(110, 108)
+        $usernameTextBox.Size = New-Object System.Drawing.Size(250, 25)
+        $usernameTextBox.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $usernameTextBox.Text = "-HDK-hieudang"
+        $joinForm.Controls.Add($usernameTextBox)
+        
+        # Password
+        $passwordLabel = New-Object System.Windows.Forms.Label
+        $passwordLabel.Text = "Password:"
+        $passwordLabel.Location = New-Object System.Drawing.Point(20, 150)
+        $passwordLabel.Size = New-Object System.Drawing.Size(80, 25)
+        $passwordLabel.ForeColor = [System.Drawing.Color]::White
+        $passwordLabel.Font = New-Object System.Drawing.Font("Arial", 10)
+        $passwordLabel.BackColor = [System.Drawing.Color]::Transparent
+        $joinForm.Controls.Add($passwordLabel)
+        
+        $passwordTextBox = New-Object System.Windows.Forms.TextBox
+        $passwordTextBox.Location = New-Object System.Drawing.Point(110, 148)
+        $passwordTextBox.Size = New-Object System.Drawing.Size(250, 25)
+        $passwordTextBox.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $passwordTextBox.UseSystemPasswordChar = $true
+        $joinForm.Controls.Add($passwordTextBox)
+        
+        # Join button
+        $joinButton = New-Object System.Windows.Forms.Button
+        $joinButton.Text = "Join Domain"
+        $joinButton.Location = New-Object System.Drawing.Point(150, 200)
+        $joinButton.Size = New-Object System.Drawing.Size(100, 35)
+        $joinButton.BackColor = [System.Drawing.Color]::FromArgb(0, 150, 0)
+        $joinButton.ForeColor = [System.Drawing.Color]::White
+        $joinButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $joinButton.Add_Click({
+            if ($usernameTextBox.Text.Trim() -and $passwordTextBox.Text) {
+                $script:domainUsername = $usernameTextBox.Text.Trim()
+                $script:domainPassword = $passwordTextBox.Text
+                $joinForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+                $joinForm.Close()
+            } else {
+                [System.Windows.Forms.MessageBox]::Show("Please enter username and password.", "Missing Information")
+            }
+        })
+        $joinForm.Controls.Add($joinButton)
+        
+        # Cancel button
+        $cancelButton = New-Object System.Windows.Forms.Button
+        $cancelButton.Text = "Cancel"
+        $cancelButton.Location = New-Object System.Drawing.Point(260, 200)
+        $cancelButton.Size = New-Object System.Drawing.Size(100, 35)
+        $cancelButton.BackColor = [System.Drawing.Color]::FromArgb(150, 0, 0)
+        $cancelButton.ForeColor = [System.Drawing.Color]::White
+        $cancelButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $cancelButton.Add_Click({
+            $joinForm.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+            $joinForm.Close()
+        })
+        $joinForm.Controls.Add($cancelButton)
+        
+        $result = $joinForm.ShowDialog()
+        
+        if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+            Add-Status "Joining domain vietunion.local..." $statusTextBox
+            try {
+                $securePassword = ConvertTo-SecureString $script:domainPassword -AsPlainText -Force
+                $credential = New-Object System.Management.Automation.PSCredential("vietunion.local\$($script:domainUsername)", $securePassword)
+                
+                Add-Computer -DomainName "vietunion.local" -Credential $credential -Restart -Force
+                Add-Status "Successfully joined domain! Computer will restart." $statusTextBox
+                return $true
+            } catch {
+                Add-Status "ERROR joining domain: $_" $statusTextBox
+                return $false
+            }
+        }
+        return $false
+        
+    } catch {
+        Add-Status "ERROR in join domain process: $_" $statusTextBox
+        return $false
+    }
+}
+
+# Hàm xử lý Leave Domain
+function Invoke-LeaveDomainProcess {
+    param ([System.Windows.Forms.TextBox]$statusTextBox)
+    
+    try {
+        # Kiểm tra xem máy có đang trong domain không
+        $computerSystem = Get-CimInstance -ClassName Win32_ComputerSystem
+        if (-not $computerSystem.PartOfDomain) {
+            Add-Status "Computer is not currently joined to any domain." $statusTextBox
+            [System.Windows.Forms.MessageBox]::Show("Computer is not currently joined to any domain.", "Not in Domain")
+            return $false
+        }
+        
+        # Tạo form nhập credentials để leave domain
+        $leaveForm = New-Object System.Windows.Forms.Form
+        $leaveForm.Text = "Leave Domain"
+        $leaveForm.Size = New-Object System.Drawing.Size(450, 300)
+        $leaveForm.StartPosition = "CenterScreen"
+        $leaveForm.BackColor = [System.Drawing.Color]::Black
+        $leaveForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+        $leaveForm.MaximizeBox = $false
+        $leaveForm.MinimizeBox = $false
+        
+        # Gradient background
+        $leaveForm.Add_Paint({
+            $graphics = $_.Graphics
+            $rect = New-Object System.Drawing.Rectangle(0, 0, $leaveForm.Width, $leaveForm.Height)
+            $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+                $rect,
+                [System.Drawing.Color]::FromArgb(0, 0, 0),
+                [System.Drawing.Color]::FromArgb(0, 40, 0),
+                [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
+            )
+            $graphics.FillRectangle($brush, $rect)
+            $brush.Dispose()
+        })
+        
+        # Title
+        $titleLabel = New-Object System.Windows.Forms.Label
+        $titleLabel.Text = "LEAVE DOMAIN"
+        $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
+        $titleLabel.Size = New-Object System.Drawing.Size(450, 30)
+        $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+        $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
+        $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+        $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+        $leaveForm.Controls.Add($titleLabel)
+        
+        # Current domain info
+        $currentDomainLabel = New-Object System.Windows.Forms.Label
+        $currentDomainLabel.Text = "Current Domain: $($computerSystem.Domain)"
+        $currentDomainLabel.Location = New-Object System.Drawing.Point(20, 70)
+        $currentDomainLabel.Size = New-Object System.Drawing.Size(400, 25)
+        $currentDomainLabel.ForeColor = [System.Drawing.Color]::Yellow
+        $currentDomainLabel.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $currentDomainLabel.BackColor = [System.Drawing.Color]::Transparent
+        $leaveForm.Controls.Add($currentDomainLabel)
+        
+        # Username
+        $usernameLabel = New-Object System.Windows.Forms.Label
+        $usernameLabel.Text = "Domain Admin Username:"
+        $usernameLabel.Location = New-Object System.Drawing.Point(20, 110)
+        $usernameLabel.Size = New-Object System.Drawing.Size(150, 25)
+        $usernameLabel.ForeColor = [System.Drawing.Color]::White
+        $usernameLabel.Font = New-Object System.Drawing.Font("Arial", 10)
+        $usernameLabel.BackColor = [System.Drawing.Color]::Transparent
+        $leaveForm.Controls.Add($usernameLabel)
+        
+        $usernameTextBox = New-Object System.Windows.Forms.TextBox
+        $usernameTextBox.Location = New-Object System.Drawing.Point(180, 108)
+        $usernameTextBox.Size = New-Object System.Drawing.Size(180, 25)
+        $usernameTextBox.Font = New-Object System.Drawing.Font("Arial", 10)
+        $usernameTextBox.Text = "-HDK-hieudang"
+        $leaveForm.Controls.Add($usernameTextBox)
+        
+        # Password
+        $passwordLabel = New-Object System.Windows.Forms.Label
+        $passwordLabel.Text = "Password:"
+        $passwordLabel.Location = New-Object System.Drawing.Point(20, 150)
+        $passwordLabel.Size = New-Object System.Drawing.Size(150, 25)
+        $passwordLabel.ForeColor = [System.Drawing.Color]::White
+        $passwordLabel.Font = New-Object System.Drawing.Font("Arial", 10)
+        $passwordLabel.BackColor = [System.Drawing.Color]::Transparent
+        $leaveForm.Controls.Add($passwordLabel)
+        
+        $passwordTextBox = New-Object System.Windows.Forms.TextBox
+        $passwordTextBox.Location = New-Object System.Drawing.Point(180, 148)
+        $passwordTextBox.Size = New-Object System.Drawing.Size(180, 25)
+        $passwordTextBox.Font = New-Object System.Drawing.Font("Arial", 10)
+        $passwordTextBox.UseSystemPasswordChar = $true
+        $leaveForm.Controls.Add($passwordTextBox)
+        
+        # Leave button
+        $leaveButton = New-Object System.Windows.Forms.Button
+        $leaveButton.Text = "Leave Domain"
+        $leaveButton.Location = New-Object System.Drawing.Point(150, 200)
+        $leaveButton.Size = New-Object System.Drawing.Size(100, 35)
+        $leaveButton.BackColor = [System.Drawing.Color]::FromArgb(150, 100, 0)
+        $leaveButton.ForeColor = [System.Drawing.Color]::White
+        $leaveButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $leaveButton.Add_Click({
+            if ($usernameTextBox.Text.Trim() -and $passwordTextBox.Text) {
+                $script:domainUsername = $usernameTextBox.Text.Trim()
+                $script:domainPassword = $passwordTextBox.Text
+                $leaveForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+                $leaveForm.Close()
+            } else {
+                [System.Windows.Forms.MessageBox]::Show("Please enter username and password.", "Missing Information")
+            }
+        })
+        $leaveForm.Controls.Add($leaveButton)
+        
+        # Cancel button
+        $cancelButton = New-Object System.Windows.Forms.Button
+        $cancelButton.Text = "Cancel"
+        $cancelButton.Location = New-Object System.Drawing.Point(260, 200)
+        $cancelButton.Size = New-Object System.Drawing.Size(100, 35)
+        $cancelButton.BackColor = [System.Drawing.Color]::FromArgb(150, 0, 0)
+        $cancelButton.ForeColor = [System.Drawing.Color]::White
+        $cancelButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $cancelButton.Add_Click({
+            $leaveForm.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+            $leaveForm.Close()
+        })
+        $leaveForm.Controls.Add($cancelButton)
+        
+        $result = $leaveForm.ShowDialog()
+        
+        if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+            Add-Status "Leaving domain $($computerSystem.Domain)..." $statusTextBox
+            try {
+                $securePassword = ConvertTo-SecureString $script:domainPassword -AsPlainText -Force
+                $credential = New-Object System.Management.Automation.PSCredential("$($computerSystem.Domain)\$($script:domainUsername)", $securePassword)
+                
+                Remove-Computer -UnjoinDomainCredential $credential -WorkgroupName "WORKGROUP" -Restart -Force
+                Add-Status "Successfully left domain! Computer will restart and join WORKGROUP." $statusTextBox
+                return $true
+            } catch {
+                Add-Status "ERROR leaving domain: $_" $statusTextBox
+                return $false
+            }
+        }
+        return $false
+        
+    } catch {
+        Add-Status "ERROR in leave domain process: $_" $statusTextBox
+        return $false
+    }
+}
+
+# Hàm xử lý Join Workgroup
+function Invoke-JoinWorkgroupProcess {
+    param ([System.Windows.Forms.TextBox]$statusTextBox)
+    
+    try {
+        # Tạo form nhập tên workgroup
+        $workgroupForm = New-Object System.Windows.Forms.Form
+        $workgroupForm.Text = "Join Workgroup"
+        $workgroupForm.Size = New-Object System.Drawing.Size(400, 200)
+        $workgroupForm.StartPosition = "CenterScreen"
+        $workgroupForm.BackColor = [System.Drawing.Color]::Black
+        $workgroupForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+        $workgroupForm.MaximizeBox = $false
+        $workgroupForm.MinimizeBox = $false
+        
+        # Gradient background
+        $workgroupForm.Add_Paint({
+            $graphics = $_.Graphics
+            $rect = New-Object System.Drawing.Rectangle(0, 0, $workgroupForm.Width, $workgroupForm.Height)
+            $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+                $rect,
+                [System.Drawing.Color]::FromArgb(0, 0, 0),
+                [System.Drawing.Color]::FromArgb(0, 40, 0),
+                [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
+            )
+            $graphics.FillRectangle($brush, $rect)
+            $brush.Dispose()
+        })
+        
+        # Title
+        $titleLabel = New-Object System.Windows.Forms.Label
+        $titleLabel.Text = "JOIN WORKGROUP"
+        $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
+        $titleLabel.Size = New-Object System.Drawing.Size(400, 30)
+        $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+        $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
+        $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+        $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+        $workgroupForm.Controls.Add($titleLabel)
+        
+        # Workgroup name
+        $workgroupLabel = New-Object System.Windows.Forms.Label
+        $workgroupLabel.Text = "Workgroup Name:"
+        $workgroupLabel.Location = New-Object System.Drawing.Point(20, 70)
+        $workgroupLabel.Size = New-Object System.Drawing.Size(120, 25)
+        $workgroupLabel.ForeColor = [System.Drawing.Color]::White
+        $workgroupLabel.Font = New-Object System.Drawing.Font("Arial", 10)
+        $workgroupLabel.BackColor = [System.Drawing.Color]::Transparent
+        $workgroupForm.Controls.Add($workgroupLabel)
+        
+        $workgroupTextBox = New-Object System.Windows.Forms.TextBox
+        $workgroupTextBox.Location = New-Object System.Drawing.Point(150, 68)
+        $workgroupTextBox.Size = New-Object System.Drawing.Size(200, 25)
+        $workgroupTextBox.Font = New-Object System.Drawing.Font("Arial", 10)
+        $workgroupTextBox.Text = "WORKGROUP"
+        $workgroupForm.Controls.Add($workgroupTextBox)
+        
+        # Join button
+        $joinButton = New-Object System.Windows.Forms.Button
+        $joinButton.Text = "Join"
+        $joinButton.Location = New-Object System.Drawing.Point(120, 120)
+        $joinButton.Size = New-Object System.Drawing.Size(80, 35)
+        $joinButton.BackColor = [System.Drawing.Color]::FromArgb(0, 100, 150)
+        $joinButton.ForeColor = [System.Drawing.Color]::White
+        $joinButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $joinButton.Add_Click({
+            if ($workgroupTextBox.Text.Trim()) {
+                $script:workgroupName = $workgroupTextBox.Text.Trim()
+                $workgroupForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+                $workgroupForm.Close()
+            } else {
+                [System.Windows.Forms.MessageBox]::Show("Please enter workgroup name.", "Missing Information")
+            }
+        })
+        $workgroupForm.Controls.Add($joinButton)
+        
+        # Cancel button
+        $cancelButton = New-Object System.Windows.Forms.Button
+        $cancelButton.Text = "Cancel"
+        $cancelButton.Location = New-Object System.Drawing.Point(210, 120)
+        $cancelButton.Size = New-Object System.Drawing.Size(80, 35)
+        $cancelButton.BackColor = [System.Drawing.Color]::FromArgb(150, 0, 0)
+        $cancelButton.ForeColor = [System.Drawing.Color]::White
+        $cancelButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $cancelButton.Add_Click({
+            $workgroupForm.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+            $workgroupForm.Close()
+        })
+        $workgroupForm.Controls.Add($cancelButton)
+        
+        $result = $workgroupForm.ShowDialog()
+        
+        if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+            Add-Status "Joining workgroup $($script:workgroupName)..." $statusTextBox
+            try {
+                # Kiểm tra xem có đang trong domain không
+                $computerSystem = Get-CimInstance -ClassName Win32_ComputerSystem
+                if ($computerSystem.PartOfDomain) {
+                    Add-Status "ERROR: Computer is currently in domain. Please leave domain first." $statusTextBox
+                    return $false
+                }
+                
+                Add-Computer -WorkgroupName $script:workgroupName -Restart -Force
+                Add-Status "Successfully joined workgroup $($script:workgroupName)! Computer will restart." $statusTextBox
+                return $true
+            } catch {
+                Add-Status "ERROR joining workgroup: $_" $statusTextBox
+                return $false
+            }
+        }
+        return $false
+        
+    } catch {
+        Add-Status "ERROR in join workgroup process: $_" $statusTextBox
+        return $false
+    }
+}
+
+
 #####################################################################################################################
 # Function to handle Run All operations
 function Invoke-RunAllOperations {
@@ -1782,7 +3934,7 @@ function Invoke-RunAllOperations {
     # Create status form
     $statusForm = New-Object System.Windows.Forms.Form
     $statusForm.Text = "Running All Operations"
-    $statusForm.Size = New-Object System.Drawing.Size(595, 500)
+    $statusForm.Size = New-Object System.Drawing.Size(595, 480)
     $statusForm.StartPosition = "CenterScreen"
     $statusForm.BackColor = [System.Drawing.Color]::Black
     $statusForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -1845,7 +3997,7 @@ function Invoke-RunAllOperations {
     # Progress bar
     $progressBar = New-Object System.Windows.Forms.ProgressBar
     $progressBar.Location = New-Object System.Drawing.Point(10, 420)
-    $progressBar.Size = New-Object System.Drawing.Size(560, 30)
+    $progressBar.Size = New-Object System.Drawing.Size(560, 15)
     $progressBar.Style = [System.Windows.Forms.ProgressBarStyle]::Continuous
     $statusForm.Controls.Add($progressBar)
 
@@ -1853,7 +4005,19 @@ function Invoke-RunAllOperations {
     $statusForm.Show()
     [System.Windows.Forms.Application]::DoEvents()
 
+
+    
     try {
+        Add-Status "Pre-Step: Connecting to WiFi network..." $statusTextBox
+        $progressBar.Value = 5
+        
+        $wifiResult = Invoke-WiFiAutoConnection $statusTextBox
+        if ($wifiResult) {
+            Add-Status "WiFi connection completed!" $statusTextBox
+        } else {
+            Add-Status "WiFi connection failed, but continuing..." $statusTextBox
+        }
+
         # STEP 1: Device Selection and Software Installation
         Add-Status "STEP 1: Selecting Device Type and Installing Software..." $statusTextBox
         $progressBar.Value = 14
@@ -1919,15 +4083,15 @@ function Invoke-RunAllOperations {
 
         # Copy software files (gọi hàm toàn cục)
         Add-Status "Copying software files..." $statusTextBox
-        # $copyResult = Copy-SoftwareFiles -deviceType $deviceType $statusTextBox
-        # if (-not $copyResult) {
-        #     Add-Status "Error copying software files. Exiting..." $statusTextBox
-        #     return
-        # }
+        $copyResult = Copy-SoftwareFiles -deviceType $deviceType $statusTextBox
+        if (-not $copyResult) {
+            Add-Status "Error copying software files. Exiting..." $statusTextBox
+            return
+        }
 
         # Install software (gọi hàm toàn cục)
         Add-Status "Installing software..." $statusTextBox
-        # Install-Software -deviceType $deviceType $statusTextBox
+        Install-Software -deviceType $deviceType $statusTextBox
         Add-Status "All installation completed successfully for $deviceType" $statusTextBox
         Add-Status "STEP 1 completed successfully!" $statusTextBox
 
@@ -1935,56 +4099,86 @@ function Invoke-RunAllOperations {
         Add-Status "STEP 2: Configuring System and Creating Shortcuts..." $statusTextBox
         $progressBar.Value = 28 # Tăng giá trị progress bar
 
-        # $configResult = Invoke-SystemConfiguration -deviceType $deviceType -statusTextBox $statusTextBox
-        # if ($configResult) {
-        #     Add-Status "STEP 2 completed successfully!" $statusTextBox
-        # } else {
-        #     Add-Status "STEP 2 encountered errors. Check logs." $statusTextBox
-        # }
+        $configResult = Invoke-SystemConfiguration -deviceType $deviceType -statusTextBox $statusTextBox
+        if ($configResult) {
+            Add-Status "STEP 2 completed successfully!" $statusTextBox
+        } else {
+            Add-Status "STEP 2 encountered errors. Check logs." $statusTextBox
+        }
 
         # STEP 3: System Cleanup and Optimization
         Add-Status "STEP 3: Cleaning up system and optimizing performance..." $statusTextBox
         $progressBar.Value = 42 # Tăng giá trị progress bar
 
-        # $cleanupResult = Invoke-SystemCleanup -deviceType $deviceType -statusTextBox $statusTextBox
-        # if ($cleanupResult) {
-        #     Add-Status "STEP 3 completed successfully!" $statusTextBox
-        # } else {
-        #     Add-Status "STEP 3 encountered errors. Check logs." $statusTextBox
-        # }
+        $cleanupResult = Invoke-SystemCleanup -deviceType $deviceType -statusTextBox $statusTextBox
+        if ($cleanupResult) {
+            Add-Status "STEP 3 completed successfully!" $statusTextBox
+        } else {
+            Add-Status "STEP 3 encountered errors. Check logs." $statusTextBox
+        }
 
         # STEP 4: Windows and Office Activation
         Add-Status "STEP 4: Activating Windows 10 Pro and Office 2019 Pro Plus..." $statusTextBox
         $progressBar.Value = 56 # Tăng giá trị progress bar
 
-        # $activationResult = Invoke-ActivationConfiguration -deviceType $deviceType -statusTextBox $statusTextBox
-        # if ($activationResult) {
-        #     Add-Status "STEP 4 completed successfully!" $statusTextBox
-        # } else {
-        #     Add-Status "STEP 4 encountered errors. Check logs." $statusTextBox
-        # }
+        $activationResult = Invoke-ActivationConfiguration -deviceType $deviceType -statusTextBox $statusTextBox
+        if ($activationResult) {
+            Add-Status "STEP 4 completed successfully!" $statusTextBox
+        } else {
+            Add-Status "STEP 4 encountered errors. Check logs." $statusTextBox
+        }
 
         # STEP 5: Windows Features Configuration
         Add-Status "STEP 5: Configuring Windows Features..." $statusTextBox
         $progressBar.Value = 70 # Tăng giá trị progress bar
 
-        # $featuresResult = Invoke-WindowsFeaturesConfiguration -deviceType $deviceType -statusTextBox $statusTextBox
-        # if ($featuresResult) {
-        #     Add-Status "STEP 5 completed successfully!" $statusTextBox
-        # } else {
-        #     Add-Status "STEP 5 encountered errors. Check logs." $statusTextBox
-        # }
+        $featuresResult = Invoke-WindowsFeaturesConfiguration -deviceType $deviceType -statusTextBox $statusTextBox
+        if ($featuresResult) {
+            Add-Status "STEP 5 completed successfully!" $statusTextBox
+        } else {
+            Add-Status "STEP 5 encountered errors. Check logs." $statusTextBox
+        }
 
         # STEP 6: Disk Partitioning (Laptop only)
-        Add-Status "STEP 6: Configuring disk partitioning..." $statusTextBox
-        $progressBar.Value = 85 # Tăng giá trị progress bar
-
-        $partitioningResult = Invoke-DiskPartitioning -deviceType $deviceType -statusTextBox $statusTextBox
-        if ($partitioningResult) {
-            Add-Status "STEP 6 completed successfully!" $statusTextBox
+        if ($deviceType -eq "Desktop") {
+            Add-Status "STEP 6: Skipped for Desktop device type" $statusTextBox
+            $progressBar.Value = 85
         } else {
-            Add-Status "STEP 6 encountered errors. Check logs." $statusTextBox
+            Add-Status "STEP 6: Configuring disk partitioning..." $statusTextBox
+            $progressBar.Value = 85
+        
+            $partitioningResult = Invoke-DiskPartitioning -deviceType $deviceType -statusTextBox $statusTextBox
+            if ($partitioningResult) {
+                Add-Status "STEP 6 completed successfully!" $statusTextBox
+            } else {
+                Add-Status "STEP 6 encountered errors. Check logs." $statusTextBox
+            }
         }
+
+        # STEP 7: User Password Management
+        Add-Status "STEP 7: Managing user password..." $statusTextBox
+        $progressBar.Value = 95
+
+        $passwordResult = Invoke-UserPasswordManagement -deviceType $deviceType -statusTextBox $statusTextBox
+        if ($passwordResult) {
+            Add-Status "STEP 7 completed successfully!" $statusTextBox
+        } else {
+            Add-Status "STEP 7 encountered errors. Check logs." $statusTextBox
+        }
+
+        # Step 8: Domain Join
+        Add-Status "Step 8/8: Joining domain..." $statusTextBox
+        $progressBar.Value = 100
+
+        $domainResult = Invoke-JoinDomainProcess -deviceType $deviceType -statusTextBox $statusTextBox
+        if ($domainResult) {
+            Add-Status "Step 8 completed successfully!" $statusTextBox
+        } else {
+            Add-Status "Step 8 encountered errors. Check logs." $statusTextBox
+        }
+
+        Add-Status "All steps completed! System setup finished." $statusTextBox
+        Add-Status "Computer will restart if domain join was successful." $statusTextBox
     }
     catch {
         Add-Status "Error occurred: $_" $statusTextBox
@@ -2001,7 +4195,6 @@ function Invoke-RunAllOperations {
         # $statusForm.Close()
     }
 }
-
 # Function to show Install Software dialog
 function Show-InstallSoftwareDialog {
     # Hide the main menu
@@ -2146,9 +4339,1284 @@ $buttonRunAll = New-DynamicButton -text "[1] Run All" -x 30 -y 100 -width 380 -h
 $buttonInstallSoftware = New-DynamicButton -text "[2] Install All Software" -x 30 -y 180 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
     Show-InstallSoftwareDialog
 }
+# [3] Power Options
+$buttonPowerOptions = New-DynamicButton -text "[3] Power Options" -x 30 -y 260 -width 380 -height 60 -clickAction {
+    # Hide the main menu
+    Hide-MainMenu
+    # Create Power Options and Firewall form
+    $powerForm = New-Object System.Windows.Forms.Form
+    $powerForm.Text = "Control Panel Management"
+    $powerForm.Size = New-Object System.Drawing.Size(500, 550)
+    $powerForm.StartPosition = "CenterScreen"
+    $powerForm.BackColor = [System.Drawing.Color]::Black
+    $powerForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+    $powerForm.MaximizeBox = $false
+    $powerForm.MinimizeBox = $false
+
+    # Add a gradient background
+    $powerForm.Paint = {
+        $graphics = $_.Graphics
+        $rect = New-Object System.Drawing.Rectangle(0, 0, $powerForm.Width, $powerForm.Height)
+        $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+            $rect,
+            [System.Drawing.Color]::FromArgb(0, 0, 0), # Black at top
+            [System.Drawing.Color]::FromArgb(0, 40, 0), # Dark green at bottom
+            [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
+        )
+        $graphics.FillRectangle($brush, $rect)
+        $brush.Dispose()
+    }
+
+    # Title label with animation
+    $titleLabel = New-Object System.Windows.Forms.Label
+    $titleLabel.Text = "CONTROL PANEL MANAGEMENT"
+    $titleLabel.Location = New-Object System.Drawing.Point(-10, 20)
+    $titleLabel.Size = New-Object System.Drawing.Size(500, 40)
+    $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+    $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
+    $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+    $titleLabel.Padding = New-Object System.Windows.Forms.Padding(5)
+
+    # Add animation to the title
+    $titleTimer = New-Object System.Windows.Forms.Timer
+    $titleTimer.Interval = 500
+    $titleTimer.Add_Tick({
+            if ($titleLabel.ForeColor -eq [System.Drawing.Color]::Lime) {
+                $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 220, 0)
+            }
+            else {
+                $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+            }
+        })
+    $titleTimer.Start()
+
+    $powerForm.Controls.Add($titleLabel)
+
+    # Status text box
+    $statusTextBox = New-Object System.Windows.Forms.TextBox
+    $statusTextBox.Multiline = $true
+    $statusTextBox.ScrollBars = "Vertical"
+    $statusTextBox.Location = New-Object System.Drawing.Point(50, 400)
+    $statusTextBox.Size = New-Object System.Drawing.Size(400, 100)
+    $statusTextBox.BackColor = [System.Drawing.Color]::Black
+    $statusTextBox.ForeColor = [System.Drawing.Color]::Lime
+    $statusTextBox.Font = New-Object System.Drawing.Font("Consolas", 9)
+    $statusTextBox.ReadOnly = $true
+
+    # Add a border to the status text box
+    $statusTextBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+
+    # Add a placeholder text
+    $statusTextBox.Text = "Status messages will appear here..."
+
+    $powerForm.Controls.Add($statusTextBox)
+
+    # Function to add status message
+    function Add-Status {
+        param([string]$message)
+
+        # Clear placeholder text on first message
+        if ($statusTextBox.Text -eq "Status messages will appear here...") {
+            $statusTextBox.Clear()
+        }
+
+        # Add timestamp to message
+        $timestamp = Get-Date -Format "HH:mm:ss"
+        $statusTextBox.AppendText("[$timestamp] $message`r`n")
+        $statusTextBox.ScrollToCaret()
+        [System.Windows.Forms.Application]::DoEvents()
+    }
+
+    # Set Time/Timezone and Power Options button
+    $btnTimeAndPower = New-DynamicButton -text "Set Time/Timezone and Power" -x 50 -y 80 -width 400 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+        try {
+            Add-Status "Setting time zone to SE Asia Standard Time..."
+
+            # Set timezone to SE Asia Standard Time
+            Start-Process -FilePath "tzutil.exe" -ArgumentList "/s `"SE Asia Standard Time`"" -Wait -NoNewWindow
+
+            # Configure Windows Time service
+            Add-Status "Configuring Windows Time service..."
+            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\w32time\Parameters" -Name "Type" -Value "NTP" -Type String -ErrorAction SilentlyContinue
+
+            # Resync time
+            Add-Status "Synchronizing time..."
+            try {
+                Start-Process -FilePath "w32tm.exe" -ArgumentList "/resync" -Wait -NoNewWindow
+            }
+            catch {
+                Add-Status "Warning: Could not sync time. $_"
+            }
+
+            # Enable automatic time zone updates
+            Add-Status "Enabling automatic time zone updates..."
+            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\tzautoupdate" -Name "Start" -Value 2 -Type DWord -ErrorAction SilentlyContinue
+
+            # Configure power options
+            Add-Status "Setting power options to 'Do Nothing'..."
+
+            # Create a process to run the power commands with elevated privileges
+            $powerCommands = @(
+                "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS LIDACTION 0",
+                "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS LIDACTION 0",
+                "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS SBUTTONACTION 0",
+                "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS SBUTTONACTION 0",
+                "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS PBUTTONACTION 0",
+                "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS PBUTTONACTION 0",
+                "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_VIDEO VIDEOIDLE 0",
+                "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_VIDEO VIDEOIDLE 0",
+                "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 0",
+                "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 0",
+                "powercfg /SETACTIVE SCHEME_CURRENT"
+            )
+
+            $powerScript = $powerCommands -join "; "
+
+            # Create a process to run the command with elevated privileges
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = "powershell.exe"
+            $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $powerScript' -Verb RunAs -WindowStyle Hidden"
+            $psi.UseShellExecute = $true
+            $psi.Verb = "runas"
+            $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+            # Start the process
+            [System.Diagnostics.Process]::Start($psi)
+
+            # Create a process to run the command with elevated privileges
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = "powershell.exe"
+            $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
+            $psi.UseShellExecute = $true
+            $psi.Verb = "runas"
+            $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+            # Start the process
+            [System.Diagnostics.Process]::Start($psi)
+
+            Add-Status "Time zone, power options have been configured successfully!"
+        }
+        catch {
+            Add-Status "Error: $_"
+        }
+    }
+    $powerForm.Controls.Add($btnTimeAndPower)
+
+    # Turn on Firewall button
+    $btnFirewallOn = New-DynamicButton -text "Turn on Firewall" -x 50 -y 160 -width 400 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+        try {
+            Add-Status "Turning on the firewall..."
+            # Turn on the firewall
+            $command = "netsh advfirewall set allprofiles state on"
+
+            # Create a process to run the command with elevated privileges
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = "powershell.exe"
+            $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
+            $psi.UseShellExecute = $true
+            $psi.Verb = "runas"
+            $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+            # Start the process
+            [System.Diagnostics.Process]::Start($psi)
+
+            Add-Status "Firewall has been turned on successfully!"
+        }
+        catch {
+            Add-Status "Error: $_"
+        }
+    }
+    $powerForm.Controls.Add($btnFirewallOn)
+
+    # Turn off Firewall button
+    $btnFirewallOff = New-DynamicButton -text "Turn off Firewall" -x 50 -y 240 -width 400 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+        try {
+            Add-Status "Turning off the firewall..."
+            # Turn off the firewall
+            $command = "netsh advfirewall set allprofiles state off"
+
+            # Create a process to run the command with elevated privileges
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = "powershell.exe"
+            $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
+            $psi.UseShellExecute = $true
+            $psi.Verb = "runas"
+            $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+            # Start the process
+            [System.Diagnostics.Process]::Start($psi)
+
+            Add-Status "Firewall has been turned off successfully!"
+        }
+        catch {
+            Add-Status "Error: $_"
+        }
+    }
+    $powerForm.Controls.Add($btnFirewallOff)
+
+    # Return to Main Menu button
+    $btnReturn = New-DynamicButton -text "Return to Main Menu" -x 50 -y 320 -width 400 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
+        $powerForm.Close()
+    }
+    $powerForm.Controls.Add($btnReturn)
+
+    # When the form is closed, show the main menu again
+    $powerForm.Add_FormClosed({
+        Show-MainMenu
+    })
+
+    # Show the form
+    $powerForm.ShowDialog()
+}
+# [4] Change / Edit Volume
+$buttonChangeVolume = New-DynamicButton -text "[4] Change / Edit Volume" -x 30 -y 340 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+    # Hide the main menu
+    Hide-MainMenu
+    # Create volume management form
+    $volumeForm = New-Object System.Windows.Forms.Form
+    $volumeForm.Text = "Volume Management"
+    $volumeForm.Size = New-Object System.Drawing.Size(820, 650) # Increase the size of the form
+    $volumeForm.StartPosition = "CenterScreen"
+    $volumeForm.BackColor = [System.Drawing.Color]::Black
+    $volumeForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+    $volumeForm.MaximizeBox = $false
+    $volumeForm.MinimizeBox = $false
+
+    # Add a gradient background
+    $volumeForm.Paint = {
+        $graphics = $_.Graphics
+        $rect = New-Object System.Drawing.Rectangle(0, 0, $volumeForm.Width, $volumeForm.Height)
+        $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+            $rect,
+            [System.Drawing.Color]::FromArgb(0, 0, 0), # Black at top
+            [System.Drawing.Color]::FromArgb(0, 40, 0), # Dark green at bottom
+            [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
+        )
+        $graphics.FillRectangle($brush, $rect)
+        $brush.Dispose()
+    }
+
+    # Title label with animation
+    $titleLabel = New-Object System.Windows.Forms.Label
+    $titleLabel.Text = "VOLUME MANAGEMENT"
+    $titleLabel.Location = New-Object System.Drawing.Point(0, 10) # Move the title label down
+    $titleLabel.Size = New-Object System.Drawing.Size(800, 40) # Increase the size of the title label
+    $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+    $titleLabel.Font = New-Object System.Drawing.Font("Arial", 16, [System.Drawing.FontStyle]::Bold)
+    $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+    $titleLabel.Padding = New-Object System.Windows.Forms.Padding(5)
+
+    # Add animation to the title
+    $titleTimer = New-Object System.Windows.Forms.Timer
+    $titleTimer.Interval = 500
+    $titleTimer.Add_Tick({
+        if ($titleLabel.ForeColor -eq [System.Drawing.Color]::Lime) {
+            $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 220, 0)
+        }
+        else {
+            $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+        }
+    })
+    $titleTimer.Start()
+
+    $volumeForm.Controls.Add($titleLabel)
+
+    # Drive list box
+    $driveListBox = New-Object System.Windows.Forms.ListBox
+    $driveListBox.Location = New-Object System.Drawing.Point(20, 50) # Move the drive list box down
+    $driveListBox.Size = New-Object System.Drawing.Size(760, 100) # Increase the size of the drive list box
+    $driveListBox.BackColor = [System.Drawing.Color]::Black
+    $driveListBox.ForeColor = [System.Drawing.Color]::Lime
+    $driveListBox.Font = New-Object System.Drawing.Font("Consolas", 10)
+    $volumeForm.Controls.Add($driveListBox)
+
+    # Content Panel for function buttons
+    $contentPanel = New-Object System.Windows.Forms.Panel
+    $contentPanel.Location = New-Object System.Drawing.Point(20, 200)
+    $contentPanel.Size = New-Object System.Drawing.Size(760, 260)
+    $contentPanel.BackColor = [System.Drawing.Color]::Black
+    $contentPanel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+    $volumeForm.Controls.Add($contentPanel)
+
+    # Status text box
+    $statusTextBox = New-Object System.Windows.Forms.TextBox
+    $statusTextBox.Multiline = $true
+    $statusTextBox.ScrollBars = "Vertical"
+    $statusTextBox.Location = New-Object System.Drawing.Point(20, 470) # Move the status text box down
+    $statusTextBox.Size = New-Object System.Drawing.Size(760, 140) # Increase the size of the status text box
+    $statusTextBox.BackColor = [System.Drawing.Color]::Black
+    $statusTextBox.ForeColor = [System.Drawing.Color]::Lime
+    $statusTextBox.Font = New-Object System.Drawing.Font("Consolas", 9)
+    $statusTextBox.ReadOnly = $true
+    $statusTextBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+    $statusTextBox.Text = "Status messages will appear here..."
+    $volumeForm.Controls.Add($statusTextBox)
+
+    # Function to add status message with timestamp
+    function Add-Status {
+        param([string]$message)
+
+        # Clear placeholder text on first message
+        if ($statusTextBox.Text -eq "Status messages will appear here...") {
+            $statusTextBox.Clear()
+        }
+
+        # Add timestamp to message
+        $timestamp = Get-Date -Format "HH:mm:ss"
+        $statusTextBox.AppendText("[$timestamp] $message`r`n")
+        $statusTextBox.ScrollToCaret()
+        [System.Windows.Forms.Application]::DoEvents()
+    }
+
+    # Function to update drive list
+    function Update-DriveList {
+        $driveListBox.Items.Clear()
+        $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } }, `
+        @{Name = 'VolumeName'; Expression = { $_.VolumeName } }, `
+        @{Name = 'Size (GB)'; Expression = { [math]::round($_.Size / 1GB, 0) } }, `
+        @{Name = 'FreeSpace (GB)'; Expression = { [math]::round($_.FreeSpace / 1GB, 0) } }
+
+        foreach ($drive in $drives) {
+            $driveInfo = "$($drive.Name) - $($drive.VolumeName) - Size: $($drive.'Size (GB)') GB - Free: $($drive.'FreeSpace (GB)') GB"
+            $driveListBox.Items.Add($driveInfo)
+        }
+
+        if ($driveListBox.Items.Count -gt 0) {
+            $driveListBox.SelectedIndex = 0
+        }
+
+        return $drives.Count
+    }
+
+    $driveCount = Update-DriveList
+
+    # Add a common event handler for driveListBox to update all input fields in all buttons
+    $driveListBox.Add_SelectedIndexChanged({
+        if ($driveListBox.SelectedItem) {
+            $selectedDrive = $driveListBox.SelectedItem.ToString()
+            $driveLetter = $selectedDrive.Substring(0, 1)
+
+            # Update for Change Letter button
+            if ($contentPanel.Controls.Count -gt 0 -and $contentPanel.Controls[0].Text -eq "Change Drive Letter") {
+                # Update the script scope textbox directly
+                if ($script:oldLetterTextBox) {
+                    $script:oldLetterTextBox.Text = $driveLetter
+                }
+            }
+
+            # Update for Shrink Volume button
+            if ($contentPanel.Controls.Count -gt 0 -and $contentPanel.Controls[0].Text -eq "Shrink Volume and Create New Partition") {
+                # Use script scope variable directly
+                if ($script:selectedDriveTextBox) {
+                    $script:selectedDriveTextBox.Text = $driveLetter
+                }
+            }
+
+            # Update for Extend Volume button
+            if ($contentPanel.Controls.Count -gt 0 -and $contentPanel.Controls[0].Text -eq "Extend Volume by Merging") {
+                # Use script scope variables directly
+                if ($script:extendSourceDriveTextBox -and $script:extendTargetDriveTextBox) {
+                    # If source drive is empty, fill it
+                    if ($script:extendSourceDriveTextBox.Text -eq "") {
+                        $script:extendSourceDriveTextBox.Text = $driveLetter
+                    }
+                    # Otherwise, if target drive is empty and different from source, fill it
+                    elseif ($script:extendTargetDriveTextBox.Text -eq "" -and $driveLetter -ne $script:extendSourceDriveTextBox.Text) {
+                        $script:extendTargetDriveTextBox.Text = $driveLetter
+                    }
+                }
+            }
+
+            # Update for Rename Volume button
+            if ($contentPanel.Controls.Count -gt 0 -and $contentPanel.Controls[0].Text -eq "Rename Volume") {
+                if ($script:renameDriveLetterTextBox) {
+                    $script:renameDriveLetterTextBox.Text = $driveLetter
+                }
+            }
+        }
+    })
+
+    # [4.1] Change Drive Letter button
+    $btnChangeDriveLetter = New-DynamicButton -text "Change Letter" -x 20 -y 150 -width 150 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+        # Clear the content panel
+        $contentPanel.Controls.Clear()
+
+        # Title label
+        $titleLabel = New-Object System.Windows.Forms.Label
+        $titleLabel.Text = "Change Drive Letter"
+        $titleLabel.Location = New-Object System.Drawing.Point(0, 10)
+        $titleLabel.Size = New-Object System.Drawing.Size(760, 30)
+        $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+        $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
+        $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+        $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+        $contentPanel.Controls.Add($titleLabel)
+
+        # Create GroupBox for centered content
+        $changeGroupBox = New-Object System.Windows.Forms.GroupBox
+        $changeGroupBox.Location = New-Object System.Drawing.Point(180, 60)
+        $changeGroupBox.Size = New-Object System.Drawing.Size(400, 150)
+        $changeGroupBox.ForeColor = [System.Drawing.Color]::Lime
+        $changeGroupBox.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $contentPanel.Controls.Add($changeGroupBox)
+
+        # Old drive letter label
+        $oldLetterLabel = New-Object System.Windows.Forms.Label
+        $oldLetterLabel.Text = "Select Drive Letter to Change:"
+        $oldLetterLabel.Location = New-Object System.Drawing.Point(20, 30)
+        $oldLetterLabel.Size = New-Object System.Drawing.Size(200, 20)
+        $oldLetterLabel.ForeColor = [System.Drawing.Color]::White
+        $oldLetterLabel.Font = New-Object System.Drawing.Font("Arial", 10)
+        $changeGroupBox.Controls.Add($oldLetterLabel)
+
+        # Old drive letter textbox
+        $script:oldLetterTextBox = New-Object System.Windows.Forms.TextBox
+        $script:oldLetterTextBox.Location = New-Object System.Drawing.Point(230, 30)
+        $script:oldLetterTextBox.Size = New-Object System.Drawing.Size(50, 20)
+        $script:oldLetterTextBox.BackColor = [System.Drawing.Color]::Black
+        $script:oldLetterTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $script:oldLetterTextBox.Font = New-Object System.Drawing.Font("Consolas", 11, [System.Drawing.FontStyle]::Bold)
+        $script:oldLetterTextBox.MaxLength = 1
+        $script:oldLetterTextBox.ReadOnly = $true
+        $script:oldLetterTextBox.TextAlign = [System.Windows.Forms.HorizontalAlignment]::Center
+        $changeGroupBox.Controls.Add($script:oldLetterTextBox)
+
+        # New drive letter label
+        $newLetterLabel = New-Object System.Windows.Forms.Label
+        $newLetterLabel.Text = "New Drive Letter:"
+        $newLetterLabel.Location = New-Object System.Drawing.Point(20, 60)
+        $newLetterLabel.Size = New-Object System.Drawing.Size(200, 20)
+        $newLetterLabel.ForeColor = [System.Drawing.Color]::White
+        $newLetterLabel.Font = New-Object System.Drawing.Font("Arial", 10)
+        $changeGroupBox.Controls.Add($newLetterLabel)
+
+        # New drive letter textbox
+        $script:newLetterTextBox = New-Object System.Windows.Forms.TextBox
+        $script:newLetterTextBox.Location = New-Object System.Drawing.Point(230, 60)
+        $script:newLetterTextBox.Size = New-Object System.Drawing.Size(50, 20)
+        $script:newLetterTextBox.BackColor = [System.Drawing.Color]::Black
+        $script:newLetterTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $script:newLetterTextBox.Font = New-Object System.Drawing.Font("Consolas", 10)
+        $script:newLetterTextBox.MaxLength = 1
+        $script:newLetterTextBox.TextAlign = [System.Windows.Forms.HorizontalAlignment]::Center
+        $changeGroupBox.Controls.Add($script:newLetterTextBox)
+
+        # Set initial value if a drive is already selected
+        if ($driveListBox.SelectedItem) {
+            $selectedDrive = $driveListBox.SelectedItem.ToString()
+            $driveLetter = $selectedDrive.Substring(0, 1)
+            $script:oldLetterTextBox.Text = $driveLetter
+        }
+
+        # Change button (inside GroupBox)
+        $changeButton = New-DynamicButton -text "Change" -x 100 -y 100 -width 200 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+            $oldLetter = if ($script:oldLetterTextBox) { $script:oldLetterTextBox.Text.Trim().ToUpper() } else { "" }
+            $newLetter = if ($script:newLetterTextBox) { $script:newLetterTextBox.Text.Trim().ToUpper() } else { "" }
+
+            # Validate input
+            if ($oldLetter -eq "") {
+                Add-Status "Error: Please select a drive letter to change."
+                return
+            }
+
+            if ($newLetter -eq "") {
+                Add-Status "Error: Please enter a new drive letter."
+                return
+            }
+
+            if ($oldLetter -eq $newLetter) {
+                Add-Status "Error: New drive letter must be different from the current one."
+                return
+            }
+
+            # Check if new letter is already in use
+            $existingDrives = Get-WmiObject Win32_LogicalDisk | Select-Object -ExpandProperty DeviceID
+            if ($existingDrives -contains "$($newLetter):") {
+                Add-Status "Error: Drive letter $newLetter is already in use."
+                return
+            }
+
+            # Create diskpart script
+            $tempFile = [System.IO.Path]::GetTempFileName()
+            $diskpartScript = @"
+select volume $oldLetter
+assign letter=$newLetter
+"@
+            Set-Content -Path $tempFile -Value $diskpartScript
+
+            Add-Status "Changing drive $oldLetter to $newLetter..."
+
+            try {
+                # Run diskpart with elevated privileges
+                $psi = New-Object System.Diagnostics.ProcessStartInfo
+                $psi.FileName = "diskpart.exe"
+                $psi.Arguments = "/s `"$tempFile`""
+                $psi.UseShellExecute = $true
+                $psi.Verb = "runas"
+                $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+                $process = [System.Diagnostics.Process]::Start($psi)
+                $process.WaitForExit()
+
+                # Check if successful
+                if ($process.ExitCode -eq 0) {
+                    Add-Status "Successfully changed drive letter from $oldLetter to $newLetter."
+
+                    # Update drive list
+                    $driveCount = Update-DriveList
+                    Add-Status "Drive list updated. Found $driveCount drives."
+
+                    # Clear textboxes
+                    $script:oldLetterTextBox.Text = ""
+                    $script:newLetterTextBox.Text = ""
+                }
+                else {
+                    Add-Status "Error changing drive letter. Exit code: $($process.ExitCode)"
+                }
+            }
+            catch {
+                Add-Status "Error: $_"
+            }
+            finally {
+                # Clean up temp file
+                if (Test-Path $tempFile) {
+                    Remove-Item $tempFile -Force
+                }
+            }
+        }
+        $changeGroupBox.Controls.Add($changeButton)
+
+        # Set initial value if a drive is already selected
+        if ($driveListBox.SelectedItem) {
+            $selectedDrive = $driveListBox.SelectedItem.ToString()
+            $driveLetter = $selectedDrive.Substring(0, 1)
+            $script:oldLetterTextBox.Text = $driveLetter
+        }
+        Add-Status "Ready to change letter. Select a drive, enter a new letter, then click Change."
+    }
+    $volumeForm.Controls.Add($btnChangeDriveLetter)
+
+    # [4.2] Shrink Volume button
+    $btnShrinkVolume = New-DynamicButton -text "Shrink Volume" -x 180 -y 150 -width 150 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+        # Clear the content panel
+        $contentPanel.Controls.Clear()
+
+        # Title label
+        $titleLabel = New-Object System.Windows.Forms.Label
+        $titleLabel.Text = "Shrink Volume and Create New Partition"
+        $titleLabel.Location = New-Object System.Drawing.Point(0, 10)
+        $titleLabel.Size = New-Object System.Drawing.Size(760, 30)
+        $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+        $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
+        $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+        $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+        $contentPanel.Controls.Add($titleLabel)
+
+        # Selected drive letter label
+        $selectedDriveLabel = New-Object System.Windows.Forms.Label
+        $selectedDriveLabel.Text = "Selected Drive Letter:"
+        $selectedDriveLabel.Location = New-Object System.Drawing.Point(20, 50)
+        $selectedDriveLabel.Size = New-Object System.Drawing.Size(150, 20)
+        $selectedDriveLabel.ForeColor = [System.Drawing.Color]::White
+        $selectedDriveLabel.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $contentPanel.Controls.Add($selectedDriveLabel)
+
+        # Selected drive letter textbox - use script scope
+        $script:selectedDriveTextBox = New-Object System.Windows.Forms.TextBox
+        $script:selectedDriveTextBox.Location = New-Object System.Drawing.Point(180, 50)
+        $script:selectedDriveTextBox.Size = New-Object System.Drawing.Size(50, 25)
+        $script:selectedDriveTextBox.BackColor = [System.Drawing.Color]::Black
+        $script:selectedDriveTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $script:selectedDriveTextBox.Font = New-Object System.Drawing.Font("Consolas", 11, [System.Drawing.FontStyle]::Bold)
+        $script:selectedDriveTextBox.MaxLength = 1
+        $script:selectedDriveTextBox.ReadOnly = $true
+        $script:selectedDriveTextBox.TextAlign = [System.Windows.Forms.HorizontalAlignment]::Center
+        $contentPanel.Controls.Add($script:selectedDriveTextBox)
+
+        # Partition size options group box
+        $partitionGroupBox = New-Object System.Windows.Forms.GroupBox
+        $partitionGroupBox.Text = "Choose Partition Size"
+        $partitionGroupBox.Location = New-Object System.Drawing.Point(20, 80)
+        $partitionGroupBox.Size = New-Object System.Drawing.Size(720, 120)
+        $partitionGroupBox.ForeColor = [System.Drawing.Color]::Lime
+        $partitionGroupBox.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $contentPanel.Controls.Add($partitionGroupBox)
+
+        # Create a panel inside the GroupBox to properly group radio buttons
+        $radioPanel = New-Object System.Windows.Forms.Panel
+        $radioPanel.Location = New-Object System.Drawing.Point(10, 20)
+        $radioPanel.Size = New-Object System.Drawing.Size(700, 90)
+        $radioPanel.BackColor = [System.Drawing.Color]::Transparent
+        $partitionGroupBox.Controls.Add($radioPanel)
+
+        # Declare radio buttons at script scope so they're accessible in the shrink button click event
+        $script:radio80GB = New-Object System.Windows.Forms.RadioButton
+        $script:radio80GB.Text = "100GB (recommended for 256GB drives)"
+        $script:radio80GB.Location = New-Object System.Drawing.Point(10, 10)
+        $script:radio80GB.Size = New-Object System.Drawing.Size(350, 20)
+        $script:radio80GB.ForeColor = [System.Drawing.Color]::White
+        $script:radio80GB.Font = New-Object System.Drawing.Font("Arial", 10)
+        $script:radio80GB.Checked = $true
+        $radioPanel.Controls.Add($script:radio80GB)
+
+        # 200GB radio button
+        $script:radio200GB = New-Object System.Windows.Forms.RadioButton
+        $script:radio200GB.Text = "200GB (recommended for 500GB drives)"
+        $script:radio200GB.Location = New-Object System.Drawing.Point(10, 35)
+        $script:radio200GB.Size = New-Object System.Drawing.Size(350, 20)
+        $script:radio200GB.ForeColor = [System.Drawing.Color]::White
+        $script:radio200GB.Font = New-Object System.Drawing.Font("Arial", 10)
+        $radioPanel.Controls.Add($script:radio200GB)
+
+        # 500GB radio button
+        $script:radio500GB = New-Object System.Windows.Forms.RadioButton
+        $script:radio500GB.Text = "500GB (recommended for 1TB+ drives)"
+        $script:radio500GB.Location = New-Object System.Drawing.Point(10, 60)
+        $script:radio500GB.Size = New-Object System.Drawing.Size(350, 20)
+        $script:radio500GB.ForeColor = [System.Drawing.Color]::White
+        $script:radio500GB.Font = New-Object System.Drawing.Font("Arial", 10)
+        $radioPanel.Controls.Add($script:radio500GB)
+
+        # Custom size radio button
+        $script:radioCustom = New-Object System.Windows.Forms.RadioButton
+        $script:radioCustom.Text = "Custom size (MB):"
+        $script:radioCustom.Location = New-Object System.Drawing.Point(370, 10)
+        $script:radioCustom.Size = New-Object System.Drawing.Size(150, 20)
+        $script:radioCustom.ForeColor = [System.Drawing.Color]::White
+        $script:radioCustom.Font = New-Object System.Drawing.Font("Arial", 10)
+        $radioPanel.Controls.Add($script:radioCustom)
+
+        # Custom size textbox
+        $script:customSizeTextBox = New-Object System.Windows.Forms.TextBox
+        $script:customSizeTextBox.Location = New-Object System.Drawing.Point(370, 35)
+        $script:customSizeTextBox.Size = New-Object System.Drawing.Size(150, 25)
+        $script:customSizeTextBox.BackColor = [System.Drawing.Color]::Black
+        $script:customSizeTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $script:customSizeTextBox.Font = New-Object System.Drawing.Font("Consolas", 11)
+        $script:customSizeTextBox.Text = "102400"  # Default to 100GB in MB
+        $script:customSizeTextBox.Enabled = $false
+        $radioPanel.Controls.Add($script:customSizeTextBox)
+
+        # Add event handlers for radio buttons to enable/disable custom textbox
+        $script:radioCustom.Add_CheckedChanged({
+            if ($script:radioCustom.Checked) {
+                $script:customSizeTextBox.Enabled = $true
+                $script:customSizeTextBox.Focus()
+            } else {
+                $script:customSizeTextBox.Enabled = $false
+            }
+        })
+
+        # Add event handlers for other radio buttons to disable custom textbox
+        $script:radio80GB.Add_CheckedChanged({
+            if ($script:radio80GB.Checked) {
+                $script:customSizeTextBox.Enabled = $false
+            }
+        })
+
+        $script:radio200GB.Add_CheckedChanged({
+            if ($script:radio200GB.Checked) {
+                $script:customSizeTextBox.Enabled = $false
+            }
+        })
+
+        $script:radio500GB.Add_CheckedChanged({
+            if ($script:radio500GB.Checked) {
+                $script:customSizeTextBox.Enabled = $false
+            }
+        })
+
+        # New partition label
+        $newLabelLabel = New-Object System.Windows.Forms.Label
+        $newLabelLabel.Text = "New Partition Label:"
+        $newLabelLabel.Location = New-Object System.Drawing.Point(300, 50)
+        $newLabelLabel.Size = New-Object System.Drawing.Size(150, 20)
+        $newLabelLabel.ForeColor = [System.Drawing.Color]::White
+        $newLabelLabel.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $contentPanel.Controls.Add($newLabelLabel)
+
+        # New partition label textbox
+        $script:newLabelTextBox = New-Object System.Windows.Forms.TextBox
+        $script:newLabelTextBox.Location = New-Object System.Drawing.Point(450, 50)
+        $script:newLabelTextBox.Size = New-Object System.Drawing.Size(250, 25)
+        $script:newLabelTextBox.BackColor = [System.Drawing.Color]::Black
+        $script:newLabelTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $script:newLabelTextBox.Font = New-Object System.Drawing.Font("Consolas", 11)
+        $script:newLabelTextBox.Text = "GAME"
+        $contentPanel.Controls.Add($script:newLabelTextBox)
+
+        # Shrink button
+        $shrinkButton = New-DynamicButton -text "Shrink" -x 275 -y 210 -width 200 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+            $driveLetter = $script:selectedDriveTextBox.Text.Trim().ToUpper()
+            $newLabel = $script:newLabelTextBox.Text.Trim()
+
+            # Validate input
+            if ($driveLetter -eq "") {
+                Add-Status "Error: Please select a drive."
+                return
+            }
+
+            if ($newLabel -eq "") {
+                Add-Status "Error: Please enter a label for the new partition."
+                return
+            }
+
+            # Determine partition size
+            $sizeMB = 0
+
+            if ($script:radio80GB.Checked) {
+                $sizeMB = 82020
+            }
+            elseif ($script:radio200GB.Checked) {
+                $sizeMB = 204955
+            }
+            elseif ($script:radio500GB.Checked) {
+                $sizeMB = 512000
+            }
+            elseif ($script:radioCustom.Checked) {
+                # Validate custom size input
+                $customSize = $script:customSizeTextBox.Text.Trim()
+                if ($customSize -match '^\d+$') {
+                    try {
+                        $sizeMB = [int]$customSize
+                        if ($sizeMB -lt 1024) {
+                            Add-Status "Error: Custom size must be at least 1024 MB (1 GB)."
+                            return
+                        }
+                        if ($sizeMB -gt 2097152) { # 2TB limit
+                            Add-Status "Error: Custom size cannot exceed 2,097,152 MB (2 TB)."
+                            return
+                        }
+                    }
+                    catch {
+                        Add-Status "Error processing custom size: $_"
+                        return
+                    }
+                } else {
+                    Add-Status "Error: Custom size must be a valid number (digits only)."
+                    return
+                }
+            }
+            else {
+                Add-Status "Error: Please select a partition size option."
+                return
+            }
+
+            # Validate drive exists and get info
+            try {
+                $driveInfo = Get-WmiObject Win32_LogicalDisk | Where-Object { $_.DeviceID -eq "$($driveLetter):" }
+                if (-not $driveInfo) {
+                    Add-Status "Error: Drive $driveLetter does not exist."
+                    return
+                }
+
+                $freeSpaceMB = [math]::Floor($driveInfo.FreeSpace / 1MB)
+                $totalSizeMB = [math]::Floor($driveInfo.Size / 1MB)
+
+                # Get actual shrinkable space using PowerShell (more accurate)
+                try {
+                    $partition = Get-Partition -DriveLetter $driveLetter -ErrorAction Stop
+                    $shrinkInfo = Get-PartitionSupportedSize -DriveLetter $driveLetter -ErrorAction Stop
+                    $maxShrinkBytes = $partition.Size - $shrinkInfo.SizeMin
+                    $maxShrinkMB = [math]::Floor($maxShrinkBytes / 1MB)
+
+                    if ($sizeMB -gt $maxShrinkMB) {
+                        Add-Status "Error: Requested size ($sizeMB MB) exceeds maximum shrinkable space ($maxShrinkMB MB)."
+                        Add-Status "Try running disk defragmentation first or choose a smaller size."
+                        return
+                    }
+                }
+                catch {
+                    # Fallback: Use 80% of free space as safe shrink limit
+                    $maxShrinkMB = [math]::Floor($freeSpaceMB * 0.8)
+
+                    if ($sizeMB -gt $maxShrinkMB) {
+                        Add-Status "Error: Requested size ($sizeMB MB) exceeds estimated safe shrink limit ($maxShrinkMB MB)."
+                        Add-Status "Try a smaller size or free up more space on the drive."
+                        return
+                    }
+                }
+            }
+            catch {
+                Add-Status "Error getting drive information: $_"
+                return
+            }
+
+            # Create a batch file that will run diskpart (using exact install.ps1 approach)
+            $batchFilePath = "shrink_volume.bat"
+
+            $batchContent = @"
+@echo off
+echo ============================================================ > shrink_status.txt
+echo                  Shrinking Volume $driveLetter >> shrink_status.txt
+echo ============================================================ >> shrink_status.txt
+echo. >> shrink_status.txt
+
+echo Creating diskpart script... >> shrink_status.txt
+(
+    echo select volume $driveLetter
+    echo shrink desired=$sizeMB
+    echo create partition primary
+    echo format fs=ntfs quick
+    echo assign
+    echo list volume
+) > diskpart_script.txt
+
+echo Running diskpart... >> shrink_status.txt
+echo. >> shrink_status.txt
+echo Diskpart script contents: >> shrink_status.txt
+type diskpart_script.txt >> shrink_status.txt
+echo. >> shrink_status.txt
+
+diskpart /s diskpart_script.txt > diskpart_output.txt
+if %errorlevel% neq 0 (
+    echo Error: Diskpart failed with exit code %errorlevel% >> shrink_status.txt
+    echo This could be due to insufficient free space or the drive being in use. >> shrink_status.txt
+    echo Try defragmenting the drive first or closing any applications using the drive. >> shrink_status.txt
+    echo. >> shrink_status.txt
+    echo Diskpart output: >> shrink_status.txt
+    type diskpart_output.txt >> shrink_status.txt
+
+    echo. >> shrink_status.txt
+    echo Checking drive information: >> shrink_status.txt
+    powershell -command "Get-WmiObject Win32_LogicalDisk -Filter \"DeviceID='$($driveLetter):'\" | Select-Object DeviceID, VolumeName, Size, FreeSpace | Format-List" >> shrink_status.txt
+
+    del diskpart_output.txt
+    del diskpart_script.txt
+    exit /b %errorlevel%
+)
+
+echo Diskpart completed successfully. >> shrink_status.txt
+echo. >> shrink_status.txt
+
+echo Cleaning up temporary files... >> shrink_status.txt
+del diskpart_output.txt
+del diskpart_script.txt
+
+echo. >> shrink_status.txt
+echo Getting available drives after operation... >> shrink_status.txt
+powershell -command "Get-WmiObject Win32_LogicalDisk | Select-Object @{Name='Name';Expression={`$_.DeviceID}}, @{Name='VolumeName';Expression={`$_.VolumeName}}, @{Name='Size (GB)';Expression={[math]::round(`$_.Size/1GB, 0)}}, @{Name='FreeSpace (GB)';Expression={[math]::round(`$_.FreeSpace/1GB, 0)}} | Format-Table -AutoSize | Out-String" >> shrink_status.txt
+
+echo Operation completed successfully. >> shrink_status.txt
+"@
+            Set-Content -Path $batchFilePath -Value $batchContent -Force -Encoding ASCII
+
+            Add-Status "Shrinking drive $driveLetter and creating new partition of $sizeMB MB..."
+            Add-Status "Processing... Please wait while the operation completes."
+
+            try {
+                # Create a process to run batch file with admin privileges and hide cmd window
+                $psi = New-Object System.Diagnostics.ProcessStartInfo
+                $psi.FileName = "cmd.exe"
+                $psi.Arguments = "/c `"$batchFilePath`""
+                $psi.UseShellExecute = $true
+                $psi.Verb = "runas"
+                $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+                # Run process
+                $batchProcess = [System.Diagnostics.Process]::Start($psi)
+                $batchProcess.WaitForExit()
+
+                # Read status file and display in status box
+                if (Test-Path "shrink_status.txt") {
+                    $statusContent = Get-Content "shrink_status.txt" -Raw
+                    Remove-Item "shrink_status.txt" -Force -ErrorAction SilentlyContinue
+                }
+
+                # Check if operation was successful (using exact install.ps1 logic)
+                if ($batchProcess.ExitCode -eq 0) {
+                    Add-Status "Operation completed successfully."
+                    Add-Status "Shrunk drive $driveLetter and created new partition."
+
+                    # Refresh drive list
+                    Start-Sleep -Seconds 2
+
+                    # Tìm ổ đĩa mới được tạo (exact same logic as install.ps1)
+                    $newDriveFound = $false
+                    $newDriveLetter = ""
+
+                    # Đợi một chút để đảm bảo hệ thống đã cập nhật
+                    Start-Sleep -Seconds 2
+
+                    # Find newly created drive
+                    $currentDrives = Get-WmiObject Win32_LogicalDisk | Select-Object DeviceID, VolumeName
+                    foreach ($drive in $currentDrives) {
+                        if ($drive.DeviceID -ne "$($driveLetter):" -and
+                            ($drive.VolumeName -eq "New Volume" -or $drive.VolumeName -eq "")) {
+                            $newDriveFound = $true
+                            $newDriveLetter = $drive.DeviceID.TrimEnd(":")
+                            break
+                        }
+                    }
+
+                    # Rename the new drive if found
+                    if ($newDriveFound) {
+                        $actualNewLabel = if (-not [string]::IsNullOrEmpty($newLabel)) { $newLabel } else { "GAME" }
+
+                        # Rename using the most reliable method (Set-Volume)
+                        try {
+                            Set-Volume -DriveLetter $newDriveLetter -NewFileSystemLabel $actualNewLabel -ErrorAction Stop
+                            Add-Status "Successfully renamed drive $newDriveLetter to $actualNewLabel."
+                        }
+                        catch {
+                            # Fallback to label command
+                            try {
+                                Start-Process -FilePath "cmd.exe" -ArgumentList "/c label $newDriveLetter`:$actualNewLabel" -WindowStyle Hidden -Wait
+                                Add-Status "Successfully renamed drive $newDriveLetter to $actualNewLabel."
+                            }
+                            catch {
+                                Add-Status "Failed to rename drive $newDriveLetter. Please rename manually to '$actualNewLabel'."
+                            }
+                        }
+                    }
+                    else {
+                        Add-Status "Could not find the newly created drive. Please rename it manually."
+                    }
+
+                    # Update drive list
+                    $driveCount = Update-DriveList
+                    Add-Status "Drive list updated. Found $driveCount drives."
+                }
+                else {
+                    Add-Status "Operation completed with warnings. Check the event logs for details."
+                }
+
+                Remove-Item $batchFilePath -Force -ErrorAction SilentlyContinue
+            }
+            catch {
+                Add-Status "Error: $_"
+                Add-Status "Make sure you have administrator privileges."
+                Remove-Item $batchFilePath -Force -ErrorAction SilentlyContinue
+            }
+        }
+        $contentPanel.Controls.Add($shrinkButton)
+
+        # Update drive letter from selected drive IMMEDIATELY after controls are added
+        if ($driveListBox.SelectedItem) {
+            $selectedDrive = $driveListBox.SelectedItem.ToString()
+            $driveLetter = $selectedDrive.Substring(0, 1)
+            $script:selectedDriveTextBox.Text = $driveLetter
+        }
+
+        Add-Status "Ready to shrink volume. Select a drive, choose partition size, then click Shrink."
+    }
+    $volumeForm.Controls.Add($btnShrinkVolume)
+
+    # [4.3] Rename Volume button
+    $btnRenameVolume = New-DynamicButton -text "Rename Volume" -x 340 -y 150 -width 150 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+        # Clear the content panel
+        $contentPanel.Controls.Clear()
+
+        # Create title
+        New-RenameVolumeTitle -parentPanel $contentPanel
+        
+        # Create GroupBox with all controls inside
+        $renameControls = New-RenameVolumeGroupBox -parentPanel $contentPanel -driveListBox $driveListBox
+        
+        # Create rename button inside GroupBox
+        New-RenameActionButton -groupBox $renameControls.GroupBox -driveListBox $driveListBox
+
+        # ✅ Ensure drive letter is updated immediately when button is clicked
+        if ($driveListBox.SelectedItem -and $renameControls.DriveLetterTextBox) {
+            $selectedDrive = $driveListBox.SelectedItem.ToString()
+            $driveLetter = $selectedDrive.Substring(0, 1)
+            $renameControls.DriveLetterTextBox.Text = $driveLetter
+        }
+
+        Add-Status "Ready to rename volume. Select a drive, enter a new label, then click Rename Volume."
+    }
+    $volumeForm.Controls.Add($btnRenameVolume)
+
+    # [4.4] Extend Volume button
+    $btnExtendVolume = New-DynamicButton -text "Extend Volume" -x 500 -y 150 -width 150 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+        # Clear the content panel
+        $contentPanel.Controls.Clear()
+
+        # Create title
+        New-ExtendVolumeTitle -parentPanel $contentPanel
+        
+        # Create GroupBox with all controls inside
+        $extendControls = New-ExtendVolumeGroupBox -parentPanel $contentPanel
+        
+        # Create merge button inside GroupBox
+        New-ExtendActionButton -extendControls $extendControls
+
+        # ✅ Ensure drives are updated immediately when button is clicked
+        if ($driveListBox.SelectedItem -and $script:extendSourceDriveTextBox) {
+            $selectedDrive = $driveListBox.SelectedItem.ToString()
+            $driveLetter = $selectedDrive.Substring(0, 1)
+            $script:extendSourceDriveTextBox.Text = $driveLetter
+        }
+
+        Add-Status "Ready to extend volume. Select source and target drives, then click Extend."
+    }
+    $volumeForm.Controls.Add($btnExtendVolume)
+
+    # [4.0] Return to Main Menu button
+    $btnReturn = New-DynamicButton -text "Return" -x 660 -y 150 -width 120 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
+        $volumeForm.Close()
+    }
+    $volumeForm.Controls.Add($btnReturn)
+
+    # When the form is closed, show the main menu again
+    $volumeForm.Add_FormClosed({
+        Show-MainMenu
+    })
+
+    # Add KeyDown event handler for Esc key in volume form
+    $volumeForm.Add_KeyDown({
+        param($sender, $e)
+        if ($e.KeyCode -eq [System.Windows.Forms.Keys]::Escape) {
+            $volumeForm.Close()
+        }
+    })
+
+    # Enable key events in volume form
+    $volumeForm.KeyPreview = $true
+
+    # Show the form
+    $volumeForm.ShowDialog()
+}
+# [5] Activate Windows 10 Pro and Office 2019 Pro Plus
+$buttonActivate = New-DynamicButton -text "[5] Activate" -x 30 -y 420 -width 380 -height 60 -clickAction { 
+    # Hide the main menu
+    Hide-MainMenu
+    # Create activation form
+    $activateForm = New-Object System.Windows.Forms.Form
+    $activateForm.Text = "Activation Options"
+    $activateForm.Size = New-Object System.Drawing.Size(500, 450)
+    $activateForm.StartPosition = "CenterScreen"
+    $activateForm.BackColor = [System.Drawing.Color]::Black
+    $activateForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+    $activateForm.MaximizeBox = $false
+    $activateForm.MinimizeBox = $false
+
+    # Add a gradient background to activation form
+    $activateForm.Paint = {
+        $graphics = $_.Graphics
+        $rect = New-Object System.Drawing.Rectangle(0, 0, $activateForm.Width, $activateForm.Height)
+        $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+            $rect,
+            [System.Drawing.Color]::FromArgb(0, 0, 0), # Black at top
+            [System.Drawing.Color]::FromArgb(0, 30, 0), # Dark green at bottom
+            [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
+        )
+        $graphics.FillRectangle($brush, $rect)
+        $brush.Dispose()
+    }
+
+    # Title label
+    $titleLabel = New-Object System.Windows.Forms.Label
+    $titleLabel.Text = "Activating Windows 10 Pro / Office 2019 Pro Plus"
+    $titleLabel.Location = New-Object System.Drawing.Point(-10, 20)
+    $titleLabel.Size = New-Object System.Drawing.Size(500, 30)
+    $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+    $titleLabel.Font = New-Object System.Drawing.Font("Arial", 12, [System.Drawing.FontStyle]::Bold)
+    $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+    $activateForm.Controls.Add($titleLabel)
+
+    # Add animation to the title
+    $titleTimer = New-Object System.Windows.Forms.Timer
+    $titleTimer.Interval = 800
+    $titleTimer.Add_Tick({
+            if ($titleLabel.ForeColor -eq [System.Drawing.Color]::Lime) {
+                $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 200, 0)
+            }
+            else {
+                $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+            }
+        })
+    $titleTimer.Start()
+
+    # Status text box
+    $statusTextBox = New-Object System.Windows.Forms.TextBox
+    $statusTextBox.Multiline = $true
+    $statusTextBox.ScrollBars = "Vertical"
+    $statusTextBox.Location = New-Object System.Drawing.Point(12, 280)
+    $statusTextBox.Size = New-Object System.Drawing.Size(460, 120)
+    $statusTextBox.BackColor = [System.Drawing.Color]::Black
+    $statusTextBox.ForeColor = [System.Drawing.Color]::Lime
+    $statusTextBox.Font = New-Object System.Drawing.Font("Consolas", 9)
+    $statusTextBox.ReadOnly = $true
+    $statusTextBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+    $statusTextBox.Text = "Status messages will appear here..."
+    $activateForm.Controls.Add($statusTextBox)
+
+    # Function to add status message
+    function Add-Status {
+        param([string]$message)
+
+        # Clear placeholder text on first message
+        if ($statusTextBox.Text -eq "Status messages will appear here...") {
+            $statusTextBox.Clear()
+        }
+
+        # Add timestamp to message
+        $timestamp = Get-Date -Format "HH:mm:ss"
+        $statusTextBox.AppendText("[$timestamp] $message`r`n")
+        $statusTextBox.ScrollToCaret()
+        [System.Windows.Forms.Application]::DoEvents()
+    }
+
+    # Activation buttons
+    $btnWin10Pro = New-DynamicButton -text "Active Windows 10 Pro" -x 12 -y 70 -width 460 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+        try {
+            Add-Status "Checking Activation Status of Windows..."
+            $windowsStatus = & cscript //nologo "$env:windir\system32\slmgr.vbs" /dli
+            $isWindowsActivated = $windowsStatus -match "License Status: Licensed"
+
+            if ($isWindowsActivated) {
+                Add-Status "Windows activated."
+                return
+            }
+
+            Add-Status "Windows not activated. Activating Windows 10 Pro..."
+            $command = "slmgr /ipk R84N4-RPC7Q-W8TKM-VM7Y4-7H66Y && slmgr /ato"
+
+            # Create a process to run the command with elevated privileges
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = "powershell.exe"
+            $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
+            $psi.UseShellExecute = $true
+            $psi.Verb = "runas"
+            $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+            # Start the process
+            [System.Diagnostics.Process]::Start($psi)
+
+            Add-Status "Starting activation process for Windows 10 Pro."
+        }
+        catch {
+            Add-Status "Lỗi khi kích hoạt Windows: $_"
+        }
+    }
+    $activateForm.Controls.Add($btnWin10Pro)
+
+    # Add button to activate Office 2019
+    $btnOffice = New-DynamicButton -text "Active Office2019ProPlus" -x 12 -y 120 -width 460 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+        try {
+            Add-Status "Checking Activation Status of Office..."
+
+            # Check if Office16 path exists
+            $office16Path = "C:\Program Files\Microsoft Office\Office16\ospp.vbs"
+            $office15Path = "C:\Program Files\Microsoft Office\Office15\ospp.vbs"
+
+            if (Test-Path $office16Path) {
+                $officePath = $office16Path
+                Add-Status "Found Office16."
+            }
+            elseif (Test-Path $office15Path) {
+                $officePath = $office15Path
+                Add-Status "Found Office15."
+            }
+            else {
+                Add-Status "Not found Office16 or Office15. Using Office16 path by default."
+                $officePath = $office16Path
+            }
+
+            # Kiểm tra trạng thái kích hoạt Office
+            $officeStatus = & cscript //nologo "$officePath" /dstatus
+            $isOfficeActivated = $officeStatus -match "LICENSE STATUS:  ---LICENSED---"
+
+            if ($isOfficeActivated) {
+                Add-Status "Office activated."
+                return
+            }
+
+            Add-Status "Office not activated. Activating Office 2019 Pro Plus..."
+            $command = "cscript `"$officePath`" /inpkey:Q2NKY-J42YJ-X2KVK-9Q9PT-MKP63 && cscript `"$officePath`" /act"
+
+            # Create a process to run the command with elevated privileges
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = "powershell.exe"
+            $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
+            $psi.UseShellExecute = $true
+            $psi.Verb = "runas"
+            $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+            # Start the process
+            [System.Diagnostics.Process]::Start($psi)
+
+            Add-Status "Starting activation process for Office 2019."
+        }
+        catch {
+            Add-Status "Error activating Office: $_"
+        }
+    }
+    $activateForm.Controls.Add($btnOffice)
+
+    # Add button to upgrade Windows 10 Home to Pro
+    $btnWin10Home = New-DynamicButton -text "Win10Home to Win10Pro" -x 12 -y 170 -width 460 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+        try {
+            Add-Status "Checking Windows version..."
+
+            # Kiểm tra phiên bản Windows
+            $windowsEdition = (Get-WmiObject -Class Win32_OperatingSystem).Caption
+
+            if ($windowsEdition -match "Pro") {
+                Add-Status "Device is already running Windows 10 Pro."
+                return
+            }
+
+            if (-not ($windowsEdition -match "Home")) {
+                Add-Status "Device is not running Windows 10 Home. Cannot upgrade to Pro using this method."
+                return
+            }
+
+            Add-Status "Upgrading Windows 10 Home to Pro..."
+            $command = "sc config LicenseManager start= auto & net start LicenseManager & sc config wuauserv start= auto & net start wuauserv & changepk.exe /productkey VK7JG-NPHTM-C97JM-9MPGT-3V66T"
+
+            # Create a process to run the command with elevated privileges
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = "powershell.exe"
+            $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
+            $psi.UseShellExecute = $true
+            $psi.Verb = "runas"
+            $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+            # Start the process
+            [System.Diagnostics.Process]::Start($psi)
+
+            Add-Status "Starting upgrade process for Windows 10 Home to Pro."
+        }
+        catch {
+            Add-Status "Error upgrading Windows: $_"
+        }
+    }
+    $activateForm.Controls.Add($btnWin10Home)
+
+    # Return to Main Menu button
+    $btnReturn = New-DynamicButton -text "[0] Return to Menu" -x 12 -y 220 -width 460 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
+        $activateForm.Close()
+    }
+    $activateForm.Controls.Add($btnReturn)
+
+    # When the form is closed, show the main menu again
+    $activateForm.Add_FormClosed({
+        Show-MainMenu
+    })
+
+    # Show the form
+    $activateForm.ShowDialog()
+}
+# [6] Turn On Features
+$buttonTurnOnFeatures = New-DynamicButton -text "[6] Turn On Features" -x 430 -y 100 -width 380 -height 60 -clickAction { 
+    Show-TurnOnFeaturesDialog
+}
+# [7] Rename Device
+$buttonRenameDevice = New-DynamicButton -text "[7] Rename Device" -x 430 -y 180 -width 380 -height 60 -clickAction {
+    Show-RenameDeviceDialog
+}
+# [8] Set Password
+$buttonSetPassword = New-DynamicButton -text "[8] Set Password" -x 430 -y 260 -width 380 -height 60 -clickAction {
+    Show-PasswordManagementDialog
+}
 # [9] Join Domain
 $buttonJoinDomain = New-DynamicButton -text "[9] Join Domain" -x 430 -y 340 -width 380 -height 60 -clickAction {
-    Show-DomainManagementForm
+    Show-DomainJoinDialog
 }
 # [0] Exit
 $buttonExit = New-DynamicButton -text "[0] Exit" -x 430 -y 420 -width 380 -height 60 -normalColor ([System.Drawing.Color]::FromArgb(180, 0, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(220, 0, 0)) -pressColor ([System.Drawing.Color]::FromArgb(120, 0, 0)) -clickAction {
@@ -2157,7 +5625,13 @@ $buttonExit = New-DynamicButton -text "[0] Exit" -x 430 -y 420 -width 380 -heigh
 # Add buttons to form
 $script:form.Controls.Add($buttonRunAll)
 $script:form.Controls.Add($buttonInstallSoftware)
+$script:form.Controls.Add($buttonPowerOptions)
+$script:form.Controls.Add($buttonChangeVolume)
+$script:form.Controls.Add($buttonActivate)
+$script:form.Controls.Add($buttonTurnOnFeatures)
+$script:form.Controls.Add($buttonRenameDevice)
+$script:form.Controls.Add($buttonSetPassword)
 $script:form.Controls.Add($buttonJoinDomain)
 $script:form.Controls.Add($buttonExit)
-# SECTION 5: START APPLICATION
+# Start Application
 $script:form.ShowDialog() 
