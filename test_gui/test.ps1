@@ -74,15 +74,14 @@ function New-DynamicButton {
     return $button
 }
 
-# THÊM vào trước phần tạo form
-    Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
-    Add-Type -AssemblyName System.Drawing -ErrorAction Stop
+Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
+Add-Type -AssemblyName System.Drawing -ErrorAction Stop
 
 # CREATE MAIN FORM - RESIZABLE VERSION
 $script:form = New-Object System.Windows.Forms.Form
 $script:form.Text = "BAOPROVIP - SYSTEM MANAGEMENT"
-$script:form.Size = New-Object System.Drawing.Size(850, 5)
-$script:form.MinimumSize = New-Object System.Drawing.Size(800, 550)  # Kích thước tối thiểu
+$script:form.Size = New-Object System.Drawing.Size(600, 400)
+$script:form.MinimumSize = New-Object System.Drawing.Size(600, 400)  # Kích thước tối thiểu
 $script:form.StartPosition = "CenterScreen"
 $script:form.BackColor = [System.Drawing.Color]::Black
 $script:form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::Sizable  # CHỖ NÀY THAY ĐỔI
@@ -104,7 +103,7 @@ $script:form.Add_Paint({
 
 # Title - RESPONSIVE
 $titleLabel = New-Object System.Windows.Forms.Label
-$titleLabel.Text = "WELCOME TO BAROPROVIP"
+$titleLabel.Text = "WELCOME TO BAOPROVIP"
 $titleLabel.Font = New-Object System.Drawing.Font("Arial", 20, [System.Drawing.FontStyle]::Bold)
 $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 0)
 $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
@@ -116,7 +115,7 @@ $script:form.Controls.Add($titleLabel)
 
 
     # Function to add status message
-    function Add-Status {
+function Add-Status {
         param(
             [string]$message,
             [System.Windows.Forms.TextBox]$statusTextBox
@@ -130,12 +129,15 @@ $script:form.Controls.Add($titleLabel)
         $statusTextBox.AppendText("[$timestamp] $message`r`n")
         $statusTextBox.ScrollToCaret()
         [System.Windows.Forms.Application]::DoEvents()
-    }
+}
 
-function Show-SetPasswordForm {
+# Volume Functions
+    function Show-SetPasswordForm {
         param(
             [string]$currentUser
         )
+
+        # Set Password Form
         $form = New-Object System.Windows.Forms.Form
         $form.Text = "Set Password"
         $form.Size = New-Object System.Drawing.Size(500, 270)
@@ -157,11 +159,11 @@ function Show-SetPasswordForm {
     
         # User label
         $userLabel = New-Object System.Windows.Forms.Label
-        $userLabel.Text = "Current User: $currentUser"
-        $userLabel.Font = New-Object System.Drawing.Font("Arial", 12, [System.Drawing.FontStyle]::Bold)
+        $userLabel.Text = "Current User:            $currentUser"
+        $userLabel.Font = New-Object System.Drawing.Font("Arial", 12)
         $userLabel.ForeColor = [System.Drawing.Color]::White
         $userLabel.Size = New-Object System.Drawing.Size(480, 30)
-        $userLabel.Location = New-Object System.Drawing.Point(20, 70)
+        $userLabel.Location = New-Object System.Drawing.Point(30, 70)
         $form.Controls.Add($userLabel)
     
         # Password label
@@ -169,15 +171,15 @@ function Show-SetPasswordForm {
         $passwordLabel.Text = "New Password:"
         $passwordLabel.Font = New-Object System.Drawing.Font("Arial", 12)
         $passwordLabel.ForeColor = [System.Drawing.Color]::White
-        $passwordLabel.Size = New-Object System.Drawing.Size(150, 30)
-        $passwordLabel.Location = New-Object System.Drawing.Point(20, 110)
+        $passwordLabel.Size = New-Object System.Drawing.Size(130, 30)
+        $passwordLabel.Location = New-Object System.Drawing.Point(30, 110)
         $form.Controls.Add($passwordLabel)
     
         # Password textbox
         $passwordTextBox = New-Object System.Windows.Forms.TextBox
         $passwordTextBox.Font = New-Object System.Drawing.Font("Arial", 12)
-        $passwordTextBox.Size = New-Object System.Drawing.Size(220, 30)
-        $passwordTextBox.Location = New-Object System.Drawing.Point(170, 110)
+        $passwordTextBox.Size = New-Object System.Drawing.Size(200, 30)
+        $passwordTextBox.Location = New-Object System.Drawing.Point(180, 110)
         $passwordTextBox.BackColor = [System.Drawing.Color]::White
         $passwordTextBox.ForeColor = [System.Drawing.Color]::Black
         $passwordTextBox.UseSystemPasswordChar = $false # Mặc định hiển thị password
@@ -200,10 +202,10 @@ function Show-SetPasswordForm {
         # Info label for empty password
         $infoLabel = New-Object System.Windows.Forms.Label
         $infoLabel.Text = "Leave the password field empty to set a blank password."
-        $infoLabel.Font = New-Object System.Drawing.Font("Arial", 9)
-        $infoLabel.ForeColor = [System.Drawing.Color]::Silver
+        $infoLabel.Font = New-Object System.Drawing.Font("Arial", 9, [System.Drawing.FontStyle]::Bold)
+        $infoLabel.ForeColor = [System.Drawing.Color]::Red
         $infoLabel.Size = New-Object System.Drawing.Size(450, 20)
-        $infoLabel.Location = New-Object System.Drawing.Point(20, 145)
+        $infoLabel.Location = New-Object System.Drawing.Point(70, 145)
         $form.Controls.Add($infoLabel)
     
         # Set Password button
@@ -267,9 +269,9 @@ function Show-SetPasswordForm {
     
         # Show the form
         $form.ShowDialog()
-} 
+    } 
 
-function Set-UserPassword {
+    function Set-UserPassword {
     param(
         [string]$user,
         [string]$password
@@ -286,9 +288,9 @@ function Set-UserPassword {
     } catch {
         return $false
     }
-}
+    }
 
-function Remove-UserPassword {
+    function Remove-UserPassword {
     param(
         [string]$user
     )
@@ -299,9 +301,9 @@ function Remove-UserPassword {
     } catch {
         return $false
     }
-}
+    }
 
-function Invoke-SetPasswordDialog {
+    function Invoke-SetPasswordDialog {
     $currentUser = $env:USERNAME
     Hide-MainMenu
     $result = Show-SetPasswordForm -currentUser $currentUser
@@ -326,13 +328,78 @@ function Invoke-SetPasswordDialog {
         }
     }
     Show-MainMenu
+    }
+
+# --- TẠO MENU 2 CỘT, TỰ ĐỘNG CO GIÃN ---
+$menuButtons = @(
+    @{text='[1] Run All'; action={ [System.Windows.Forms.MessageBox]::Show('Run All!') }},
+    @{text='[6] Features'; action={ [System.Windows.Forms.MessageBox]::Show('Turn On Features!') }},
+    @{text='[2] Software'; action={ [System.Windows.Forms.MessageBox]::Show('Install All Software!') }},
+    @{text='[7] Device'; action={ [System.Windows.Forms.MessageBox]::Show('Rename Device!') }},
+    @{text='[3] Power'; action={ [System.Windows.Forms.MessageBox]::Show('Power Options!') }},
+    @{text='[8] Password'; action={ Invoke-SetPasswordDialog }},
+    @{text='[4] Volume'; action={ [System.Windows.Forms.MessageBox]::Show('Change/Edit Volume!') }},
+    @{text='[9] Domain'; action={ [System.Windows.Forms.MessageBox]::Show('Join Domain!') }},
+    @{text='[5] Activate'; action={ [System.Windows.Forms.MessageBox]::Show('Activate!') }},
+    @{text='[0] Exit'; action={ $script:form.Close() }}
+)
+
+$buttonHeight = 60
+$buttonSpacingY = 10
+$buttonSpacingX = 10
+$buttonTop = 80
+$buttonLeft = 30
+$buttonControls = @()
+
+#
+for ($i = 0; $i -lt $menuButtons.Count; $i += 2) {
+    # Nút bên trái
+    $btnL = New-DynamicButton -text $menuButtons[$i].text -x $buttonLeft -y ($buttonTop + [math]::Floor($i/2)*($buttonHeight+$buttonSpacingY)) -width 1 -height $buttonHeight -clickAction $menuButtons[$i].action
+    $btnL.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
+    if ($menuButtons[$i].text -eq '[0] Exit') {
+        $btnL.BackColor = [System.Drawing.Color]::FromArgb(200,0,0)
+    }
+    $script:form.Controls.Add($btnL)
+    $buttonControls += $btnL
+    # Nút bên phải (nếu có)
+    if ($i+1 -lt $menuButtons.Count) {
+        $btnR = New-DynamicButton -text $menuButtons[$i+1].text -x 0 -y ($buttonTop + [math]::Floor($i/2)*($buttonHeight+$buttonSpacingY)) -width 1 -height $buttonHeight -clickAction $menuButtons[$i+1].action
+        $btnR.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
+        if ($menuButtons[$i+1].text -eq '[0] Exit') {
+            $btnR.BackColor = [System.Drawing.Color]::FromArgb(200,0,0)
+        }
+        $script:form.Controls.Add($btnR)
+        $buttonControls += $btnR
+    }
 }
 
-$buttonSetPassword = New-DynamicButton -text "[8] Set Password" -x 430 -y 260 -width 380 -height 60 -clickAction {
-    Invoke-SetPasswordDialog
+# Update Menu Functions
+function Update-MenuLayout {
+    $formWidth = $script:form.ClientSize.Width
+    $formHeight = $script:form.ClientSize.Height
+    $numRows = [math]::Ceiling($buttonControls.Count / 2)
+    $minBtnWidth = 120
+    $minBtnHeight = 40
+    $colWidth = [math]::Max($minBtnWidth, [math]::Floor(($formWidth - 3*$buttonLeft)/2))
+    $rowHeight = [math]::Max($minBtnHeight, [math]::Floor(($formHeight - $buttonTop - 30 - ($numRows-1)*$buttonSpacingY) / $numRows))
+    for ($i = 0; $i -lt $buttonControls.Count; $i += 2) {
+        $rowIdx = [math]::Floor($i/2)
+        $y = $buttonTop + $rowIdx*($rowHeight+$buttonSpacingY)
+        $buttonControls[$i].Width = $colWidth
+        $buttonControls[$i].Height = $rowHeight
+        $buttonControls[$i].Left = $buttonLeft
+        $buttonControls[$i].Top = $y
+        if ($i+1 -lt $buttonControls.Count) {
+            $buttonControls[$i+1].Width = $colWidth
+            $buttonControls[$i+1].Height = $rowHeight
+            $buttonControls[$i+1].Left = 2*$buttonLeft + $colWidth
+            $buttonControls[$i+1].Top = $y
+        }
+    }
 }
 
-$script:form.Controls.Add($buttonSetPassword)
+$script:form.Add_Resize({ Update-MenuLayout })
+Update-MenuLayout
 
 # Start Application
-$script:form.ShowDialog() 
+$script:form.ShowDialog()
