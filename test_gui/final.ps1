@@ -1670,7 +1670,7 @@ $buttonChangeVolume = New-DynamicButton -text "[4] Change / Edit Volume" -x 30 -
         $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
             $rect,
             [System.Drawing.Color]::FromArgb(0, 0, 0), # Black at top
-            [System.Drawing.Color]::FromArgb(0, 40, 0), # Dark green at bottom
+            [System.Drawing.Color]::FromArgb(0, 30, 0), # Dark green at bottom
             [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
         )
         $graphics.FillRectangle($brush, $rect)

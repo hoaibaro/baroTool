@@ -1,16 +1,16 @@
-# ADMIN PRIVILEGES CHECK & INITIALIZATION
-if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-    Write-Warning "This script requires administrative privileges. Attempting to restart with elevation..."
+# # ADMIN PRIVILEGES CHECK & INITIALIZATION
+# if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+#     Write-Warning "This script requires administrative privileges. Attempting to restart with elevation..."
 
-    # Restart script with admin privileges
-    $scriptPath = $MyInvocation.MyCommand.Path
-    $arguments = "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$scriptPath`""
+#     # Restart script with admin privileges
+#     $scriptPath = $MyInvocation.MyCommand.Path
+#     $arguments = "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$scriptPath`""
 
-    Start-Process powershell.exe -ArgumentList $arguments -Verb RunAs
+#     Start-Process powershell.exe -ArgumentList $arguments -Verb RunAs
 
-    # Exit the current non-elevated instance
-    exit
-}
+#     # Exit the current non-elevated instance
+#     exit
+# }
 
 # HIDING CONSOLE
 try {
@@ -5203,8 +5203,7 @@ echo Operation completed successfully. >> shrink_status.txt
 "@
             Set-Content -Path $batchFilePath -Value $batchContent -Force -Encoding ASCII
 
-            Add-Status "Shrinking drive $driveLetter and creating new partition of $sizeMB MB..."
-            Add-Status "Processing... Please wait while the operation completes."
+            Add-Status "Shrinking drive $driveLetter..."
 
             try {
                 # Create a process to run batch file with admin privileges and hide cmd window
