@@ -81,8 +81,8 @@ Add-Type -AssemblyName System.Drawing -ErrorAction Stop
 # Tạo form chính có thể thay đổi kích thước
 $script:form = New-Object System.Windows.Forms.Form
 $script:form.Text = "BAOPROVIP - SYSTEM MANAGEMENT"
-$script:form.Size = New-Object System.Drawing.Size(600, 400)
-$script:form.MinimumSize = New-Object System.Drawing.Size(600, 400)  # Kích thước tối thiểu
+$script:form.Size = New-Object System.Drawing.Size(500, 400)
+$script:form.MinimumSize = New-Object System.Drawing.Size(500, 400)  # Kích thước tối thiểu
 $script:form.StartPosition = "CenterScreen"
 $script:form.BackColor = [System.Drawing.Color]::Black
 $script:form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::Sizable  # CHỖ NÀY THAY ĐỔI
@@ -133,378 +133,378 @@ function Add-Status {
 }
 
 # [4] Volume Management Functions
-function Update-DriveList {
-    $driveListBox.Items.Clear()
-    $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } }, `
-    @{Name = 'VolumeName'; Expression = { $_.VolumeName } }, `
-    @{Name = 'Size (GB)'; Expression = { [math]::round($_.Size / 1GB, 0) } }, `
-    @{Name = 'FreeSpace (GB)'; Expression = { [math]::round($_.FreeSpace / 1GB, 0) } }
+    function Update-DriveList {
+        $driveListBox.Items.Clear()
+        $drives = Get-WmiObject Win32_LogicalDisk | Select-Object @{Name = 'Name'; Expression = { $_.DeviceID } }, `
+        @{Name = 'VolumeName'; Expression = { $_.VolumeName } }, `
+        @{Name = 'Size (GB)'; Expression = { [math]::round($_.Size / 1GB, 0) } }, `
+        @{Name = 'FreeSpace (GB)'; Expression = { [math]::round($_.FreeSpace / 1GB, 0) } }
 
-    foreach ($drive in $drives) {
-        $driveInfo = "$($drive.Name) - $($drive.VolumeName) - Size: $($drive.'Size (GB)') GB - Free: $($drive.'FreeSpace (GB)') GB"
-        $driveListBox.Items.Add($driveInfo)
+        foreach ($drive in $drives) {
+            $driveInfo = "$($drive.Name) - $($drive.VolumeName) - Size: $($drive.'Size (GB)') GB - Free: $($drive.'FreeSpace (GB)') GB"
+            $driveListBox.Items.Add($driveInfo)
+        }
+
+        if ($driveListBox.Items.Count -gt 0) {
+            $driveListBox.SelectedIndex = 0
+        }
+
+        return $drives.Count
     }
-
-    if ($driveListBox.Items.Count -gt 0) {
-        $driveListBox.SelectedIndex = 0
-    }
-
-    return $drives.Count
-}
 
 # [4.3] RENAME VOLUME FUNCTIONS
-function New-RenameVolumeTitle {
-    param([System.Windows.Forms.Panel]$parentPanel)
-    $titleLabel = New-Object System.Windows.Forms.Label
-    $titleLabel.Text = "Rename Volume"
-    $titleLabel.Location = New-Object System.Drawing.Point(0, 10)
-    $titleLabel.Size = New-Object System.Drawing.Size(760, 30)
-    $titleLabel.ForeColor = [System.Drawing.Color]::Lime
-    $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
-    $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
-    $titleLabel.BackColor = [System.Drawing.Color]::Transparent
-    $parentPanel.Controls.Add($titleLabel)
-}
-
-function New-RenameVolumeGroupBox {
-    param([System.Windows.Forms.Panel]$parentPanel, [System.Windows.Forms.ListBox]$driveListBox)
-    $groupBox = New-Object System.Windows.Forms.GroupBox
-    $groupBox.Text = "Volume Rename Configuration"
-    $groupBox.Location = New-Object System.Drawing.Point(180, 60)
-    $groupBox.Size = New-Object System.Drawing.Size(400, 150)
-    $groupBox.ForeColor = [System.Drawing.Color]::Lime
-    $groupBox.BackColor = [System.Drawing.Color]::Transparent
-    $groupBox.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
-    $parentPanel.Controls.Add($groupBox)
-
-    # Drive letter label
-    $driveLetterLabel = New-Object System.Windows.Forms.Label
-    $driveLetterLabel.Text = "Drive Letter:"
-    $driveLetterLabel.Location = New-Object System.Drawing.Point(30, 30)
-    $driveLetterLabel.Size = New-Object System.Drawing.Size(100, 20)
-    $driveLetterLabel.ForeColor = [System.Drawing.Color]::White
-    $driveLetterLabel.BackColor = [System.Drawing.Color]::Transparent
-    $driveLetterLabel.Font = New-Object System.Drawing.Font("Arial", 10)
-    $groupBox.Controls.Add($driveLetterLabel)
-
-    # Drive letter textbox - use script scope
-    $script:renameDriveLetterTextBox = New-Object System.Windows.Forms.TextBox
-    $script:renameDriveLetterTextBox.Location = New-Object System.Drawing.Point(130, 30)
-    $script:renameDriveLetterTextBox.Size = New-Object System.Drawing.Size(50, 20)
-    $script:renameDriveLetterTextBox.BackColor = [System.Drawing.Color]::Black
-    $script:renameDriveLetterTextBox.ForeColor = [System.Drawing.Color]::Lime
-    $script:renameDriveLetterTextBox.Font = New-Object System.Drawing.Font("Consolas", 11, [System.Drawing.FontStyle]::Bold)
-    $script:renameDriveLetterTextBox.MaxLength = 1
-    $script:renameDriveLetterTextBox.ReadOnly = $true
-    $script:renameDriveLetterTextBox.TextAlign = [System.Windows.Forms.HorizontalAlignment]::Center
-    $groupBox.Controls.Add($script:renameDriveLetterTextBox)
-
-    # New label label
-    $newLabelLabel = New-Object System.Windows.Forms.Label
-    $newLabelLabel.Text = "New Label:"
-    $newLabelLabel.Location = New-Object System.Drawing.Point(30, 60)
-    $newLabelLabel.Size = New-Object System.Drawing.Size(100, 20)
-    $newLabelLabel.ForeColor = [System.Drawing.Color]::White
-    $newLabelLabel.BackColor = [System.Drawing.Color]::Transparent
-    $newLabelLabel.Font = New-Object System.Drawing.Font("Arial", 10)
-    $groupBox.Controls.Add($newLabelLabel)
-
-    # New label textbox - use script scope
-    $script:renameNewLabelTextBox = New-Object System.Windows.Forms.TextBox
-    $script:renameNewLabelTextBox.Location = New-Object System.Drawing.Point(130, 60)
-    $script:renameNewLabelTextBox.Size = New-Object System.Drawing.Size(200, 20)
-    $script:renameNewLabelTextBox.BackColor = [System.Drawing.Color]::Black
-    $script:renameNewLabelTextBox.ForeColor = [System.Drawing.Color]::Lime
-    $script:renameNewLabelTextBox.Font = New-Object System.Drawing.Font("Consolas", 11)
-    $groupBox.Controls.Add($script:renameNewLabelTextBox)
-
-    return @{
-        GroupBox           = $groupBox
-        DriveLetterTextBox = $script:renameDriveLetterTextBox
-        NewLabelTextBox    = $script:renameNewLabelTextBox
+    function New-RenameVolumeTitle {
+        param([System.Windows.Forms.Panel]$parentPanel)
+        $titleLabel = New-Object System.Windows.Forms.Label
+        $titleLabel.Text = "Rename Volume"
+        $titleLabel.Location = New-Object System.Drawing.Point(0, 10)
+        $titleLabel.Size = New-Object System.Drawing.Size(760, 30)
+        $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+        $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
+        $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+        $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+        $parentPanel.Controls.Add($titleLabel)
     }
-}
 
-function New-RenameActionButton {
-    param([System.Windows.Forms.GroupBox]$groupBox, [System.Windows.Forms.ListBox]$driveListBox)
-    $renameButton = New-DynamicButton -text "Rename" -x 100 -y 100 -width 200 -height 40 -clickAction {
-        if ($script:renameDriveLetterTextBox -and $script:renameNewLabelTextBox) {
-            $dl = $script:renameDriveLetterTextBox.Text.Trim().ToUpper()
-            $nl = $script:renameNewLabelTextBox.Text.Trim()
-            if ($dl -and $nl) {
-                try {
-                    Set-Volume -DriveLetter $dl -NewFileSystemLabel $nl -ErrorAction Stop
-                    Add-Status "Renamed drive $dl to $nl successfully."
-                }
-                catch {
-                    Add-Status "Error renaming drive: $_"
-                }
-            }
-            else {
-                Add-Status "Please enter both drive letter and new label."
-            }
+    function New-RenameVolumeGroupBox {
+        param([System.Windows.Forms.Panel]$parentPanel, [System.Windows.Forms.ListBox]$driveListBox)
+        $groupBox = New-Object System.Windows.Forms.GroupBox
+        $groupBox.Text = "Volume Rename Configuration"
+        $groupBox.Location = New-Object System.Drawing.Point(180, 60)
+        $groupBox.Size = New-Object System.Drawing.Size(400, 150)
+        $groupBox.ForeColor = [System.Drawing.Color]::Lime
+        $groupBox.BackColor = [System.Drawing.Color]::Transparent
+        $groupBox.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $parentPanel.Controls.Add($groupBox)
+
+        # Drive letter label
+        $driveLetterLabel = New-Object System.Windows.Forms.Label
+        $driveLetterLabel.Text = "Drive Letter:"
+        $driveLetterLabel.Location = New-Object System.Drawing.Point(30, 30)
+        $driveLetterLabel.Size = New-Object System.Drawing.Size(100, 20)
+        $driveLetterLabel.ForeColor = [System.Drawing.Color]::White
+        $driveLetterLabel.BackColor = [System.Drawing.Color]::Transparent
+        $driveLetterLabel.Font = New-Object System.Drawing.Font("Arial", 10)
+        $groupBox.Controls.Add($driveLetterLabel)
+
+        # Drive letter textbox - use script scope
+        $script:renameDriveLetterTextBox = New-Object System.Windows.Forms.TextBox
+        $script:renameDriveLetterTextBox.Location = New-Object System.Drawing.Point(130, 30)
+        $script:renameDriveLetterTextBox.Size = New-Object System.Drawing.Size(50, 20)
+        $script:renameDriveLetterTextBox.BackColor = [System.Drawing.Color]::Black
+        $script:renameDriveLetterTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $script:renameDriveLetterTextBox.Font = New-Object System.Drawing.Font("Consolas", 11, [System.Drawing.FontStyle]::Bold)
+        $script:renameDriveLetterTextBox.MaxLength = 1
+        $script:renameDriveLetterTextBox.ReadOnly = $true
+        $script:renameDriveLetterTextBox.TextAlign = [System.Windows.Forms.HorizontalAlignment]::Center
+        $groupBox.Controls.Add($script:renameDriveLetterTextBox)
+
+        # New label label
+        $newLabelLabel = New-Object System.Windows.Forms.Label
+        $newLabelLabel.Text = "New Label:"
+        $newLabelLabel.Location = New-Object System.Drawing.Point(30, 60)
+        $newLabelLabel.Size = New-Object System.Drawing.Size(100, 20)
+        $newLabelLabel.ForeColor = [System.Drawing.Color]::White
+        $newLabelLabel.BackColor = [System.Drawing.Color]::Transparent
+        $newLabelLabel.Font = New-Object System.Drawing.Font("Arial", 10)
+        $groupBox.Controls.Add($newLabelLabel)
+
+        # New label textbox - use script scope
+        $script:renameNewLabelTextBox = New-Object System.Windows.Forms.TextBox
+        $script:renameNewLabelTextBox.Location = New-Object System.Drawing.Point(130, 60)
+        $script:renameNewLabelTextBox.Size = New-Object System.Drawing.Size(200, 20)
+        $script:renameNewLabelTextBox.BackColor = [System.Drawing.Color]::Black
+        $script:renameNewLabelTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $script:renameNewLabelTextBox.Font = New-Object System.Drawing.Font("Consolas", 11)
+        $groupBox.Controls.Add($script:renameNewLabelTextBox)
+
+        return @{
+            GroupBox           = $groupBox
+            DriveLetterTextBox = $script:renameDriveLetterTextBox
+            NewLabelTextBox    = $script:renameNewLabelTextBox
         }
     }
-    $groupBox.Controls.Add($renameButton)
-}
+
+    function New-RenameActionButton {
+        param([System.Windows.Forms.GroupBox]$groupBox, [System.Windows.Forms.ListBox]$driveListBox)
+        $renameButton = New-DynamicButton -text "Rename" -x 100 -y 100 -width 200 -height 40 -clickAction {
+            if ($script:renameDriveLetterTextBox -and $script:renameNewLabelTextBox) {
+                $dl = $script:renameDriveLetterTextBox.Text.Trim().ToUpper()
+                $nl = $script:renameNewLabelTextBox.Text.Trim()
+                if ($dl -and $nl) {
+                    try {
+                        Set-Volume -DriveLetter $dl -NewFileSystemLabel $nl -ErrorAction Stop
+                        Add-Status "Renamed drive $dl to $nl successfully."
+                    }
+                    catch {
+                        Add-Status "Error renaming drive: $_"
+                    }
+                }
+                else {
+                    Add-Status "Please enter both drive letter and new label."
+                }
+            }
+        }
+        $groupBox.Controls.Add($renameButton)
+    }
 
 # [4.2] SHRINK VOLUME FUNCTIONS
-function New-ShrinkVolumeTitle {
-    param([System.Windows.Forms.Panel]$contentPanel)
+    function New-ShrinkVolumeTitle {
+        param([System.Windows.Forms.Panel]$contentPanel)
 
-    # Title label
-    $titleLabel = New-Object System.Windows.Forms.Label
-    $titleLabel.Text = "Shrink Volume and Create New Partition"
-    $titleLabel.Location = New-Object System.Drawing.Point(0, 10)
-    $titleLabel.Size = New-Object System.Drawing.Size(760, 30)
-    $titleLabel.ForeColor = [System.Drawing.Color]::Lime
-    $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
-    $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
-    $titleLabel.BackColor = [System.Drawing.Color]::Transparent
-    $contentPanel.Controls.Add($titleLabel)
-}
+        # Title label
+        $titleLabel = New-Object System.Windows.Forms.Label
+        $titleLabel.Text = "Shrink Volume and Create New Partition"
+        $titleLabel.Location = New-Object System.Drawing.Point(0, 10)
+        $titleLabel.Size = New-Object System.Drawing.Size(760, 30)
+        $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+        $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
+        $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+        $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+        $contentPanel.Controls.Add($titleLabel)
+    }
 
-function New-ShrinkVolumeDriveSelector {
-    param([System.Windows.Forms.Panel]$contentPanel)
+    function New-ShrinkVolumeDriveSelector {
+        param([System.Windows.Forms.Panel]$contentPanel)
 
-    # Selected drive letter label
-    $selectedDriveLabel = New-Object System.Windows.Forms.Label
-    $selectedDriveLabel.Text = "Selected Drive Letter:"
-    $selectedDriveLabel.Location = New-Object System.Drawing.Point(20, 50)
-    $selectedDriveLabel.Size = New-Object System.Drawing.Size(150, 20)
-    $selectedDriveLabel.ForeColor = [System.Drawing.Color]::White
-    $selectedDriveLabel.BackColor = [System.Drawing.Color]::Transparent
-    $selectedDriveLabel.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
-    $contentPanel.Controls.Add($selectedDriveLabel)
+        # Selected drive letter label
+        $selectedDriveLabel = New-Object System.Windows.Forms.Label
+        $selectedDriveLabel.Text = "Selected Drive Letter:"
+        $selectedDriveLabel.Location = New-Object System.Drawing.Point(20, 50)
+        $selectedDriveLabel.Size = New-Object System.Drawing.Size(150, 20)
+        $selectedDriveLabel.ForeColor = [System.Drawing.Color]::White
+        $selectedDriveLabel.BackColor = [System.Drawing.Color]::Transparent
+        $selectedDriveLabel.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $contentPanel.Controls.Add($selectedDriveLabel)
 
-    # Selected drive letter textbox - use script scope
-    $script:selectedDriveTextBox = New-Object System.Windows.Forms.TextBox
-    $script:selectedDriveTextBox.Location = New-Object System.Drawing.Point(180, 50)
-    $script:selectedDriveTextBox.Size = New-Object System.Drawing.Size(50, 25)
-    $script:selectedDriveTextBox.BackColor = [System.Drawing.Color]::Black
-    $script:selectedDriveTextBox.ForeColor = [System.Drawing.Color]::Lime
-    $script:selectedDriveTextBox.Font = New-Object System.Drawing.Font("Consolas", 11, [System.Drawing.FontStyle]::Bold)
-    $script:selectedDriveTextBox.MaxLength = 1
-    $script:selectedDriveTextBox.ReadOnly = $true
-    $script:selectedDriveTextBox.TextAlign = [System.Windows.Forms.HorizontalAlignment]::Center
-    $contentPanel.Controls.Add($script:selectedDriveTextBox)
-}
+        # Selected drive letter textbox - use script scope
+        $script:selectedDriveTextBox = New-Object System.Windows.Forms.TextBox
+        $script:selectedDriveTextBox.Location = New-Object System.Drawing.Point(180, 50)
+        $script:selectedDriveTextBox.Size = New-Object System.Drawing.Size(50, 25)
+        $script:selectedDriveTextBox.BackColor = [System.Drawing.Color]::Black
+        $script:selectedDriveTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $script:selectedDriveTextBox.Font = New-Object System.Drawing.Font("Consolas", 11, [System.Drawing.FontStyle]::Bold)
+        $script:selectedDriveTextBox.MaxLength = 1
+        $script:selectedDriveTextBox.ReadOnly = $true
+        $script:selectedDriveTextBox.TextAlign = [System.Windows.Forms.HorizontalAlignment]::Center
+        $contentPanel.Controls.Add($script:selectedDriveTextBox)
+    }
 
-function New-ShrinkVolumePartitionSizeOptions {
-    param([System.Windows.Forms.Panel]$contentPanel)
+    function New-ShrinkVolumePartitionSizeOptions {
+        param([System.Windows.Forms.Panel]$contentPanel)
 
-    # Partition size options group box
-    $partitionGroupBox = New-Object System.Windows.Forms.GroupBox
-    $partitionGroupBox.Text = "Choose Partition Size"
-    $partitionGroupBox.Location = New-Object System.Drawing.Point(20, 80)
-    $partitionGroupBox.Size = New-Object System.Drawing.Size(720, 120)
-    $partitionGroupBox.ForeColor = [System.Drawing.Color]::Lime
-    $partitionGroupBox.BackColor = [System.Drawing.Color]::Transparent
-    $partitionGroupBox.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
-    $contentPanel.Controls.Add($partitionGroupBox)
+        # Partition size options group box
+        $partitionGroupBox = New-Object System.Windows.Forms.GroupBox
+        $partitionGroupBox.Text = "Choose Partition Size"
+        $partitionGroupBox.Location = New-Object System.Drawing.Point(20, 80)
+        $partitionGroupBox.Size = New-Object System.Drawing.Size(720, 120)
+        $partitionGroupBox.ForeColor = [System.Drawing.Color]::Lime
+        $partitionGroupBox.BackColor = [System.Drawing.Color]::Transparent
+        $partitionGroupBox.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $contentPanel.Controls.Add($partitionGroupBox)
 
-    # Create a panel inside the GroupBox to properly group radio buttons
-    $radioPanel = New-Object System.Windows.Forms.Panel
-    $radioPanel.Location = New-Object System.Drawing.Point(10, 20)
-    $radioPanel.Size = New-Object System.Drawing.Size(700, 90)
-    $radioPanel.BackColor = [System.Drawing.Color]::Transparent
-    $partitionGroupBox.Controls.Add($radioPanel)
+        # Create a panel inside the GroupBox to properly group radio buttons
+        $radioPanel = New-Object System.Windows.Forms.Panel
+        $radioPanel.Location = New-Object System.Drawing.Point(10, 20)
+        $radioPanel.Size = New-Object System.Drawing.Size(700, 90)
+        $radioPanel.BackColor = [System.Drawing.Color]::Transparent
+        $partitionGroupBox.Controls.Add($radioPanel)
 
-    # Declare radio buttons at script scope so they're accessible in the shrink button click event
-    $script:radio80GB = New-Object System.Windows.Forms.RadioButton
-    $script:radio80GB.Text = "100GB (recommended for 256GB drives)"
-    $script:radio80GB.Location = New-Object System.Drawing.Point(10, 10)
-    $script:radio80GB.Size = New-Object System.Drawing.Size(350, 20)
-    $script:radio80GB.ForeColor = [System.Drawing.Color]::White
-    $script:radio80GB.Font = New-Object System.Drawing.Font("Arial", 10)
-    $script:radio80GB.Checked = $true
-    $radioPanel.Controls.Add($script:radio80GB)
+        # Declare radio buttons at script scope so they're accessible in the shrink button click event
+        $script:radio80GB = New-Object System.Windows.Forms.RadioButton
+        $script:radio80GB.Text = "100GB (recommended for 256GB drives)"
+        $script:radio80GB.Location = New-Object System.Drawing.Point(10, 10)
+        $script:radio80GB.Size = New-Object System.Drawing.Size(350, 20)
+        $script:radio80GB.ForeColor = [System.Drawing.Color]::White
+        $script:radio80GB.Font = New-Object System.Drawing.Font("Arial", 10)
+        $script:radio80GB.Checked = $true
+        $radioPanel.Controls.Add($script:radio80GB)
 
-    # 200GB radio button
-    $script:radio200GB = New-Object System.Windows.Forms.RadioButton
-    $script:radio200GB.Text = "200GB (recommended for 500GB drives)"
-    $script:radio200GB.Location = New-Object System.Drawing.Point(10, 35)
-    $script:radio200GB.Size = New-Object System.Drawing.Size(350, 20)
-    $script:radio200GB.ForeColor = [System.Drawing.Color]::White
-    $script:radio200GB.Font = New-Object System.Drawing.Font("Arial", 10)
-    $radioPanel.Controls.Add($script:radio200GB)
+        # 200GB radio button
+        $script:radio200GB = New-Object System.Windows.Forms.RadioButton
+        $script:radio200GB.Text = "200GB (recommended for 500GB drives)"
+        $script:radio200GB.Location = New-Object System.Drawing.Point(10, 35)
+        $script:radio200GB.Size = New-Object System.Drawing.Size(350, 20)
+        $script:radio200GB.ForeColor = [System.Drawing.Color]::White
+        $script:radio200GB.Font = New-Object System.Drawing.Font("Arial", 10)
+        $radioPanel.Controls.Add($script:radio200GB)
 
-    # 500GB radio button
-    $script:radio500GB = New-Object System.Windows.Forms.RadioButton
-    $script:radio500GB.Text = "500GB (recommended for 1TB+ drives)"
-    $script:radio500GB.Location = New-Object System.Drawing.Point(10, 60)
-    $script:radio500GB.Size = New-Object System.Drawing.Size(350, 20)
-    $script:radio500GB.ForeColor = [System.Drawing.Color]::White
-    $script:radio500GB.Font = New-Object System.Drawing.Font("Arial", 10)
-    $radioPanel.Controls.Add($script:radio500GB)
+        # 500GB radio button
+        $script:radio500GB = New-Object System.Windows.Forms.RadioButton
+        $script:radio500GB.Text = "500GB (recommended for 1TB+ drives)"
+        $script:radio500GB.Location = New-Object System.Drawing.Point(10, 60)
+        $script:radio500GB.Size = New-Object System.Drawing.Size(350, 20)
+        $script:radio500GB.ForeColor = [System.Drawing.Color]::White
+        $script:radio500GB.Font = New-Object System.Drawing.Font("Arial", 10)
+        $radioPanel.Controls.Add($script:radio500GB)
 
-    # Custom size radio button
-    $script:radioCustom = New-Object System.Windows.Forms.RadioButton
-    $script:radioCustom.Text = "Custom size (MB):"
-    $script:radioCustom.Location = New-Object System.Drawing.Point(370, 10)
-    $script:radioCustom.Size = New-Object System.Drawing.Size(150, 20)
-    $script:radioCustom.ForeColor = [System.Drawing.Color]::White
-    $script:radioCustom.Font = New-Object System.Drawing.Font("Arial", 10)
-    $radioPanel.Controls.Add($script:radioCustom)
+        # Custom size radio button
+        $script:radioCustom = New-Object System.Windows.Forms.RadioButton
+        $script:radioCustom.Text = "Custom size (MB):"
+        $script:radioCustom.Location = New-Object System.Drawing.Point(370, 10)
+        $script:radioCustom.Size = New-Object System.Drawing.Size(150, 20)
+        $script:radioCustom.ForeColor = [System.Drawing.Color]::White
+        $script:radioCustom.Font = New-Object System.Drawing.Font("Arial", 10)
+        $radioPanel.Controls.Add($script:radioCustom)
 
-    # Custom size textbox
-    $script:customSizeTextBox = New-Object System.Windows.Forms.TextBox
-    $script:customSizeTextBox.Location = New-Object System.Drawing.Point(370, 35)
-    $script:customSizeTextBox.Size = New-Object System.Drawing.Size(150, 25)
-    $script:customSizeTextBox.BackColor = [System.Drawing.Color]::Black
-    $script:customSizeTextBox.ForeColor = [System.Drawing.Color]::Lime
-    $script:customSizeTextBox.Font = New-Object System.Drawing.Font("Consolas", 11)
-    $script:customSizeTextBox.Text = "102400"  # Default to 100GB in MB
-    $script:customSizeTextBox.Enabled = $false
-    $radioPanel.Controls.Add($script:customSizeTextBox)
+        # Custom size textbox
+        $script:customSizeTextBox = New-Object System.Windows.Forms.TextBox
+        $script:customSizeTextBox.Location = New-Object System.Drawing.Point(370, 35)
+        $script:customSizeTextBox.Size = New-Object System.Drawing.Size(150, 25)
+        $script:customSizeTextBox.BackColor = [System.Drawing.Color]::Black
+        $script:customSizeTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $script:customSizeTextBox.Font = New-Object System.Drawing.Font("Consolas", 11)
+        $script:customSizeTextBox.Text = "102400"  # Default to 100GB in MB
+        $script:customSizeTextBox.Enabled = $false
+        $radioPanel.Controls.Add($script:customSizeTextBox)
 
-    # Add event handlers for radio buttons to enable/disable custom textbox
-    $script:radioCustom.Add_CheckedChanged({
-            if ($script:radioCustom.Checked) {
-                $script:customSizeTextBox.Enabled = $true
-                $script:customSizeTextBox.Focus()
+        # Add event handlers for radio buttons to enable/disable custom textbox
+        $script:radioCustom.Add_CheckedChanged({
+                if ($script:radioCustom.Checked) {
+                    $script:customSizeTextBox.Enabled = $true
+                    $script:customSizeTextBox.Focus()
+                }
+                else {
+                    $script:customSizeTextBox.Enabled = $false
+                }
+            })
+
+        # Add event handlers for other radio buttons to disable custom textbox
+        $script:radio80GB.Add_CheckedChanged({
+                if ($script:radio80GB.Checked) {
+                    $script:customSizeTextBox.Enabled = $false
+                }
+            })
+
+        $script:radio200GB.Add_CheckedChanged({
+                if ($script:radio200GB.Checked) {
+                    $script:customSizeTextBox.Enabled = $false
+                }
+            })
+
+        $script:radio500GB.Add_CheckedChanged({
+                if ($script:radio500GB.Checked) {
+                    $script:customSizeTextBox.Enabled = $false
+                }
+            })
+    }
+
+    function New-ShrinkVolumeNewLabelInput {
+        param([System.Windows.Forms.Panel]$contentPanel)
+
+        # New partition label
+        $newLabelLabel = New-Object System.Windows.Forms.Label
+        $newLabelLabel.Text = "New Partition Label:"
+        $newLabelLabel.Location = New-Object System.Drawing.Point(300, 50)
+        $newLabelLabel.Size = New-Object System.Drawing.Size(150, 20)
+        $newLabelLabel.ForeColor = [System.Drawing.Color]::White
+        $newLabelLabel.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+        $contentPanel.Controls.Add($newLabelLabel)
+
+        # New partition label textbox
+        $script:newLabelTextBox = New-Object System.Windows.Forms.TextBox
+        $script:newLabelTextBox.Location = New-Object System.Drawing.Point(450, 50)
+        $script:newLabelTextBox.Size = New-Object System.Drawing.Size(250, 25)
+        $script:newLabelTextBox.BackColor = [System.Drawing.Color]::Black
+        $script:newLabelTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $script:newLabelTextBox.Font = New-Object System.Drawing.Font("Consolas", 11)
+        $script:newLabelTextBox.Text = "GAME"
+        $contentPanel.Controls.Add($script:newLabelTextBox)
+    }
+
+    function Get-ShrinkVolumePartitionSize {
+        # Determine partition size based on selected radio button
+        $sizeMB = 0
+
+        if ($script:radio80GB.Checked) {
+            $sizeMB = 82020
+        }
+        elseif ($script:radio200GB.Checked) {
+            $sizeMB = 204955
+        }
+        elseif ($script:radio500GB.Checked) {
+            $sizeMB = 512000
+        }
+        elseif ($script:radioCustom.Checked) {
+            # Validate custom size input
+            $customSize = $script:customSizeTextBox.Text.Trim()
+            if ($customSize -match '^\d+$') {
+                try {
+                    $sizeMB = [int]$customSize
+                    if ($sizeMB -lt 1024) {
+                        Add-Status "Error: Custom size must be at least 1024 MB (1 GB)."
+                        return -1
+                    }
+                    if ($sizeMB -gt 2097152) {
+                        # 2TB limit
+                        Add-Status "Error: Custom size cannot exceed 2,097,152 MB (2 TB)."
+                        return -1
+                    }
+                }
+                catch {
+                    Add-Status "Error processing custom size: $_"
+                    return -1
+                }
             }
             else {
-                $script:customSizeTextBox.Enabled = $false
-            }
-        })
-
-    # Add event handlers for other radio buttons to disable custom textbox
-    $script:radio80GB.Add_CheckedChanged({
-            if ($script:radio80GB.Checked) {
-                $script:customSizeTextBox.Enabled = $false
-            }
-        })
-
-    $script:radio200GB.Add_CheckedChanged({
-            if ($script:radio200GB.Checked) {
-                $script:customSizeTextBox.Enabled = $false
-            }
-        })
-
-    $script:radio500GB.Add_CheckedChanged({
-            if ($script:radio500GB.Checked) {
-                $script:customSizeTextBox.Enabled = $false
-            }
-        })
-}
-
-function New-ShrinkVolumeNewLabelInput {
-    param([System.Windows.Forms.Panel]$contentPanel)
-
-    # New partition label
-    $newLabelLabel = New-Object System.Windows.Forms.Label
-    $newLabelLabel.Text = "New Partition Label:"
-    $newLabelLabel.Location = New-Object System.Drawing.Point(300, 50)
-    $newLabelLabel.Size = New-Object System.Drawing.Size(150, 20)
-    $newLabelLabel.ForeColor = [System.Drawing.Color]::White
-    $newLabelLabel.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
-    $contentPanel.Controls.Add($newLabelLabel)
-
-    # New partition label textbox
-    $script:newLabelTextBox = New-Object System.Windows.Forms.TextBox
-    $script:newLabelTextBox.Location = New-Object System.Drawing.Point(450, 50)
-    $script:newLabelTextBox.Size = New-Object System.Drawing.Size(250, 25)
-    $script:newLabelTextBox.BackColor = [System.Drawing.Color]::Black
-    $script:newLabelTextBox.ForeColor = [System.Drawing.Color]::Lime
-    $script:newLabelTextBox.Font = New-Object System.Drawing.Font("Consolas", 11)
-    $script:newLabelTextBox.Text = "GAME"
-    $contentPanel.Controls.Add($script:newLabelTextBox)
-}
-
-function Get-ShrinkVolumePartitionSize {
-    # Determine partition size based on selected radio button
-    $sizeMB = 0
-
-    if ($script:radio80GB.Checked) {
-        $sizeMB = 82020
-    }
-    elseif ($script:radio200GB.Checked) {
-        $sizeMB = 204955
-    }
-    elseif ($script:radio500GB.Checked) {
-        $sizeMB = 512000
-    }
-    elseif ($script:radioCustom.Checked) {
-        # Validate custom size input
-        $customSize = $script:customSizeTextBox.Text.Trim()
-        if ($customSize -match '^\d+$') {
-            try {
-                $sizeMB = [int]$customSize
-                if ($sizeMB -lt 1024) {
-                    Add-Status "Error: Custom size must be at least 1024 MB (1 GB)."
-                    return -1
-                }
-                if ($sizeMB -gt 2097152) {
-                    # 2TB limit
-                    Add-Status "Error: Custom size cannot exceed 2,097,152 MB (2 TB)."
-                    return -1
-                }
-            }
-            catch {
-                Add-Status "Error processing custom size: $_"
+                Add-Status "Error: Custom size must be a valid number (digits only)."
                 return -1
             }
         }
         else {
-            Add-Status "Error: Custom size must be a valid number (digits only)."
+            Add-Status "Error: Please select a partition size option."
             return -1
         }
-    }
-    else {
-        Add-Status "Error: Please select a partition size option."
-        return -1
+
+        return $sizeMB
     }
 
-    return $sizeMB
-}
+    function Test-ShrinkVolumeSpace {
+        param([string]$driveLetter, [int]$sizeMB)
 
-function Test-ShrinkVolumeSpace {
-    param([string]$driveLetter, [int]$sizeMB)
-
-    # Validate drive exists and get info
-    try {
-        $driveInfo = Get-WmiObject Win32_LogicalDisk | Where-Object { $_.DeviceID -eq "$($driveLetter):" }
-        if (-not $driveInfo) {
-            Add-Status "Error: Drive $driveLetter does not exist."
-            return $false
-        }
-
-        $freeSpaceMB = [math]::Floor($driveInfo.FreeSpace / 1MB)
-        $totalSizeMB = [math]::Floor($driveInfo.Size / 1MB)
-
-        # Get actual shrinkable space using PowerShell (more accurate)
+        # Validate drive exists and get info
         try {
-            $partition = Get-Partition -DriveLetter $driveLetter -ErrorAction Stop
-            $shrinkInfo = Get-PartitionSupportedSize -DriveLetter $driveLetter -ErrorAction Stop
-            $maxShrinkBytes = $partition.Size - $shrinkInfo.SizeMin
-            $maxShrinkMB = [math]::Floor($maxShrinkBytes / 1MB)
-
-            if ($sizeMB -gt $maxShrinkMB) {
-                Add-Status "Error: Requested size ($sizeMB MB) exceeds maximum shrinkable space ($maxShrinkMB MB)."
-                Add-Status "Try running disk defragmentation first or choose a smaller size."
+            $driveInfo = Get-WmiObject Win32_LogicalDisk | Where-Object { $_.DeviceID -eq "$($driveLetter):" }
+            if (-not $driveInfo) {
+                Add-Status "Error: Drive $driveLetter does not exist."
                 return $false
+            }
+
+            $freeSpaceMB = [math]::Floor($driveInfo.FreeSpace / 1MB)
+            $totalSizeMB = [math]::Floor($driveInfo.Size / 1MB)
+
+            # Get actual shrinkable space using PowerShell (more accurate)
+            try {
+                $partition = Get-Partition -DriveLetter $driveLetter -ErrorAction Stop
+                $shrinkInfo = Get-PartitionSupportedSize -DriveLetter $driveLetter -ErrorAction Stop
+                $maxShrinkBytes = $partition.Size - $shrinkInfo.SizeMin
+                $maxShrinkMB = [math]::Floor($maxShrinkBytes / 1MB)
+
+                if ($sizeMB -gt $maxShrinkMB) {
+                    Add-Status "Error: Requested size ($sizeMB MB) exceeds maximum shrinkable space ($maxShrinkMB MB)."
+                    Add-Status "Try running disk defragmentation first or choose a smaller size."
+                    return $false
+                }
+            }
+            catch {
+                # Fallback: Use 80% of free space as safe shrink limit
+                $maxShrinkMB = [math]::Floor($freeSpaceMB * 0.8)
+
+                if ($sizeMB -gt $maxShrinkMB) {
+                    Add-Status "Error: Requested size ($sizeMB MB) exceeds estimated safe shrink limit ($maxShrinkMB MB)."
+                    Add-Status "Try a smaller size or free up more space on the drive."
+                    return $false
+                }
             }
         }
         catch {
-            # Fallback: Use 80% of free space as safe shrink limit
-            $maxShrinkMB = [math]::Floor($freeSpaceMB * 0.8)
-
-            if ($sizeMB -gt $maxShrinkMB) {
-                Add-Status "Error: Requested size ($sizeMB MB) exceeds estimated safe shrink limit ($maxShrinkMB MB)."
-                Add-Status "Try a smaller size or free up more space on the drive."
-                return $false
-            }
+            Add-Status "Error getting drive information: $_"
+            return $false
         }
-    }
-    catch {
-        Add-Status "Error getting drive information: $_"
-        return $false
-    }
 
-    return $true
-}
-
+        return $true
+    }
+  
 function Invoke-ShrinkVolumeOperation {
     param([string]$driveLetter, [int]$sizeMB, [string]$newLabel)
 
@@ -721,7 +721,7 @@ function New-ExtendVolumeGroupBox {
 
     # Source drive label
     $sourceDriveLabel = New-Object System.Windows.Forms.Label
-    $sourceDriveLabel.Text = "Source Drive (to delete):"
+    $sourceDriveLabel.Text = "Source Drive (Delete):"
     $sourceDriveLabel.Location = New-Object System.Drawing.Point(75, 35)
     $sourceDriveLabel.Size = New-Object System.Drawing.Size(180, 20)
     $sourceDriveLabel.ForeColor = [System.Drawing.Color]::White
@@ -745,7 +745,7 @@ function New-ExtendVolumeGroupBox {
 
     # Target drive label
     $targetDriveLabel = New-Object System.Windows.Forms.Label
-    $targetDriveLabel.Text = "Target Drive (to expand):"
+    $targetDriveLabel.Text = "Target Drive (Extend):"
     $targetDriveLabel.Location = New-Object System.Drawing.Point(75, 65)
     $targetDriveLabel.Size = New-Object System.Drawing.Size(180, 20)
     $targetDriveLabel.ForeColor = [System.Drawing.Color]::White
@@ -1918,213 +1918,213 @@ function Invoke-RenameDialog {
 }
 
 # [8] Password Functions
-function Show-SetPasswordForm {
-    param(
-        [string]$currentUser
-    )
+    function Show-SetPasswordForm {
+        param(
+            [string]$currentUser
+        )
 
-    # Set Password Form
-    $form = New-Object System.Windows.Forms.Form
-    $form.Text = "Set Password"
-    $form.Size = New-Object System.Drawing.Size(500, 270)
-    $form.StartPosition = "CenterScreen"
-    $form.BackColor = [System.Drawing.Color]::Black
-    $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
-    $form.MaximizeBox = $false
-    $form.MinimizeBox = $false
+        # Set Password Form
+        $form = New-Object System.Windows.Forms.Form
+        $form.Text = "Set Password"
+        $form.Size = New-Object System.Drawing.Size(500, 270)
+        $form.StartPosition = "CenterScreen"
+        $form.BackColor = [System.Drawing.Color]::Black
+        $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+        $form.MaximizeBox = $false
+        $form.MinimizeBox = $false
 
-    # Title
-    $titleLabel = New-Object System.Windows.Forms.Label
-    $titleLabel.Text = "Set Password for Current User"
-    $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
-    $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 0)
-    $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
-    $titleLabel.Size = New-Object System.Drawing.Size(480, 40)
-    $titleLabel.Location = New-Object System.Drawing.Point(10, 20)
-    $form.Controls.Add($titleLabel)
+        # Title
+        $titleLabel = New-Object System.Windows.Forms.Label
+        $titleLabel.Text = "Set Password for Current User"
+        $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
+        $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 0)
+        $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+        $titleLabel.Size = New-Object System.Drawing.Size(480, 40)
+        $titleLabel.Location = New-Object System.Drawing.Point(10, 20)
+        $form.Controls.Add($titleLabel)
 
-    # User label
-    $userLabel = New-Object System.Windows.Forms.Label
-    $userLabel.Text = "Current User:            $currentUser"
-    $userLabel.Font = New-Object System.Drawing.Font("Arial", 12)
-    $userLabel.ForeColor = [System.Drawing.Color]::White
-    $userLabel.Size = New-Object System.Drawing.Size(480, 30)
-    $userLabel.Location = New-Object System.Drawing.Point(30, 70)
-    $form.Controls.Add($userLabel)
+        # User label
+        $userLabel = New-Object System.Windows.Forms.Label
+        $userLabel.Text = "Current User:            $currentUser"
+        $userLabel.Font = New-Object System.Drawing.Font("Arial", 12)
+        $userLabel.ForeColor = [System.Drawing.Color]::White
+        $userLabel.Size = New-Object System.Drawing.Size(480, 30)
+        $userLabel.Location = New-Object System.Drawing.Point(30, 70)
+        $form.Controls.Add($userLabel)
 
-    # Password label
-    $passwordLabel = New-Object System.Windows.Forms.Label
-    $passwordLabel.Text = "New Password:"
-    $passwordLabel.Font = New-Object System.Drawing.Font("Arial", 12)
-    $passwordLabel.ForeColor = [System.Drawing.Color]::White
-    $passwordLabel.Size = New-Object System.Drawing.Size(130, 30)
-    $passwordLabel.Location = New-Object System.Drawing.Point(30, 110)
-    $form.Controls.Add($passwordLabel)
+        # Password label
+        $passwordLabel = New-Object System.Windows.Forms.Label
+        $passwordLabel.Text = "New Password:"
+        $passwordLabel.Font = New-Object System.Drawing.Font("Arial", 12)
+        $passwordLabel.ForeColor = [System.Drawing.Color]::White
+        $passwordLabel.Size = New-Object System.Drawing.Size(130, 30)
+        $passwordLabel.Location = New-Object System.Drawing.Point(30, 110)
+        $form.Controls.Add($passwordLabel)
 
-    # Password textbox
-    $passwordTextBox = New-Object System.Windows.Forms.TextBox
-    $passwordTextBox.Font = New-Object System.Drawing.Font("Arial", 12)
-    $passwordTextBox.Size = New-Object System.Drawing.Size(200, 30)
-    $passwordTextBox.Location = New-Object System.Drawing.Point(180, 110)
-    $passwordTextBox.BackColor = [System.Drawing.Color]::White
-    $passwordTextBox.ForeColor = [System.Drawing.Color]::Black
-    $passwordTextBox.UseSystemPasswordChar = $false # Mặc định hiển thị password
-    $form.Controls.Add($passwordTextBox)
+        # Password textbox
+        $passwordTextBox = New-Object System.Windows.Forms.TextBox
+        $passwordTextBox.Font = New-Object System.Drawing.Font("Arial", 12)
+        $passwordTextBox.Size = New-Object System.Drawing.Size(200, 30)
+        $passwordTextBox.Location = New-Object System.Drawing.Point(180, 110)
+        $passwordTextBox.BackColor = [System.Drawing.Color]::White
+        $passwordTextBox.ForeColor = [System.Drawing.Color]::Black
+        $passwordTextBox.UseSystemPasswordChar = $false # Mặc định hiển thị password
+        $form.Controls.Add($passwordTextBox)
 
-    # Show Password checkbox (default checked)
-    $showPasswordCheckBox = New-Object System.Windows.Forms.CheckBox
-    $showPasswordCheckBox.Text = "Show"
-    $showPasswordCheckBox.Location = New-Object System.Drawing.Point(400, 115)
-    $showPasswordCheckBox.Size = New-Object System.Drawing.Size(100, 20)
-    $showPasswordCheckBox.ForeColor = [System.Drawing.Color]::White
-    $showPasswordCheckBox.Font = New-Object System.Drawing.Font("Arial", 9)
-    $showPasswordCheckBox.BackColor = [System.Drawing.Color]::Transparent
-    $showPasswordCheckBox.Checked = $true
-    $showPasswordCheckBox.Add_CheckedChanged({
-            $passwordTextBox.UseSystemPasswordChar = -not $showPasswordCheckBox.Checked
-        })
-    $form.Controls.Add($showPasswordCheckBox)
+        # Show Password checkbox (default checked)
+        $showPasswordCheckBox = New-Object System.Windows.Forms.CheckBox
+        $showPasswordCheckBox.Text = "Show"
+        $showPasswordCheckBox.Location = New-Object System.Drawing.Point(400, 115)
+        $showPasswordCheckBox.Size = New-Object System.Drawing.Size(100, 20)
+        $showPasswordCheckBox.ForeColor = [System.Drawing.Color]::White
+        $showPasswordCheckBox.Font = New-Object System.Drawing.Font("Arial", 9)
+        $showPasswordCheckBox.BackColor = [System.Drawing.Color]::Transparent
+        $showPasswordCheckBox.Checked = $true
+        $showPasswordCheckBox.Add_CheckedChanged({
+                $passwordTextBox.UseSystemPasswordChar = -not $showPasswordCheckBox.Checked
+            })
+        $form.Controls.Add($showPasswordCheckBox)
 
-    # Info label for empty password
-    $infoLabel = New-Object System.Windows.Forms.Label
-    $infoLabel.Text = "Leave the password field empty to set a blank password."
-    $infoLabel.Font = New-Object System.Drawing.Font("Arial", 9, [System.Drawing.FontStyle]::Bold)
-    $infoLabel.ForeColor = [System.Drawing.Color]::Red
-    $infoLabel.Size = New-Object System.Drawing.Size(450, 20)
-    $infoLabel.Location = New-Object System.Drawing.Point(70, 145)
-    $form.Controls.Add($infoLabel)
+        # Info label for empty password
+        $infoLabel = New-Object System.Windows.Forms.Label
+        $infoLabel.Text = "Leave the password field empty to set a blank password."
+        $infoLabel.Font = New-Object System.Drawing.Font("Arial", 9, [System.Drawing.FontStyle]::Bold)
+        $infoLabel.ForeColor = [System.Drawing.Color]::Red
+        $infoLabel.Size = New-Object System.Drawing.Size(450, 20)
+        $infoLabel.Location = New-Object System.Drawing.Point(70, 145)
+        $form.Controls.Add($infoLabel)
 
-    # Set Password button
-    $setButton = New-Object System.Windows.Forms.Button
-    $setButton.Text = "Set Password"
-    $setButton.Font = New-Object System.Drawing.Font("Arial", 12, [System.Drawing.FontStyle]::Bold)
-    $setButton.ForeColor = [System.Drawing.Color]::White
-    $setButton.BackColor = [System.Drawing.Color]::FromArgb(0, 180, 0)
-    $setButton.Size = New-Object System.Drawing.Size(200, 40)
-    $setButton.Location = New-Object System.Drawing.Point(30, 180)
-    $setButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $setButton.Add_Click({
-            $password = $passwordTextBox.Text
-            try {
-                # Create a command to set the password
-                if ([string]::IsNullOrEmpty($password)) {
-                    $command = "net user $currentUser """""
-                }
-                else {
-                    $command = "net user $currentUser $password"
-                }
-                $process = Start-Process -FilePath "cmd.exe" -ArgumentList "/c $command" -NoNewWindow -Wait -PassThru
-                if ($process.ExitCode -eq 0) {
+        # Set Password button
+        $setButton = New-Object System.Windows.Forms.Button
+        $setButton.Text = "Set Password"
+        $setButton.Font = New-Object System.Drawing.Font("Arial", 12, [System.Drawing.FontStyle]::Bold)
+        $setButton.ForeColor = [System.Drawing.Color]::White
+        $setButton.BackColor = [System.Drawing.Color]::FromArgb(0, 180, 0)
+        $setButton.Size = New-Object System.Drawing.Size(200, 40)
+        $setButton.Location = New-Object System.Drawing.Point(30, 180)
+        $setButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $setButton.Add_Click({
+                $password = $passwordTextBox.Text
+                try {
+                    # Create a command to set the password
                     if ([string]::IsNullOrEmpty($password)) {
-                        [System.Windows.Forms.MessageBox]::Show("Password has been removed. User '$currentUser' can now log in without a password.", "Password Removed", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                        $command = "net user $currentUser """""
                     }
                     else {
-                        [System.Windows.Forms.MessageBox]::Show("Password has been changed.", "Password Change", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                        $command = "net user $currentUser $password"
                     }
-                    $form.Close()
+                    $process = Start-Process -FilePath "cmd.exe" -ArgumentList "/c $command" -NoNewWindow -Wait -PassThru
+                    if ($process.ExitCode -eq 0) {
+                        if ([string]::IsNullOrEmpty($password)) {
+                            [System.Windows.Forms.MessageBox]::Show("Password has been removed. User '$currentUser' can now log in without a password.", "Password Removed", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                        }
+                        else {
+                            [System.Windows.Forms.MessageBox]::Show("Password has been changed.", "Password Change", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                        }
+                        $form.Close()
+                    }
+                    else {
+                        throw "Failed to set password. Exit code: $($process.ExitCode)"
+                    }
+                }
+                catch {
+                    [System.Windows.Forms.MessageBox]::Show("Error setting password: $_`n`nNote: This operation requires administrative privileges.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+                }
+            })
+        $form.Controls.Add($setButton)
+
+        # Cancel button
+        $cancelButton = New-Object System.Windows.Forms.Button
+        $cancelButton.Text = "Cancel"
+        $cancelButton.Font = New-Object System.Drawing.Font("Arial", 12, [System.Drawing.FontStyle]::Bold)
+        $cancelButton.ForeColor = [System.Drawing.Color]::White
+        $cancelButton.BackColor = [System.Drawing.Color]::FromArgb(150, 0, 0)
+        $cancelButton.Size = New-Object System.Drawing.Size(200, 40)
+        $cancelButton.Location = New-Object System.Drawing.Point(250, 180)
+        $cancelButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $cancelButton.Add_Click({
+                $form.Close()
+            })
+        $form.Controls.Add($cancelButton)
+
+        # Set Accept/Cancel button for Enter/Esc
+        $form.AcceptButton = $setButton
+        $form.CancelButton = $cancelButton
+
+        # Focus on password textbox when form shows
+        $form.Add_Shown({
+                $passwordTextBox.Focus()
+            })
+
+        # Show the form
+        $form.ShowDialog()
+    }
+
+    function Set-UserPassword {
+        param(
+            [string]$user,
+            [string]$password
+        )
+        try {
+            if ([string]::IsNullOrEmpty($password)) {
+                # Xóa mật khẩu (blank)
+                $command = "net user $user """""
+            }
+            else {
+                $command = "net user $user $password"
+            }
+            $process = Start-Process -FilePath "cmd.exe" -ArgumentList "/c $command" -NoNewWindow -Wait -PassThru
+            return $process.ExitCode -eq 0
+        }
+        catch {
+            return $false
+        }
+    }
+
+    function Remove-UserPassword {
+        param(
+            [string]$user
+        )
+        try {
+            $command = "net user $user """""
+            $process = Start-Process -FilePath "cmd.exe" -ArgumentList "/c $command" -NoNewWindow -Wait -PassThru
+            return $process.ExitCode -eq 0
+        }
+        catch {
+            return $false
+        }
+    }
+
+    function Invoke-SetPasswordDialog {
+        $currentUser = $env:USERNAME
+        Hide-MainMenu
+        $result = Show-SetPasswordForm -currentUser $currentUser
+
+        if ($result.Action -eq "set") {
+            $success = Set-UserPassword -user $currentUser -password $result.Password
+            if ($success) {
+                if ([string]::IsNullOrEmpty($result.Password)) {
+                    [System.Windows.Forms.MessageBox]::Show("Password has been removed. User '$currentUser' can now log in without a password.", "Password Removed", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
                 }
                 else {
-                    throw "Failed to set password. Exit code: $($process.ExitCode)"
+                    [System.Windows.Forms.MessageBox]::Show("Password has been changed.", "Password Change", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
                 }
             }
-            catch {
-                [System.Windows.Forms.MessageBox]::Show("Error setting password: $_`n`nNote: This operation requires administrative privileges.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+            else {
+                [System.Windows.Forms.MessageBox]::Show("Error setting password. This operation may require administrative privileges.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
             }
-        })
-    $form.Controls.Add($setButton)
-
-    # Cancel button
-    $cancelButton = New-Object System.Windows.Forms.Button
-    $cancelButton.Text = "Cancel"
-    $cancelButton.Font = New-Object System.Drawing.Font("Arial", 12, [System.Drawing.FontStyle]::Bold)
-    $cancelButton.ForeColor = [System.Drawing.Color]::White
-    $cancelButton.BackColor = [System.Drawing.Color]::FromArgb(150, 0, 0)
-    $cancelButton.Size = New-Object System.Drawing.Size(200, 40)
-    $cancelButton.Location = New-Object System.Drawing.Point(250, 180)
-    $cancelButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $cancelButton.Add_Click({
-            $form.Close()
-        })
-    $form.Controls.Add($cancelButton)
-
-    # Set Accept/Cancel button for Enter/Esc
-    $form.AcceptButton = $setButton
-    $form.CancelButton = $cancelButton
-
-    # Focus on password textbox when form shows
-    $form.Add_Shown({
-            $passwordTextBox.Focus()
-        })
-
-    # Show the form
-    $form.ShowDialog()
-}
-
-function Set-UserPassword {
-    param(
-        [string]$user,
-        [string]$password
-    )
-    try {
-        if ([string]::IsNullOrEmpty($password)) {
-            # Xóa mật khẩu (blank)
-            $command = "net user $user """""
         }
-        else {
-            $command = "net user $user $password"
-        }
-        $process = Start-Process -FilePath "cmd.exe" -ArgumentList "/c $command" -NoNewWindow -Wait -PassThru
-        return $process.ExitCode -eq 0
-    }
-    catch {
-        return $false
-    }
-}
-
-function Remove-UserPassword {
-    param(
-        [string]$user
-    )
-    try {
-        $command = "net user $user """""
-        $process = Start-Process -FilePath "cmd.exe" -ArgumentList "/c $command" -NoNewWindow -Wait -PassThru
-        return $process.ExitCode -eq 0
-    }
-    catch {
-        return $false
-    }
-}
-
-function Invoke-SetPasswordDialog {
-    $currentUser = $env:USERNAME
-    Hide-MainMenu
-    $result = Show-SetPasswordForm -currentUser $currentUser
-
-    if ($result.Action -eq "set") {
-        $success = Set-UserPassword -user $currentUser -password $result.Password
-        if ($success) {
-            if ([string]::IsNullOrEmpty($result.Password)) {
+        elseif ($result.Action -eq "remove") {
+            $success = Remove-UserPassword -user $currentUser
+            if ($success) {
                 [System.Windows.Forms.MessageBox]::Show("Password has been removed. User '$currentUser' can now log in without a password.", "Password Removed", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
             }
             else {
-                [System.Windows.Forms.MessageBox]::Show("Password has been changed.", "Password Change", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                [System.Windows.Forms.MessageBox]::Show("Error removing password. This operation may require administrative privileges.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
             }
         }
-        else {
-            [System.Windows.Forms.MessageBox]::Show("Error setting password. This operation may require administrative privileges.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        }
+        Show-MainMenu
     }
-    elseif ($result.Action -eq "remove") {
-        $success = Remove-UserPassword -user $currentUser
-        if ($success) {
-            [System.Windows.Forms.MessageBox]::Show("Password has been removed. User '$currentUser' can now log in without a password.", "Password Removed", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-        }
-        else {
-            [System.Windows.Forms.MessageBox]::Show("Error removing password. This operation may require administrative privileges.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        }
-    }
-    Show-MainMenu
-}
 
 # --- TẠO MENU 2 CỘT, TỰ ĐỘNG CO GIÃN ---
 $menuButtons = @(
@@ -2155,6 +2155,9 @@ for ($i = 0; $i -lt $menuButtons.Count; $i += 2) {
     }
     else {
         $btnL = New-DynamicButton -text $menuButtons[$i].text -x $buttonLeft -y ($buttonTop + [math]::Floor($i / 2) * ($buttonHeight + $buttonSpacingY)) -width 1 -height $buttonHeight -clickAction $menuButtons[$i].action
+    }
+    if ($menuButtons[$i].text -eq '[4] Volume') {
+        $btnL.Visible = $false
     }
     $btnL.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
     $script:form.Controls.Add($btnL)
