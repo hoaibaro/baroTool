@@ -74,7 +74,7 @@ function New-DynamicButton {
     return $button
 }
 
-# THÊM vào trước phần tạo form
+# Lệnh kiểm tra và tải thư viện Windows Forms
 try {
     Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
     Add-Type -AssemblyName System.Drawing -ErrorAction Stop
@@ -93,7 +93,7 @@ try {
     }
 }
 
-# CREATE MAIN FORM - RESIZABLE VERSION
+# Tạo form chính có thể thay đổi kích thước
 $script:form = New-Object System.Windows.Forms.Form
 $script:form.Text = "BAOPROVIP - SYSTEM MANAGEMENT"
 $script:form.Size = New-Object System.Drawing.Size(850, 5)
@@ -103,7 +103,7 @@ $script:form.BackColor = [System.Drawing.Color]::Black
 $script:form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::Sizable  # CHỖ NÀY THAY ĐỔI
 $script:form.MaximizeBox = $true  # Cho phép maximize
 
-# Add gradient background với resize handling
+# Thêm màu gradient với resize handling
 $script:form.Add_Paint({
     $graphics = $_.Graphics
     $rect = New-Object System.Drawing.Rectangle(0, 0, $script:form.Width, $script:form.Height)
@@ -117,7 +117,7 @@ $script:form.Add_Paint({
     $brush.Dispose()
 })
 
-# Title - RESPONSIVE
+# Tiêu đề - RESPONSIVE
 $titleLabel = New-Object System.Windows.Forms.Label
 $titleLabel.Text = "WELCOME TO BAROPROVIP"
 $titleLabel.Font = New-Object System.Drawing.Font("Arial", 20, [System.Drawing.FontStyle]::Bold)
