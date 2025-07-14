@@ -3617,24 +3617,6 @@ function New-DomainManagementTextBox {
 
 # Hàm tạo radio button cho form domain management
 function New-DomainManagementRadioButton {
-    <#
-    .SYNOPSIS
-    Creates a standardized radio button for the domain management form
-    .PARAMETER Text
-    The text to display next to the radio button
-    .PARAMETER X
-    X coordinate position
-    .PARAMETER Y
-    Y coordinate position
-    .PARAMETER Width
-    Width of the radio button
-    .PARAMETER Height
-    Height of the radio button
-    .PARAMETER IsChecked
-    Whether the button is initially checked
-    .PARAMETER IsEnabled
-    Whether the button is enabled
-    #>
     param(
         [string]$Text,
         [int]$X,
@@ -3660,14 +3642,6 @@ function New-DomainManagementRadioButton {
 
 # Hàm cập nhật layout cho form domain management
 function Set-DomainFormLayout {
-    <#
-    .SYNOPSIS
-    Updates the domain form layout based on the selected operation type
-    .PARAMETER FormControls
-    Hashtable containing all form controls
-    .PARAMETER OperationType
-    The type of operation: 'Domain', 'Workgroup', or 'LeaveDomain'
-    #>
     param(
         [hashtable]$FormControls,
         [string]$OperationType
@@ -3682,30 +3656,19 @@ function Set-DomainFormLayout {
             $FormControls.PasswordLabel.Visible = $true
             $FormControls.PasswordTextBox.Visible = $true
             $FormControls.JoinButton.Text = "Join"
-            $FormControls.JoinButton.Location = New-Object System.Drawing.Point(30, $script:DomainConfig.ButtonY)
+            $FormControls.JoinButton.Location = New-Object System.Drawing.Point(35, $script:DomainConfig.ButtonY)
             $FormControls.CancelButton.Location = New-Object System.Drawing.Point(250, $script:DomainConfig.ButtonY)
             $FormControls.Form.Size = New-Object System.Drawing.Size($script:DomainConfig.FormWidth, $script:DomainConfig.FormHeight)
         }
         'Workgroup' {
             $FormControls.NameLabel.Text = "Workgroup Name:"
+            $FormControls.NameLabel.BackColor = [System.Drawing.Color]::Transparent
             $FormControls.NameTextBox.Text = $script:DomainConfig.DefaultWorkgroup
             $FormControls.UsernameLabel.Visible = $false
             $FormControls.UsernameTextBox.Visible = $false
             $FormControls.PasswordLabel.Visible = $false
             $FormControls.PasswordTextBox.Visible = $false
             $FormControls.JoinButton.Text = "Join"
-            $FormControls.JoinButton.Location = New-Object System.Drawing.Point(30, $script:DomainConfig.ButtonYMinimal)
-            $FormControls.CancelButton.Location = New-Object System.Drawing.Point(250, $script:DomainConfig.ButtonYMinimal)
-            $FormControls.Form.Size = New-Object System.Drawing.Size($script:DomainConfig.FormWidth, $script:DomainConfig.FormHeightMinimal)
-        }
-        'LeaveDomain' {
-            $FormControls.NameLabel.Text = "New Workgroup Name:"
-            $FormControls.NameTextBox.Text = $script:DomainConfig.DefaultWorkgroup
-            $FormControls.UsernameLabel.Visible = $false
-            $FormControls.UsernameTextBox.Visible = $false
-            $FormControls.PasswordLabel.Visible = $false
-            $FormControls.PasswordTextBox.Visible = $false
-            $FormControls.JoinButton.Text = "Leave Domain"
             $FormControls.JoinButton.Location = New-Object System.Drawing.Point(30, $script:DomainConfig.ButtonYMinimal)
             $FormControls.CancelButton.Location = New-Object System.Drawing.Point(250, $script:DomainConfig.ButtonYMinimal)
             $FormControls.Form.Size = New-Object System.Drawing.Size($script:DomainConfig.FormWidth, $script:DomainConfig.FormHeightMinimal)
