@@ -3190,14 +3190,18 @@ $buttonRenameDevice = New-DynamicButton -text "[7] Rename Device" -x 430 -y 180 
     $renameForm.MaximizeBox = $false
     $renameForm.MinimizeBox = $false
 
+    # Apply gradient background using global function
+    Add-GradientBackground -form $renameForm -topColor ([System.Drawing.Color]::FromArgb(0, 0, 0)) -bottomColor ([System.Drawing.Color]::FromArgb(0, 50, 0))
+
     # Create title label
     $titleLabel = New-Object System.Windows.Forms.Label
-    $titleLabel.Text = "Rename Current Device"
+    $titleLabel.Text = "RENAME DEVICE"
     $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
     $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 0)
     $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
     $titleLabel.Size = New-Object System.Drawing.Size(480, 40)
     $titleLabel.Location = New-Object System.Drawing.Point(10, 20)
+    $titleLabel.BackColor = [System.Drawing.Color]::Transparent
     $renameForm.Controls.Add($titleLabel)
 
     # Get current computer name
@@ -3205,9 +3209,10 @@ $buttonRenameDevice = New-DynamicButton -text "[7] Rename Device" -x 430 -y 180 
 
     # Current device name label
     $currentLabel = New-Object System.Windows.Forms.Label
-    $currentLabel.Text = "Current Device Name: $currentName"
+    $currentLabel.Text = "Current Name: $currentName"
     $currentLabel.Font = New-Object System.Drawing.Font("Arial", 12)
     $currentLabel.ForeColor = [System.Drawing.Color]::White
+    $currentLabel.BackColor = [System.Drawing.Color]::Transparent
     $currentLabel.Size = New-Object System.Drawing.Size(480, 30)
     $currentLabel.Location = New-Object System.Drawing.Point(20, 70)
     $renameForm.Controls.Add($currentLabel)
@@ -3217,6 +3222,7 @@ $buttonRenameDevice = New-DynamicButton -text "[7] Rename Device" -x 430 -y 180 
     $deviceGroupBox.Text = "Device Type"
     $deviceGroupBox.Font = New-Object System.Drawing.Font("Arial", 10)
     $deviceGroupBox.ForeColor = [System.Drawing.Color]::White
+    $deviceGroupBox.BackColor = [System.Drawing.Color]::Transparent
     $deviceGroupBox.Size = New-Object System.Drawing.Size(460, 80)
     $deviceGroupBox.Location = New-Object System.Drawing.Point(20, 110)
     $deviceGroupBox.BackColor = [System.Drawing.Color]::Black
@@ -3930,7 +3936,6 @@ function Invoke-LeaveDomainOperation {
 
 # Hàm hiển thị form domain management
 function Show-DomainManagementForm {
-    # Hide the main menu
     Hide-MainMenu
     
     # Get current computer information
@@ -3946,10 +3951,14 @@ function Show-DomainManagementForm {
     $joinForm.MaximizeBox = $false
     $joinForm.MinimizeBox = $false
 
+    # Apply gradient background using global function
+    Add-GradientBackground -form $joinForm
+
     # Create title label
     $titleLabel = New-DomainManagementLabel -Text "DOMAIN MANAGEMENT" -X 10 -Y 20 -Width 480 -Height 40 -FontSize 14 -FontStyle ([System.Drawing.FontStyle]::Bold)
     $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 0)
     $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $titleLabel.BackColor = [System.Drawing.Color]::Transparent
     $joinForm.Controls.Add($titleLabel)
 
     # Current computer info labels
@@ -4044,9 +4053,6 @@ function Show-DomainManagementForm {
             }
             elseif ($radioWorkgroup.Checked) {
                 $success = Invoke-WorkgroupJoinOperation -WorkgroupName $name
-            }
-            else {
-                $success = Invoke-LeaveDomainOperation -NewWorkgroupName $name
             }
 
             if ($success) {
