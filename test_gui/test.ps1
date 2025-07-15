@@ -175,7 +175,7 @@ function Add-Status {
         [System.Windows.Forms.TextBox]$statusTextBox
     )
 
-    if ($statusTextBox.Text -eq "Please select a device type...") {
+    if ($statusTextBox.Text -eq "Please select a device type..." -or $statusTextBox.Text -eq "Status messages will appear here...") {
         $statusTextBox.Clear()
     }
 
@@ -183,6 +183,32 @@ function Add-Status {
     $statusTextBox.AppendText("[$timestamp] $message`r`n")
     $statusTextBox.ScrollToCaret()
     [System.Windows.Forms.Application]::DoEvents()
+}
+
+# Global function to add title animation
+function Add-TitleAnimation {
+    param(
+        [System.Windows.Forms.Label]$titleLabel,
+        [int]$interval = 500,
+        [System.Drawing.Color]$color1 = [System.Drawing.Color]::FromArgb(0, 255, 0),
+        [System.Drawing.Color]$color2 = [System.Drawing.Color]::FromArgb(0, 200, 0)
+    )
+
+    # Create timer for animation
+    $titleTimer = New-Object System.Windows.Forms.Timer
+    $titleTimer.Interval = $interval
+    $titleTimer.Add_Tick({
+        if ($titleLabel.ForeColor -eq $color1) {
+            $titleLabel.ForeColor = $color2
+        }
+        else {
+            $titleLabel.ForeColor = $color1
+        }
+    })
+    $titleTimer.Start()
+
+    # Return timer object so it can be disposed later
+    return $titleTimer
 }
 
 # [2] Install Software Function
@@ -920,24 +946,6 @@ function Add-Status {
         }
         $deviceTypeForm.Controls.Add($btnLaptop)
 
-        # Add close button (X) in top-left corner
-        $closeButton = New-Object System.Windows.Forms.Button
-        $closeButton.Text = "X"
-        $closeButton.Location = New-Object System.Drawing.Point(10, 10)
-        $closeButton.Size = New-Object System.Drawing.Size(25, 25)
-        $closeButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-        $closeButton.BackColor = [System.Drawing.Color]::FromArgb(40, 40, 40)
-        $closeButton.ForeColor = [System.Drawing.Color]::Lime
-        $closeButton.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
-        $closeButton.FlatAppearance.BorderSize = 0
-        $closeButton.FlatAppearance.MouseOverBackColor = [System.Drawing.Color]::FromArgb(60, 60, 60)
-        $closeButton.FlatAppearance.MouseDownBackColor = [System.Drawing.Color]::FromArgb(80, 80, 80)
-        $closeButton.Cursor = [System.Windows.Forms.Cursors]::Hand
-        $closeButton.Add_Click({
-            $deviceTypeForm.Close()
-        })
-        $deviceTypeForm.Controls.Add($closeButton)
-
         # Add KeyDown event handler for Esc key
         $deviceTypeForm.Add_KeyDown({
             param($sender, $e)
@@ -956,6 +964,220 @@ function Add-Status {
 
         # Show the dialog
         $deviceTypeForm.ShowDialog()
+    }
+
+# [3] Power Options Helper Functions
+    function Invoke-SetTimezonePower {
+        param([System.Windows.Forms.TextBox]$statusTextBox)
+
+        try {
+            Add-Status "Setting time zone to SE Asia Standard Time..." $statusTextBox
+
+            # Set timezone to SE Asia Standard Time
+            Start-Process -FilePath "tzutil.exe" -ArgumentList "/s `"SE Asia Standard Time`"" -Wait -NoNewWindow
+
+            # Configure Windows Time service
+            Add-Status "Configuring Windows Time service..." $statusTextBox
+            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\w32time\Parameters" -Name "Type" -Value "NTP" -Type String -ErrorAction SilentlyContinue
+
+            # Resync time
+            Add-Status "Synchronizing time..." $statusTextBox
+            try {
+                Start-Process -FilePath "w32tm.exe" -ArgumentList "/resync" -Wait -NoNewWindow
+            }
+            catch {
+                Add-Status "Warning: Could not sync time. $_" $statusTextBox
+            }
+
+            # Enable automatic time zone updates
+            Add-Status "Enabling automatic time zone updates..." $statusTextBox
+            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\tzautoupdate" -Name "Start" -Value 2 -Type DWord -ErrorAction SilentlyContinue
+
+            # Configure power options
+            Add-Status "Setting power options to 'Do Nothing'..." $statusTextBox
+
+            # Create power commands
+            $powerCommands = @(
+                "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS LIDACTION 0",
+                "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS LIDACTION 0",
+                "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS SBUTTONACTION 0",
+                "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS SBUTTONACTION 0",
+                "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_BUTTONS PBUTTONACTION 0",
+                "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_BUTTONS PBUTTONACTION 0",
+                "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_VIDEO VIDEOIDLE 0",
+                "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_VIDEO VIDEOIDLE 0",
+                "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 0",
+                "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 0",
+                "powercfg /SETACTIVE SCHEME_CURRENT"
+            )
+
+            $powerScript = $powerCommands -join "; "
+
+            # Execute power commands with elevated privileges
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = "powershell.exe"
+            $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $powerScript' -Verb RunAs -WindowStyle Hidden"
+            $psi.UseShellExecute = $true
+            $psi.Verb = "runas"
+            $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+            [System.Diagnostics.Process]::Start($psi)
+
+            Add-Status "Time zone, power options completed successfully!!!" $statusTextBox
+        }
+        catch {
+            Add-Status "Error: $_" $statusTextBox
+        }
+    }
+
+    function Invoke-FirewallOn {
+        param([System.Windows.Forms.TextBox]$statusTextBox)
+
+        try {
+            Add-Status "Turning on the firewall..." $statusTextBox
+
+            $command = "netsh advfirewall set allprofiles state on"
+
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = "powershell.exe"
+            $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
+            $psi.UseShellExecute = $true
+            $psi.Verb = "runas"
+            $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+            [System.Diagnostics.Process]::Start($psi)
+
+            Add-Status "Firewall has been turned on successfully!" $statusTextBox
+        }
+        catch {
+            Add-Status "Error: $_" $statusTextBox
+        }
+    }
+
+    function Invoke-FirewallOff {
+        param([System.Windows.Forms.TextBox]$statusTextBox)
+
+        try {
+            Add-Status "Turning off the firewall..." $statusTextBox
+
+            $command = "netsh advfirewall set allprofiles state off"
+
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = "powershell.exe"
+            $psi.Arguments = "-Command Start-Process cmd.exe -ArgumentList '/c $command' -Verb RunAs -WindowStyle Hidden"
+            $psi.UseShellExecute = $true
+            $psi.Verb = "runas"
+            $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+
+            [System.Diagnostics.Process]::Start($psi)
+
+            Add-Status "Firewall has been turned off successfully!" $statusTextBox
+        }
+        catch {
+            Add-Status "Error: $_" $statusTextBox
+        }
+    }
+
+    function Invoke-PowerOptionsDialog {
+        Hide-MainMenu
+
+        # Create Power Options form
+        $powerForm = New-Object System.Windows.Forms.Form
+        $powerForm.Text = "Power Options"
+        $powerForm.Size = New-Object System.Drawing.Size(500, 400)
+        $powerForm.StartPosition = "CenterScreen"
+        $powerForm.BackColor = [System.Drawing.Color]::Black
+        $powerForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+        $powerForm.MaximizeBox = $false
+        $powerForm.MinimizeBox = $false
+
+        # Apply gradient background using global function
+        Add-GradientBackground -form $powerForm -topColor ([System.Drawing.Color]::FromArgb(0, 0, 0)) -bottomColor ([System.Drawing.Color]::FromArgb(0, 40, 0))
+
+        # Title label with animation
+        $titleLabel = New-Object System.Windows.Forms.Label
+        $titleLabel.Text = "POWER OPTIONS"
+        $titleLabel.Location = New-Object System.Drawing.Point(145, 20)
+        $titleLabel.Size = New-Object System.Drawing.Size(200, 40)
+        $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+        $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
+        $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+        $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+        $titleLabel.Padding = New-Object System.Windows.Forms.Padding(5)
+
+        # Add animation to the title
+        $titleTimer = New-Object System.Windows.Forms.Timer
+        $titleTimer.Interval = 500
+        $titleTimer.Add_Tick({
+            if ($titleLabel.ForeColor -eq [System.Drawing.Color]::Lime) {
+                $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 220, 0)
+            }
+            else {
+                $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+            }
+        })
+        $titleTimer.Start($titleLabel)
+
+        $powerForm.Controls.Add($titleLabel) 
+
+        # Status text box
+        $statusTextBox = New-Object System.Windows.Forms.TextBox
+        $statusTextBox.Multiline = $true
+        $statusTextBox.ScrollBars = "Vertical"
+        $statusTextBox.Location = New-Object System.Drawing.Point(10, 150)
+        $statusTextBox.Size = New-Object System.Drawing.Size(465, 200)
+        $statusTextBox.BackColor = [System.Drawing.Color]::Black
+        $statusTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $statusTextBox.Text = "Status messages will appear here..."
+        $statusTextBox.Font = New-Object System.Drawing.Font("Consolas", 9)
+        $statusTextBox.ReadOnly = $true
+        $statusTextBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+
+        $powerForm.Controls.Add($statusTextBox)
+
+        # Function to add status message with timestamp
+        function Add-Status {
+            param([string]$message)
+
+            # Clear placeholder text on first message
+            if ($statusTextBox.Text -eq "Status messages will appear here...") {
+                $statusTextBox.Clear()
+            }
+
+            # Add timestamp to message
+            $timestamp = Get-Date -Format "HH:mm:ss"
+            $statusTextBox.AppendText("[$timestamp] $message`r`n")
+            $statusTextBox.ScrollToCaret()
+            [System.Windows.Forms.Application]::DoEvents()
+        }
+
+        # Turn on Firewall button
+        $btnFirewallOn = New-DynamicButton -text "Turn on Firewall" -x 10 -y 50 -width 230 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+            Invoke-FirewallOn -statusTextBox $statusTextBox
+        }
+        $powerForm.Controls.Add($btnFirewallOn)
+
+        # Turn off Firewall button
+        $btnFirewallOff = New-DynamicButton -text "Turn off Firewall" -x 245 -y 50 -width 230 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+            Invoke-FirewallOff -statusTextBox $statusTextBox
+        }
+        $powerForm.Controls.Add($btnFirewallOff)
+
+        # Set Time/Timezone and Power Options button
+        $btnTimeAndPower = New-DynamicButton -text "Time/Timezone and Power" -x 10 -y 100 -width 465 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+            Invoke-SetTimezonePower -statusTextBox $statusTextBox
+        }
+        $powerForm.Controls.Add($btnTimeAndPower)
+
+        # Cleanup timer when form is closed
+        $powerForm.Add_FormClosed({
+            $titleTimer.Stop()
+            $titleTimer.Dispose()
+            Show-MainMenu
+        })
+
+        # Show the form
+        $powerForm.ShowDialog()
     }
 
 # [4] Volume Management Functions
@@ -2666,7 +2888,7 @@ exit /b 0
     }
     }
 
-    function Show-TurnOnFeaturesDialog {
+    function Invoke-FeaturesDialog {
         Hide-MainMenu
 
         # Create features configuration form
@@ -3879,7 +4101,7 @@ exit /b 0
         $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
         $titleLabel.BackColor = [System.Drawing.Color]::Transparent
         $joinForm.Controls.Add($titleLabel)
-        
+
         # In đậm ComputerName và DomainName (hoặc Workgroup nếu không join domain)
         $boldFont = New-Object System.Drawing.Font("Arial", 12, [System.Drawing.FontStyle]::Bold)
         $currentNameBoldLabel = New-DomainManagementLabel -Text $computerInfo.ComputerName -X 170 -Y 70 -Width 320 -Height 30 -FontSize 12 -FontStyle ([System.Drawing.FontStyle]::Bold)
@@ -3900,7 +4122,7 @@ exit /b 0
         $domainBoldLabel.BackColor = [System.Drawing.Color]::Transparent
         $joinForm.Controls.Add($domainBoldLabel)
 
-        
+
 
         # Current computer info labels
         $currentLabel = New-DomainManagementLabel -Text "Current Name:" -X 10 -Y 70 -Width 480 -Height 30 -FontSize 12
@@ -4024,10 +4246,10 @@ exit /b 0
 # --- TẠO MENU 2 CỘT, TỰ ĐỘNG CO GIÃN ---
 $menuButtons = @(
     @{text = '[1] Run All'; action = { [System.Windows.Forms.MessageBox]::Show('Run All!') } },
-    @{text = '[6] Features'; action = { Show-TurnOnFeaturesDialog } },
+    @{text = '[6] Features'; action = { Invoke-FeaturesDialog } },
     @{text = '[2] Software'; action = { Show-InstallSoftwareDialog } },
     @{text = '[7] Rename'; action = { Invoke-RenameDialog } },
-    @{text = '[3] Power'; action = { [System.Windows.Forms.MessageBox]::Show('Power Options!') } },
+    @{text = '[3] Power'; action = { Invoke-PowerOptionsDialog } },
     @{text = '[8] Password'; action = { Invoke-SetPasswordDialog } },
     @{text = '[4] Volume'; action = { Invoke-VolumeManagementDialog } },
     @{text = '[9] Domain'; action = { Show-DomainManagementForm } },

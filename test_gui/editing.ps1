@@ -129,6 +129,17 @@ $titleLabel.BackColor = [System.Drawing.Color]::Transparent
 $titleLabel.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
 $script:form.Controls.Add($titleLabel)
 
+# Add animation to the title
+$titleTimer = New-Object System.Windows.Forms.Timer
+$titleTimer.Interval = 500
+$titleTimer.Add_Tick({
+        if ($titleLabel.ForeColor -eq [System.Drawing.Color]::FromArgb(0, 255, 0)) {
+            $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 200, 0)
+        }
+        else {
+            $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 0)
+        }
+    })
 
     # Function to add status message
     function Add-Status {
@@ -4369,7 +4380,7 @@ $buttonPowerOptions = New-DynamicButton -text "[3] Power Options" -x 30 -y 260 -
 
     # Title label with animation
     $titleLabel = New-Object System.Windows.Forms.Label
-    $titleLabel.Text = "CONTROL PANEL MANAGEMENT"
+    $titleLabel.Text = "POWER OPTIONS"
     $titleLabel.Location = New-Object System.Drawing.Point(-10, 20)
     $titleLabel.Size = New-Object System.Drawing.Size(500, 40)
     $titleLabel.ForeColor = [System.Drawing.Color]::Lime
@@ -5603,11 +5614,11 @@ $buttonActivate = New-DynamicButton -text "[5] Activate" -x 30 -y 420 -width 380
 }
 # [6] Turn On Features
 $buttonTurnOnFeatures = New-DynamicButton -text "[6] Turn On Features" -x 430 -y 100 -width 380 -height 60 -clickAction { 
-    Show-TurnOnFeaturesDialog
+    Invoke-FeaturesDialog
 }
 # [7] Rename Device
 $buttonRenameDevice = New-DynamicButton -text "[7] Rename Device" -x 430 -y 180 -width 380 -height 60 -clickAction {
-    Show-RenameDeviceDialog
+    Invoke-RenameDialog
 }
 # [8] Set Password
 $buttonSetPassword = New-DynamicButton -text "[8] Set Password" -x 430 -y 260 -width 380 -height 60 -clickAction {
