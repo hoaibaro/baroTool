@@ -147,7 +147,7 @@ Add-GradientBackground -form $script:form -topColor ([System.Drawing.Color]::Fro
 $titleLabel = New-Object System.Windows.Forms.Label
 $titleLabel.Text = "WELCOME TO BAOPROVIP"
 $titleLabel.Font = New-Object System.Drawing.Font("Arial", 20, [System.Drawing.FontStyle]::Bold)
-$titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 0)
+$titleLabel.ForeColor = [System.Drawing.Color]::Lime
 $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
 $titleLabel.Size = New-Object System.Drawing.Size($script:form.ClientSize.Width, 60)
 $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
@@ -155,54 +155,50 @@ $titleLabel.BackColor = [System.Drawing.Color]::Transparent
 $titleLabel.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
 $script:form.Controls.Add($titleLabel)
 
-# Add animation to the title
-$titleTimer = New-Object System.Windows.Forms.Timer
-$titleTimer.Interval = 500
-$titleTimer.Add_Tick({
-        if ($titleLabel.ForeColor -eq [System.Drawing.Color]::FromArgb(0, 255, 0)) {
-            $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 200, 0)
-        }
-        else {
-            $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 0)
-        }
-    })
-$titleTimer.Start()
-
-# Hàm thông báo trạng thái
-function Add-Status {
-    param(
-        [string]$message,
-        [System.Windows.Forms.TextBox]$statusTextBox
-    )
-
-    if ($statusTextBox.Text -eq "Please select a device type..." -or $statusTextBox.Text -eq "Status messages will appear here...") {
-        $statusTextBox.Clear()
-    }
-
-    $timestamp = Get-Date -Format "HH:mm:ss"
-    $statusTextBox.AppendText("[$timestamp] $message`r`n")
-    $statusTextBox.ScrollToCaret()
-    [System.Windows.Forms.Application]::DoEvents()
-}
-
 # Global function to add title animation
 function Add-TitleAnimation {
     param(
         [System.Windows.Forms.Label]$titleLabel,
         [int]$interval = 500,
-        [System.Drawing.Color]$color1 = [System.Drawing.Color]::FromArgb(0, 255, 0),
-        [System.Drawing.Color]$color2 = [System.Drawing.Color]::FromArgb(0, 200, 0)
+        [System.Drawing.Color]$color1,
+        [System.Drawing.Color]$color2
     )
+
+    # Set default colors if not provided
+    if (-not $color1 -or $color1 -eq [System.Drawing.Color]::Empty) {
+        $color1 = [System.Drawing.Color]::FromArgb(0, 255, 0)
+    }
+    if (-not $color2 -or $color2 -eq [System.Drawing.Color]::Empty) {
+        $color2 = [System.Drawing.Color]::FromArgb(0, 200, 0)
+    }
 
     # Create timer for animation
     $titleTimer = New-Object System.Windows.Forms.Timer
     $titleTimer.Interval = $interval
+
+    # Capture variables in local scope for timer callback
+    $localTitleLabel = $titleLabel
+    $localColor1 = $color1
+    $localColor2 = $color2
+
     $titleTimer.Add_Tick({
-        if ($titleLabel.ForeColor -eq $color1) {
-            $titleLabel.ForeColor = $color2
+        try {
+            if ($localTitleLabel) {
+                # Simple toggle between two colors
+                if ($localTitleLabel.ForeColor.Name -eq "Lime") {
+                    $localTitleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 200, 0)
+                }
+                else {
+                    $localTitleLabel.ForeColor = [System.Drawing.Color]::Lime
+                }
+
+                # Force UI update
+                $localTitleLabel.Refresh()
+                [System.Windows.Forms.Application]::DoEvents()
+            }
         }
-        else {
-            $titleLabel.ForeColor = $color1
+        catch {
+            # Silently ignore errors in animation
         }
     })
     $titleTimer.Start()
@@ -211,9 +207,685 @@ function Add-TitleAnimation {
     return $titleTimer
 }
 
-# [2] Install Software Function
+# Add animation using global function
+$script:mainTitleTimer = Add-TitleAnimation -titleLabel $titleLabel -interval 500 -color1 ([System.Drawing.Color]::FromArgb(0, 255, 0)) -color2 ([System.Drawing.Color]::FromArgb(0, 200, 0))
+
+# Hàm thêm status với màu tuỳ chọn
+function Add-Status {
+    param(
+        [string]$message,
+        [System.Windows.Forms.RichTextBox]$rtb,
+        [System.Drawing.Color]$color = [System.Drawing.Color]::Lime
+    )
+    if ($rtb.Text -eq "Please select a device type..." -or $rtb.Text -eq "Status messages will appear here...") {
+        $rtb.Clear()
+    }
+    $timestamp = Get-Date -Format "HH:mm:ss"
+    # Thêm timestamp với màu mặc định
+    $rtb.SelectionStart = $rtb.TextLength
+    $rtb.SelectionLength = 0
+    $rtb.SelectionColor = $rtb.ForeColor
+    $rtb.AppendText("[$timestamp] ")
+    # Thêm message với màu tùy chọn
+    $rtb.SelectionColor = $color
+    $rtb.AppendText("$message`r`n")
+    # Đặt lại màu về mặc định
+    $rtb.SelectionColor = $rtb.ForeColor
+    $rtb.ScrollToCaret()
+    [System.Windows.Forms.Application]::DoEvents()
+}
+
+    # [1] Run All Functions
+    function Invoke-RunAllOperations {
+        param (
+            [System.Windows.Forms.Form]$mainForm
+        )
+
+        # Create status form
+        $statusForm = New-Object System.Windows.Forms.Form
+        $statusForm.Text = "Running All Operations"
+        $statusForm.Size = New-Object System.Drawing.Size(595, 480)
+        $statusForm.StartPosition = "CenterScreen"
+        $statusForm.BackColor = [System.Drawing.Color]::Black
+        $statusForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+        $statusForm.MaximizeBox = $false
+        $statusForm.MinimizeBox = $false
+
+        # Add gradient background
+        Add-GradientBackground -form $statusForm
+
+        # Title label
+        $titleLabel = New-Object System.Windows.Forms.Label
+        $titleLabel.Text = "RUNNING ALL OPERATIONS"
+        $titleLabel.Location = New-Object System.Drawing.Point(0, 20)
+        $titleLabel.Size = New-Object System.Drawing.Size(580, 30)
+        $titleLabel.ForeColor = [System.Drawing.Color]::Lime
+        $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
+        $titleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+        $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+        $statusForm.Controls.Add($titleLabel)
+
+        # Status text box
+        $statusTextBox = New-Object System.Windows.Forms.RichTextBox
+        $statusTextBox.Multiline = $true
+        $statusTextBox.ScrollBars = "Vertical"
+        $statusTextBox.Location = New-Object System.Drawing.Point(10, 60)
+        $statusTextBox.Size = New-Object System.Drawing.Size(560, 350)
+        $statusTextBox.BackColor = [System.Drawing.Color]::Black
+        $statusTextBox.ForeColor = [System.Drawing.Color]::Lime
+        $statusTextBox.Font = New-Object System.Drawing.Font("Consolas", 9)
+        $statusTextBox.ReadOnly = $true
+        $statusTextBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+        $statusForm.Controls.Add($statusTextBox)
+
+        # Add title animation
+        $titleTimer = Add-TitleAnimation -titleLabel $titleLabel -interval 500 -color1 ([System.Drawing.Color]::Lime) -color2 ([System.Drawing.Color]::FromArgb(0, 220, 0))
+
+        # Progress bar
+        $progressBar = New-Object System.Windows.Forms.ProgressBar
+        $progressBar.Location = New-Object System.Drawing.Point(10, 420)
+        $progressBar.Size = New-Object System.Drawing.Size(560, 15)
+        $progressBar.Style = [System.Windows.Forms.ProgressBarStyle]::Continuous
+        $statusForm.Controls.Add($progressBar)
+
+        # Show the form
+        $statusForm.Show()
+        [System.Windows.Forms.Application]::DoEvents()
+
+        try {
+            Add-Status "STEP 0: Connecting to WiFi network..." $statusTextBox ([System.Drawing.Color]::Cyan)
+
+            $progressBar.Value = 5
+
+            $wifiResult = Invoke-WiFiAutoConnection $statusTextBox
+            if ($wifiResult) {
+                Add-Status "WiFi connection completed!" $statusTextBox
+            } else {
+                Add-Status "WiFi connection failed, but continuing..." $statusTextBox
+            }
+
+            # STEP 1: Device Selection and Software Installation
+            Add-Status "STEP 1: Selecting Device Type and Installing Software..." $statusTextBox ([System.Drawing.Color]::Cyan)
+            $progressBar.Value = 14
+
+            # Create device selection form
+            $deviceForm = New-Object System.Windows.Forms.Form
+            $deviceForm.Text = "Select Device Type"
+            $deviceForm.Size = New-Object System.Drawing.Size(300, 210)
+            $deviceForm.StartPosition = "CenterScreen"
+            $deviceForm.BackColor = [System.Drawing.Color]::Black
+            $deviceForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+            $deviceForm.MaximizeBox = $false
+            $deviceForm.MinimizeBox = $false
+            $deviceForm.Add_Paint({
+                $graphics = $_.Graphics
+                $rect = New-Object System.Drawing.Rectangle(0, 0, $deviceForm.Width, $deviceForm.Height)
+                $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+                    $rect,
+                    [System.Drawing.Color]::FromArgb(0, 0, 0),
+                    [System.Drawing.Color]::FromArgb(0, 40, 0),
+                    [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
+                )
+                $graphics.FillRectangle($brush, $rect)
+                $brush.Dispose()
+            })
+
+            # Title label
+            $deviceTitleLabel = New-Object System.Windows.Forms.Label
+            $deviceTitleLabel.Text = "SELECT DEVICE TYPE"
+            $deviceTitleLabel.Location = New-Object System.Drawing.Point(0, 20)
+            $deviceTitleLabel.Size = New-Object System.Drawing.Size(290, 30)
+            $deviceTitleLabel.ForeColor = [System.Drawing.Color]::Lime
+            $deviceTitleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
+            $deviceTitleLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+            $deviceTitleLabel.BackColor = [System.Drawing.Color]::Transparent
+            $deviceForm.Controls.Add($deviceTitleLabel)
+
+            # Desktop button
+            $btnDesktop = New-DynamicButton -text "DESKTOP" -x 10 -y 70 -width 260 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+                $script:selectedDeviceType = "Desktop"
+                $deviceForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+                $deviceForm.Close()
+            }
+            $deviceForm.Controls.Add($btnDesktop)
+
+            # Laptop button
+            $btnLaptop = New-DynamicButton -text "LAPTOP" -x 10 -y 120 -width 260 -height 40 -normalColor ([System.Drawing.Color]::FromArgb(0, 150, 0)) -hoverColor ([System.Drawing.Color]::FromArgb(0, 200, 0)) -pressColor ([System.Drawing.Color]::FromArgb(0, 100, 0)) -clickAction {
+                $script:selectedDeviceType = "Laptop"
+                $deviceForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+                $deviceForm.Close()
+            }
+            $deviceForm.Controls.Add($btnLaptop)
+
+            # Show device selection form and get result
+            $result = $deviceForm.ShowDialog()
+            if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+                $deviceType = $script:selectedDeviceType
+                Add-Status "Selected device type: $deviceType" $statusTextBox
+            } else {
+                Add-Status "Device type selection cancelled. Exiting..." $statusTextBox
+                return
+            }
+
+            # Copy software files (gọi hàm toàn cục)
+            Add-Status "Copying software files..." $statusTextBox
+            $copyResult = Copy-SoftwareFiles -deviceType $deviceType $statusTextBox
+            if (-not $copyResult) {
+                Add-Status "Error copying software files. Exiting..." $statusTextBox
+                return
+            }
+
+            # Install software (gọi hàm toàn cục)
+            Add-Status "Installing software..." $statusTextBox
+            Install-Software -deviceType $deviceType $statusTextBox
+            Add-Status "All installation completed successfully for $deviceType !!!" $statusTextBox
+
+            # STEP 2: System Configuration and Shortcut Creation
+            Add-Status "STEP 2: Configuring System and Creating Shortcuts..." $statusTextBox
+            $progressBar.Value = 28 # Tăng giá trị progress bar
+
+            $configResult = Invoke-SystemConfiguration -deviceType $deviceType -statusTextBox $statusTextBox
+            if ($configResult) {
+                Add-Status "STEP 2 completed successfully!" $statusTextBox
+            } else {
+                Add-Status "STEP 2 encountered errors. Check logs." $statusTextBox
+            }
+
+            # STEP 3: System Cleanup and Optimization
+            Add-Status "STEP 3: Cleaning up system and optimizing performance..." $statusTextBox
+            $progressBar.Value = 42 # Tăng giá trị progress bar
+
+            $cleanupResult = Invoke-SystemCleanup -deviceType $deviceType -statusTextBox $statusTextBox
+            if ($cleanupResult) {
+                Add-Status "STEP 3 completed successfully!" $statusTextBox
+            } else {
+                Add-Status "STEP 3 encountered errors. Check logs." $statusTextBox
+            }
+
+            # STEP 4: Windows and Office Activation
+            Add-Status "STEP 4: Activating Windows 10 Pro and Office 2019 Pro Plus..." $statusTextBox
+            $progressBar.Value = 56 # Tăng giá trị progress bar
+
+            $activationResult = Invoke-ActivationConfiguration -deviceType $deviceType -statusTextBox $statusTextBox
+            if ($activationResult) {
+                Add-Status "STEP 4 completed successfully!" $statusTextBox
+            } else {
+                Add-Status "STEP 4 encountered errors. Check logs." $statusTextBox
+            }
+
+            # STEP 5: Windows Features Configuration
+            Add-Status "STEP 5: Configuring Windows Features..." $statusTextBox
+            $progressBar.Value = 70 # Tăng giá trị progress bar
+
+            $featuresResult = Invoke-WindowsFeaturesConfiguration -deviceType $deviceType -statusTextBox $statusTextBox
+            if ($featuresResult) {
+                Add-Status "STEP 5 completed successfully!" $statusTextBox
+            } else {
+                Add-Status "STEP 5 encountered errors. Check logs." $statusTextBox
+            }
+
+            # STEP 6: Disk Partitioning (Laptop only)
+            if ($deviceType -eq "Desktop") {
+                Add-Status "STEP 6: Skipped for Desktop device type" $statusTextBox
+                $progressBar.Value = 85
+            } else {
+                Add-Status "STEP 6: Configuring disk partitioning..." $statusTextBox
+                $progressBar.Value = 85
+
+                $partitioningResult = Invoke-DiskPartitioning -deviceType $deviceType -statusTextBox $statusTextBox
+                if ($partitioningResult) {
+                    Add-Status "STEP 6 completed successfully!" $statusTextBox
+                } else {
+                    Add-Status "STEP 6 encountered errors. Check logs." $statusTextBox
+                }
+            }
+
+            # STEP 7: User Password Management
+            Add-Status "STEP 7: Managing user password..." $statusTextBox
+            $progressBar.Value = 95
+
+            $passwordResult = Invoke-UserPasswordManagement -deviceType $deviceType -statusTextBox $statusTextBox
+            if ($passwordResult) {
+                Add-Status "STEP 7 completed successfully!" $statusTextBox
+            } else {
+                Add-Status "STEP 7 encountered errors. Check logs." $statusTextBox
+            }
+
+            # Step 8: Domain Join
+            Add-Status "Step 8/8: Joining domain..." $statusTextBox
+            $progressBar.Value = 100
+
+            $domainResult = Invoke-JoinDomainProcess -deviceType $deviceType -statusTextBox $statusTextBox
+            if ($domainResult) {
+                Add-Status "Step 8 completed successfully!" $statusTextBox
+            } else {
+                Add-Status "Step 8 encountered errors. Check logs." $statusTextBox
+            }
+
+            Add-Status "All steps completed! System setup finished." $statusTextBox
+            Add-Status "Computer will restart if domain join was successful." $statusTextBox
+        }
+        catch {
+            Add-Status "Error occurred: $_" $statusTextBox
+            [System.Windows.Forms.MessageBox]::Show(
+                "An error occurred during the operations: $_",
+                "Error",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Error
+            )
+        }
+        finally {
+            # Close the status form after a delay
+            # Start-Sleep -Seconds 2
+            # $statusForm.Close()
+        }
+    }
+
+    # STEP 0: WiFi AUTO-CONNECTION FUNCTION
+    function Invoke-WiFiAutoConnection {
+        param ([System.Windows.Forms.RichTextBox]$statusTextBox)
+
+        Add-Status "Checking WiFi connection..." $statusTextBox
+
+        try {
+            # Phương pháp 1: Kiểm tra bằng InterfaceType (71 = Wireless80211)
+            $wifiAdapter = Get-NetAdapter | Where-Object { $_.InterfaceType -eq 71 }
+
+            if (-not $wifiAdapter) {
+                # Phương pháp 2: Kiểm tra bằng PhysicalMediaType
+                Add-Status "Method 1 failed, trying alternative detection..." $statusTextBox
+                $wifiAdapter = Get-NetAdapter | Where-Object {
+                    $_.PhysicalMediaType -eq 'Native 802.11' -or
+                    $_.PhysicalMediaType -eq 'Wireless LAN' -or
+                    $_.PhysicalMediaType -eq 'Wireless WAN'
+                }
+            }
+
+            if (-not $wifiAdapter) {
+                # Phương pháp 3: Kiểm tra bằng InterfaceDescription
+                Add-Status "Method 2 failed, trying description-based detection..." $statusTextBox
+                $wifiAdapter = Get-NetAdapter | Where-Object {
+                    $_.InterfaceDescription -like "*wireless*" -or
+                    $_.InterfaceDescription -like "*wifi*" -or
+                    $_.InterfaceDescription -like "*802.11*" -or
+                    $_.InterfaceDescription -like "*Wi-Fi*" -or
+                    $_.InterfaceDescription -like "*WLAN*"
+                }
+            }
+
+            if (-not $wifiAdapter) {
+                # Phương pháp 4: Kiểm tra bằng WMI
+                Add-Status "Method 3 failed, trying WMI detection..." $statusTextBox
+                try {
+                    $wmiWifiAdapters = Get-WmiObject -Class Win32_NetworkAdapter | Where-Object {
+                        $_.AdapterType -like "*802.11*" -or
+                        $_.Name -like "*wireless*" -or
+                        $_.Name -like "*wifi*" -or
+                        $_.Name -like "*Wi-Fi*" -or
+                        $_.Name -like "*WLAN*" -or
+                        $_.Description -like "*wireless*"
+                    }
+
+                    if ($wmiWifiAdapters) {
+                        Add-Status "WiFi adapter detected via WMI: $($wmiWifiAdapters[0].Name)" $statusTextBox
+                        # Thử lấy lại bằng Get-NetAdapter với tên từ WMI
+                        $wifiAdapter = Get-NetAdapter | Where-Object { $_.Name -eq $wmiWifiAdapters[0].NetConnectionID }
+                    }
+                } catch {
+                    Add-Status "WMI detection failed: $_" $statusTextBox
+                }
+            }
+
+            if (-not $wifiAdapter) {
+                # Phương pháp 5: Kiểm tra service WLAN AutoConfig
+                Add-Status "Method 4 failed, checking WLAN service..." $statusTextBox
+                try {
+                    $wlanService = Get-Service -Name "WlanSvc" -ErrorAction SilentlyContinue
+                    if ($wlanService -and $wlanService.Status -eq "Running") {
+                        Add-Status "WLAN service is running, but no adapter detected through PowerShell" $statusTextBox
+                        Add-Status "Attempting direct netsh approach..." $statusTextBox
+
+                        # Thử sử dụng netsh để kiểm tra interfaces
+                        $netshResult = netsh wlan show interfaces 2>$null
+                        if ($netshResult -and $netshResult -notlike "*There is no wireless interface on the system*") {
+                            Add-Status "WiFi interface detected via netsh, proceeding with connection..." $statusTextBox
+                            # Tiếp tục với quá trình kết nối mà không cần PowerShell adapter object
+                            $useNetshOnly = $true
+                        } else {
+                            Add-Status "No WiFi interface found via netsh either" $statusTextBox
+                            Add-Status "No WiFi adapter found. Skipping WiFi connection..." $statusTextBox
+                            return $true
+                        }
+                    } else {
+                        Add-Status "WLAN service not running. No WiFi capability detected." $statusTextBox
+                        Add-Status "Skipping WiFi connection..." $statusTextBox
+                        return $true
+                    }
+                } catch {
+                    Add-Status "Service check failed: $_" $statusTextBox
+                    Add-Status "No WiFi adapter found. Skipping WiFi connection..." $statusTextBox
+                    return $true
+                }
+            }
+
+            if ($wifiAdapter -and -not $useNetshOnly) {
+                Add-Status "WiFi adapter found: $($wifiAdapter.Name) - $($wifiAdapter.InterfaceDescription)" $statusTextBox
+            }
+
+            # Kiểm tra xem đã kết nối WiFi "VietUnion_5.0GHz" chưa
+            try {
+                $currentConnection = netsh wlan show interfaces | Select-String "SSID" | Select-String "VietUnion_5.0GHz"
+
+                if ($currentConnection) {
+                    Add-Status "Already connected to 'VietUnion_5.0GHz' WiFi. Skipping..." $statusTextBox
+                    return $true
+                }
+            } catch {
+                Add-Status "Could not check current connection, proceeding with connection attempt..." $statusTextBox
+            }
+
+            # Thông tin WiFi
+            $SSID = "VietUnion_5.0GHz"
+            $Password = "Pay00@17Years$"
+            $profileFile = "$env:TEMP\VietUnion_5.0GHz_profile.xml"
+
+            # Tạo hex cho SSID
+            $SSIDHEX = ($SSID.ToCharArray() | ForEach-Object {'{0:X}' -f ([int]$_)}) -join ''
+
+            # Tạo XML profile cho WiFi
+            $xmlContent = @"
+                <?xml version="1.0"?>
+                <WLANProfile xmlns="http://www.microsoft.com/networking/WLAN/profile/v1">
+                    <name>$SSID</name>
+                    <SSIDConfig>
+                        <SSID>
+                            <hex>$SSIDHEX</hex>
+                            <name>$SSID</name>
+                        </SSID>
+                    </SSIDConfig>
+                    <connectionType>ESS</connectionType>
+                    <connectionMode>auto</connectionMode>
+                    <MSM>
+                        <security>
+                            <authEncryption>
+                                <authentication>WPA2PSK</authentication>
+                                <encryption>AES</encryption>
+                                <useOneX>false</useOneX>
+                            </authEncryption>
+                            <sharedKey>
+                                <keyType>passPhrase</keyType>
+                                <protected>false</protected>
+                                <keyMaterial>$Password</keyMaterial>
+                            </sharedKey>
+                        </security>
+                    </MSM>
+                </WLANProfile>
+"@
+
+            # Ghi XML profile ra file
+            try {
+                $xmlContent | Out-File -FilePath $profileFile -Encoding UTF8
+            } catch {
+                Add-Status "ERROR: Could not create WiFi profile file: $_" $statusTextBox
+                return $false
+            }
+
+            # Thêm profile WiFi
+            try {
+                $addResult = Start-Process -FilePath "netsh" -ArgumentList "wlan add profile filename=`"$profileFile`"" -Wait -PassThru -WindowStyle Hidden
+
+                if ($addResult.ExitCode -eq 0) {
+                } else {
+                    Add-Status "Warning: WiFi profile add returned exit code $($addResult.ExitCode)" $statusTextBox
+                }
+            } catch {
+                Add-Status "ERROR adding WiFi profile: $_" $statusTextBox
+            }
+
+            # Kết nối WiFi
+            Add-Status "Connecting to 'VietUnion_5.0GHz' WiFi..." $statusTextBox
+            try {
+                $connectResult = Start-Process -FilePath "netsh" -ArgumentList "wlan connect name=`"$SSID`"" -Wait -PassThru -WindowStyle Hidden
+
+                if ($connectResult.ExitCode -eq 0) {
+                    # Đợi một chút để kết nối ổn định
+                    Add-Status "Waiting for connection to establish..." $statusTextBox
+                    Start-Sleep -Seconds 5
+
+                    # Xác minh kết nối
+                    try {
+                        $verifyConnection = netsh wlan show interfaces | Select-String "SSID" | Select-String "VietUnion_5.0GHz"
+                        if ($verifyConnection) {
+                        } else {
+                            Add-Status "Warning: Could not verify WiFi connection to 'VietUnion_5.0GHz'" $statusTextBox
+                            # Kiểm tra xem có kết nối WiFi nào không
+                            $anyConnection = netsh wlan show interfaces | Select-String "State" | Select-String "connected"
+                            if ($anyConnection) {
+                                Add-Status "Device is connected to a different WiFi network" $statusTextBox
+                            } else {
+                                Add-Status "Device is not connected to any WiFi network" $statusTextBox
+                            }
+                        }
+                    } catch {
+                        Add-Status "Could not verify connection status" $statusTextBox
+                    }
+                } else {
+                    Add-Status "Warning: WiFi connection command returned exit code $($connectResult.ExitCode)" $statusTextBox
+                }
+            } catch {
+                Add-Status "ERROR connecting to WiFi: $_" $statusTextBox
+            }
+
+            # Xóa file profile tạm
+            try {
+                if (Test-Path $profileFile) {
+                    Remove-Item -Path $profileFile -Force -ErrorAction SilentlyContinue
+                }
+            } catch {
+                # Ignore cleanup errors
+            }
+
+            return $true
+
+            } catch {
+            Add-Status "ERROR during WiFi connection: $_" $statusTextBox
+            return $false
+        }
+    }
+
+    # STEP 3: 
+    function Invoke-SystemConfiguration {
+        param (
+            [string]$deviceType,
+            [System.Windows.Forms.RichTextBox]$statusTextBox
+        )
+        try {
+            # --- Hiển thị tên máy tính hiện tại và đổi tên ---
+            $currentName = $env:COMPUTERNAME
+            Add-Status "Current computer name: $currentName" $statusTextBox
+            
+            # Tạo form hiển thị thông tin và nhập tên mới
+            $renameForm = New-Object System.Windows.Forms.Form
+            $renameForm.Text = "Computer Name Configuration"
+            $renameForm.Size = New-Object System.Drawing.Size(450, 250)
+            $renameForm.StartPosition = "CenterScreen"
+            $renameForm.BackColor = [System.Drawing.Color]::Black
+            $renameForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+            $renameForm.MaximizeBox = $false
+            $renameForm.MinimizeBox = $false
+            
+            # THÊM XỬ LÝ PHÍM ESC VÀ ENTER
+            $renameForm.KeyPreview = $true
+            $renameForm.Add_KeyDown({
+                param($sender, $e)
+                if ($e.KeyCode -eq [System.Windows.Forms.Keys]::Escape) {
+                    # ESC để đóng form
+                    $renameForm.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+                    $renameForm.Close()
+                }
+                elseif ($e.KeyCode -eq [System.Windows.Forms.Keys]::Enter) {
+                    # ENTER để thực hiện rename
+                    $okButton.PerformClick()
+                }
+            })
+
+            # Label hiển thị tên hiện tại
+            $currentNameLabel = New-Object System.Windows.Forms.Label
+            $currentNameLabel.Text = "Current Computer Name: $currentName"
+            $currentNameLabel.Location = New-Object System.Drawing.Point(20, 20)
+            $currentNameLabel.Size = New-Object System.Drawing.Size(400, 25)
+            $currentNameLabel.ForeColor = [System.Drawing.Color]::White
+            $currentNameLabel.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Bold)
+            $currentNameLabel.BackColor = [System.Drawing.Color]::Transparent
+            $renameForm.Controls.Add($currentNameLabel)
+
+            # Xác định prefix dựa trên loại thiết bị
+            $prefix = ""
+            if ($deviceType -eq "Desktop") {
+                $prefix = "HOD"
+            } elseif ($deviceType -eq "Laptop") {
+                $prefix = "HOL"
+            }
+
+            # Label hướng dẫn nhập tên mới
+            $instructionLabel = New-Object System.Windows.Forms.Label
+            $instructionLabel.Text = "Enter new name (will be prefixed with $prefix):"
+            $instructionLabel.Location = New-Object System.Drawing.Point(20, 60)
+            $instructionLabel.Size = New-Object System.Drawing.Size(400, 25)
+            $instructionLabel.ForeColor = [System.Drawing.Color]::Lime
+            $instructionLabel.Font = New-Object System.Drawing.Font("Arial", 10)
+            $instructionLabel.BackColor = [System.Drawing.Color]::Transparent
+            $renameForm.Controls.Add($instructionLabel)
+
+            # TextBox nhập tên mới
+            $nameTextBox = New-Object System.Windows.Forms.TextBox
+            $nameTextBox.Location = New-Object System.Drawing.Point(20, 90)
+            $nameTextBox.Size = New-Object System.Drawing.Size(300, 25)
+            $nameTextBox.Font = New-Object System.Drawing.Font("Arial", 10)
+            $renameForm.Controls.Add($nameTextBox)
+            
+            # THÊM XỬ LÝ PHÍM ENTER CHO TEXTBOX
+            $nameTextBox.Add_KeyDown({
+                param($sender, $e)
+                if ($e.KeyCode -eq [System.Windows.Forms.Keys]::Enter) {
+                    $okButton.PerformClick()
+                }
+            })
+
+            # Label hiển thị preview tên mới
+            $previewLabel = New-Object System.Windows.Forms.Label
+            $previewLabel.Text = "New name will be: $prefix"
+            $previewLabel.Location = New-Object System.Drawing.Point(20, 125)
+            $previewLabel.Size = New-Object System.Drawing.Size(400, 25)
+            $previewLabel.ForeColor = [System.Drawing.Color]::Yellow
+            $previewLabel.Font = New-Object System.Drawing.Font("Arial", 10, [System.Drawing.FontStyle]::Italic)
+            $previewLabel.BackColor = [System.Drawing.Color]::Transparent
+            $renameForm.Controls.Add($previewLabel)
+
+            # Cập nhật preview khi người dùng gõ
+            $nameTextBox.Add_TextChanged({
+                $newPreview = $prefix + $nameTextBox.Text.Trim()
+                $previewLabel.Text = "New name will be: $newPreview"
+            })
+
+            # Nút OK
+            $okButton = New-Object System.Windows.Forms.Button
+            $okButton.Text = "OK (Enter)"
+            $okButton.Location = New-Object System.Drawing.Point(220, 160)
+            $okButton.Size = New-Object System.Drawing.Size(100, 30)
+            $okButton.BackColor = [System.Drawing.Color]::FromArgb(0, 150, 0)
+            $okButton.ForeColor = [System.Drawing.Color]::White
+            $okButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+            $okButton.Add_Click({
+                $renameForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+                $renameForm.Close()
+            })
+            $renameForm.Controls.Add($okButton)
+
+            # Nút Cancel
+            $cancelButton = New-Object System.Windows.Forms.Button
+            $cancelButton.Text = "Cancel (ESC)"
+            $cancelButton.Location = New-Object System.Drawing.Point(330, 160)
+            $cancelButton.Size = New-Object System.Drawing.Size(100, 30)
+            $cancelButton.BackColor = [System.Drawing.Color]::FromArgb(150, 0, 0)
+            $cancelButton.ForeColor = [System.Drawing.Color]::White
+            $cancelButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+            $cancelButton.Add_Click({
+                $renameForm.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+                $renameForm.Close()
+            })
+            $renameForm.Controls.Add($cancelButton)
+
+            # Đặt focus vào TextBox khi form hiển thị
+            $renameForm.Add_Shown({
+                $nameTextBox.Focus()
+                $nameTextBox.Select()
+            })
+
+            # Hiển thị form và xử lý kết quả
+            $result = $renameForm.ShowDialog()
+            
+            if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+                $inputName = $nameTextBox.Text.Trim()
+                
+                if ($inputName -and $inputName -ne "") {
+                    $newName = $prefix + $inputName
+                    
+                    if ($newName -ne $currentName) {
+                        Add-Status "Renaming computer from '$currentName' to '$newName'..." $statusTextBox
+                        try {
+                            Rename-Computer -NewName $newName -Force -ErrorAction Stop
+                            Add-Status "Computer will be renamed to '$newName' after restart." $statusTextBox
+                        } catch {
+                            Add-Status "ERROR: Failed to rename computer: $_" $statusTextBox
+                        }
+                    } else {
+                        Add-Status "New name is same as current name. Skipping..." $statusTextBox
+                    }
+                } else {
+                    Add-Status "No computer name entered. Skipping rename..." $statusTextBox
+                }
+            } else {
+                Add-Status "Computer rename cancelled by user." $statusTextBox
+            }
+
+            # --- Tạo lối tắt trên Desktop ---
+            $publicDesktop = "$env:PUBLIC\Desktop"
+            Add-Status "Creating shortcuts on Public Desktop..." $statusTextBox
+
+            # Tạo lối tắt cho Google Chrome
+            $chromePath = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+            if (Test-Path $chromePath) {
+                $shortcutPath = Join-Path $publicDesktop "Google Chrome.lnk"
+                $WshShell = New-Object -ComObject WScript.Shell
+                $Shortcut = $WshShell.CreateShortcut($shortcutPath)
+                $Shortcut.TargetPath = $chromePath
+                $Shortcut.Save()
+                Add-Status "Created shortcut for Google Chrome." $statusTextBox
+            }
+
+            # Tạo lối tắt cho Unikey
+            $unikeyPath = "C:\unikey46RC2-230919-win64\UniKeyNT.exe"
+            if (Test-Path $unikeyPath) {
+                $shortcutPath = Join-Path $publicDesktop "Unikey.lnk"
+                $WshShell = New-Object -ComObject WScript.Shell
+                $Shortcut = $WshShell.CreateShortcut($shortcutPath)
+                $Shortcut.TargetPath = $unikeyPath
+                $Shortcut.Save()
+                Add-Status "Created shortcut for Unikey." $statusTextBox
+            }
+
+            return $true
+        }
+        catch {
+            Add-Status "ERROR during System Configuration: $_" $statusTextBox
+            return $false
+        }
+    }
+
+# [2] Install Software Functions
     function Copy-SoftwareFiles {
-        param ([string]$deviceType, [System.Windows.Forms.TextBox]$statusTextBox)
+        param ([string]$deviceType, [System.Windows.Forms.RichTextBox]$statusTextBox)
 
         try {
             $tempDir = "$env:USERPROFILE\Downloads\SETUP"
@@ -454,7 +1126,7 @@ function Add-TitleAnimation {
     }
 
     function Install-Software {
-        param ([string]$deviceType, [System.Windows.Forms.TextBox]$statusTextBox)
+        param ([string]$deviceType, [System.Windows.Forms.RichTextBox]$statusTextBox)
 
         try {
             $tempDir = "$env:USERPROFILE\Downloads\SETUP"
@@ -968,7 +1640,7 @@ function Add-TitleAnimation {
 
 # [3] Power Options Helper Functions
     function Invoke-SetTimezonePower {
-        param([System.Windows.Forms.TextBox]$statusTextBox)
+        param([System.Windows.Forms.RichTextBox]$statusTextBox)
 
         try {
             Add-Status "Setting time zone to SE Asia Standard Time..." $statusTextBox
@@ -1118,7 +1790,7 @@ function Add-TitleAnimation {
         })
         $titleTimer.Start($titleLabel)
 
-        $powerForm.Controls.Add($titleLabel) 
+        $powerForm.Controls.Add($titleLabel)
 
         # Status text box
         $statusTextBox = New-Object System.Windows.Forms.TextBox
@@ -3518,7 +4190,7 @@ exit /b 0
         # Set the cancel button (Escape key)
         $renameForm.CancelButton = $cancelButton
 
-        # When the form is closed, show the main menu again
+        # When the form is closed, show the main menu againf
         $renameForm.Add_FormClosed({
                 Show-MainMenu
             })
@@ -4245,7 +4917,7 @@ exit /b 0
 
 # --- TẠO MENU 2 CỘT, TỰ ĐỘNG CO GIÃN ---
 $menuButtons = @(
-    @{text = '[1] Run All'; action = { [System.Windows.Forms.MessageBox]::Show('Run All!') } },
+    @{text = '[1] Run All'; action = { Invoke-RunAllOperations } },
     @{text = '[6] Features'; action = { Invoke-FeaturesDialog } },
     @{text = '[2] Software'; action = { Show-InstallSoftwareDialog } },
     @{text = '[7] Rename'; action = { Invoke-RenameDialog } },
@@ -4273,7 +4945,7 @@ for ($i = 0; $i -lt $menuButtons.Count; $i += 2) {
     else {
         $btnL = New-DynamicButton -text $menuButtons[$i].text -x $buttonLeft -y ($buttonTop + [math]::Floor($i / 2) * ($buttonHeight + $buttonSpacingY)) -width 1 -height $buttonHeight -clickAction $menuButtons[$i].action
     }
-    if ($menuButtons[$i].text -eq '[4] Volume' -or $menuButtons[$i].text -eq '[2] Software' -or $menuButtons[$i].text -eq '[5] Activate' -or $menuButtons[$i].text -eq '[6] Features') {
+    if ($menuButtons[$i].text -eq '[3] Power' -or $menuButtons[$i].text -eq '[2] Software' -or $menuButtons[$i].text -eq '[5] Activate' -or $menuButtons[$i].text -eq '[6] Features') {
         $btnL.Visible = $false
     }
     $btnL.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
